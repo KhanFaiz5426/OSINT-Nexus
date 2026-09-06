@@ -8,7 +8,11 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 
 from app.db.client import get_pool
-from app.graph.reader import get_entity_neighbors, get_investigation_subgraph
+from app.graph.reader import (
+    get_entity_neighbors,
+    get_investigation_graph_stats,
+    get_investigation_subgraph,
+)
 from app.models import GraphResponse
 
 router = APIRouter()
@@ -23,11 +27,19 @@ async def get_investigation_graph(
         description="If set, return neighbors of this entity instead of the full graph",
     ),
     depth: int = Query(1, ge=1, le=6, description="Neighbor traversal depth"),
+    limit: int | None = Query(
+        None, ge=1, le=1000, description="Maximum nodes to return (pagination)"
+    ),
+    offset: int = Query(0, ge=0, description="Number of nodes to skip (pagination)"),
+    entity_type: str | None = Query(
+        None, description="Filter by entity type (e.g., Domain, IP, Email)"
+    ),
 ) -> GraphResponse:
     """Get knowledge graph for an investigation.
 
     Returns all nodes and edges in Cytoscape.js-compatible format.
     Optionally filters to neighbors of a specific entity.
+    Supports pagination via limit/offset and entity type filtering.
 
     Investigation ID is validated against PostgreSQL to enforce boundaries.
     """
@@ -41,8 +53,18 @@ async def get_investigation_graph(
                 investigation_id=investigation_id,
                 max_depth=depth,
             )
-        else:
-            result = await get_investigation_subgraph(investigation_id)
+            # For neighbor queries, total counts are not paginated
+            return GraphResponse(nodes=result["nodes"], edges=result["edges"])
+
+        # Get total counts for pagination metadata
+        stats = await get_investigation_graph_stats(investigation_id)
+
+        result = await get_investigation_subgraph(
+            investigation_id,
+            limit=limit,
+            offset=offset,
+            entity_type_filter=entity_type,
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -51,7 +73,12 @@ async def get_investigation_graph(
             status_code=500, detail=f"Failed to query knowledge graph: {exc}"
         ) from exc
 
-    return GraphResponse(nodes=result["nodes"], edges=result["edges"])
+    return GraphResponse(
+        nodes=result["nodes"],
+        edges=result["edges"],
+        total_nodes=stats["total_nodes"],
+        total_edges=stats["total_edges"],
+    )
 
 
 @router.get(

@@ -55,9 +55,7 @@ class Settings(BaseSettings):
     # OSINT Collector API Keys
     GITHUB_TOKEN: str = ""
     ABUSEIPDB_API_KEY: str = ""
-    VIRUSTOTAL_API_KEY: str = ""
     URLHAUS_API_KEY: str = ""
-    SHODAN_API_KEY: str = ""
 
     # Supported providers: nvidia, openai, anthropic, ollama, none
     # When "none" or empty, AI planner/analyzer return deterministic defaults.

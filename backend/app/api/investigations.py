@@ -1,6 +1,7 @@
 """API routes — Investigations."""
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.models import (
@@ -10,7 +11,9 @@ from app.models import (
 )
 from app.services.investigation import (
     create_investigation,
+    export_investigation,
     get_investigation,
+    import_investigation,
     list_investigations,
     stop_investigation,
 )
@@ -178,3 +181,51 @@ async def get_status(investigation_id: str) -> InvestigationStatusResponse:
         created_at=result.created_at.isoformat() if result.created_at else "",
         updated_at=result.updated_at.isoformat() if result.updated_at else "",
     )
+
+
+# ── Export / Import ─────────────────────────────────────────────────────────
+
+
+@router.get("/investigations/{investigation_id}/export")
+async def export_investigation_data(investigation_id: str) -> JSONResponse:
+    """Export an investigation as a JSON bundle.
+
+    Returns the investigation metadata, observations, entities, activity log,
+    and graph data as a downloadable JSON file.
+    """
+    data = await export_investigation(investigation_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    return JSONResponse(
+        content=data,
+        headers={
+            "Content-Disposition": f"attachment; filename=investigation_{investigation_id[:8]}.json"
+        },
+    )
+
+
+class ImportRequest(BaseModel):
+    """Request body for importing an investigation."""
+
+    data: dict
+
+
+@router.post("/investigations/import", response_model=InvestigationResponse, status_code=201)
+async def import_investigation_data(body: ImportRequest) -> InvestigationResponse:
+    """Import an investigation from a JSON bundle.
+
+    Creates a new investigation with the imported data. The original
+    investigation ID is not preserved — a new UUID is generated.
+    """
+    try:
+        result = await import_investigation(body.data)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Failed to import investigation: {exc}"
+        ) from exc
+
+    if result is None:
+        raise HTTPException(status_code=400, detail="Invalid investigation data")
+
+    return result

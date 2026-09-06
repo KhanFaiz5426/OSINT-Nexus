@@ -448,18 +448,18 @@ class TestAIValidator:
         pool = MockPool(conn)
 
         conn.fetch.return_value = [
-            {"id": "obs-001"},
-            {"id": "obs-002"},
+            {"id": "123e4567-e89b-12d3-a456-426614174001"},
+            {"id": "123e4567-e89b-12d3-a456-426614174002"},
         ]
 
         with patch("app.ai.validator.get_pool", new_callable=AsyncMock, return_value=pool):
             result = await validate_observation_ids(
-                ["obs-001", "obs-002", "obs-999"], "inv-001"
+                ["123e4567-e89b-12d3-a456-426614174001", "123e4567-e89b-12d3-a456-426614174002", "123e4567-e89b-12d3-a456-426614174999"], "inv-001"
             )
 
-        assert "obs-001" in result
-        assert "obs-002" in result
-        assert "obs-999" not in result
+        assert "123e4567-e89b-12d3-a456-426614174001" in result
+        assert "123e4567-e89b-12d3-a456-426614174002" in result
+        assert "123e4567-e89b-12d3-a456-426614174999" not in result
 
     @pytest.mark.asyncio
     async def test_validate_observation_ids_all_hallucinated(self):

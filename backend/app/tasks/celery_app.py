@@ -23,6 +23,11 @@ celery_app.conf.update(
     task_time_limit=600,
     task_soft_time_limit=540,
     worker_concurrency=4,
+    # Reliability improvements
+    task_acks_late=True,  # Acknowledge tasks after completion, not before
+    worker_prefetch_multiplier=1,  # Don't prefetch tasks (safer for long-running tasks)
+    worker_max_tasks_per_child=50,  # Recycle workers to prevent memory leaks
+    task_reject_on_worker_lost=True,  # Requeue tasks if worker crashes
     task_routes={
         "app.tasks.run_investigation": {"queue": "osint"},
         "app.tasks.collect_*": {"queue": "osint"},

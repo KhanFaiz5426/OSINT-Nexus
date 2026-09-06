@@ -25,7 +25,7 @@ This document breaks the OSINT Nexus project into **9 phases** with concrete tas
 | 1.3 | Create FastAPI project structure (app/, api/, core/, models/, services/, collectors/, ai/, graph/, db/) | Directory skeleton | 1.1 |
 | 1.4 | Define Pydantic models: Investigation, Observation, Entity, Relationship, RawResult | `models/` with validated schemas | 1.3 |
 | 1.5 | Define database schema: investigations, observations, entities, activity_log tables | SQL migration scripts | 1.4 |
-| 1.6 | Initialize React + Vite + TypeScript project with Tailwind CSS and shadcn/ui | Frontend skeleton | 1.1 |
+| 1.6 | Initialize React + Vite + TypeScript project with Tailwind CSS and Lucide icons | Frontend skeleton | 1.1 |
 | 1.7 | Create API route stubs: `/investigations`, `/entities`, `/graph`, `/reports` | FastAPI routes returning placeholder JSON | 1.3 |
 | 1.8 | Connect FastAPI to PostgreSQL (async driver: asyncpg) | DB connection verified | 1.2, 1.3 |
 | 1.9 | Connect FastAPI to Neo4j (neo4j Python driver) | Graph DB connection verified | 1.2, 1.3 |

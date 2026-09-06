@@ -6,12 +6,14 @@ Task 5.10: GET /entities/{id}/evidence — all observations for entity
 
 import contextlib
 import json
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.db.client import get_pool
 from app.graph.reader import get_entity_detail, get_entity_neighbors
-from app.models import EntityResponse, RelationshipResponse
+from app.models import EntityCreate, EntityResponse, RelationshipCreate, RelationshipResponse
 
 router = APIRouter()
 
@@ -108,6 +110,245 @@ async def get_entity_relationships(
         )
 
     return relationships
+
+
+@router.get("/entities/{entity_id}/provenance", response_model=list[dict])
+async def get_entity_provenance(
+    entity_id: str,
+    investigation_id: str = Query(
+        ..., description="Investigation ID that owns this entity"
+    ),
+) -> list[dict]:
+    """Get the provenance trail for an entity.
+
+    Returns the list of observations that discovered or contributed to
+    this entity, showing the evidence chain.
+    """
+    await _validate_investigation(investigation_id)
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT ep.observation_id, ep.created_at,
+                   o.source_adapter, o.collected_at, o.method, o.target,
+                   o.confidence, o.status
+            FROM entity_provenance ep
+            LEFT JOIN observations o ON ep.observation_id = o.id
+            WHERE ep.entity_id = $1 AND ep.investigation_id = $2
+            ORDER BY ep.created_at
+            """,
+            entity_id,
+            investigation_id,
+        )
+
+    return [
+        {
+            "observation_id": str(row["observation_id"]),
+            "source_adapter": row["source_adapter"],
+            "collected_at": row["collected_at"].isoformat() if row["collected_at"] else "",
+            "method": row["method"],
+            "target": row["target"],
+            "confidence": row["confidence"],
+            "status": row["status"],
+            "discovered_at": row["created_at"].isoformat() if row["created_at"] else "",
+        }
+        for row in rows
+    ]
+
+
+class ConfidenceOverrideRequest(BaseModel):
+    """Request model for overriding entity confidence."""
+
+    confidence: float = Field(..., ge=0.0, le=1.0, description="New confidence score")
+    reason: str = Field(default="", description="Reason for the override")
+
+
+@router.post("/entities", response_model=EntityResponse, status_code=201)
+async def create_entity(
+    body: EntityCreate,
+    investigation_id: str = Query(
+        ..., description="Investigation ID to add this entity to"
+    ),
+) -> EntityResponse:
+    """Create a manual entity in the investigation.
+
+    Adds an entity to both PostgreSQL and Neo4j. The entity ID is
+    auto-generated from the type and value (e.g., 'domain:example.com').
+    """
+    await _validate_investigation(investigation_id)
+
+    # Build entity ID from type and value
+    entity_id = f"{body.entity_type.value.lower()}:{body.value}"
+    now = datetime.now(UTC)
+
+    # Write to PostgreSQL
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO entities (id, investigation_id, type, value, confidence,
+                                  first_seen, last_seen, source_count, properties, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ON CONFLICT (id) DO UPDATE SET
+                confidence = EXCLUDED.confidence,
+                properties = EXCLUDED.properties,
+                last_seen = EXCLUDED.last_seen
+            """,
+            entity_id,
+            investigation_id,
+            body.entity_type.value,
+            body.value,
+            body.confidence,
+            now,
+            now,
+            1,
+            json.dumps(body.properties),
+            now,
+        )
+
+    # Write to Neo4j
+    try:
+        from app.graph.client import get_driver
+        from app.graph.writer import write_nodes
+        from app.models.processing import ExtractedEntity
+
+        entity = ExtractedEntity(
+            id=entity_id,
+            entity_type=body.entity_type,
+            value=body.value,
+            confidence=body.confidence,
+            first_seen=now,
+            last_seen=now,
+            sources=["manual"],
+            properties=body.properties,
+        )
+        driver = await get_driver()
+        await write_nodes([entity], investigation_id=investigation_id, driver=driver)
+    except Exception:
+        pass  # Best effort for graph write
+
+    return EntityResponse(
+        id=entity_id,
+        investigation_id=investigation_id,
+        type=body.entity_type,
+        value=body.value,
+        confidence=body.confidence,
+        first_seen=now,
+        last_seen=now,
+        source_count=1,
+        properties=body.properties,
+    )
+
+
+@router.patch("/entities/{entity_id}/confidence")
+async def override_confidence(
+    entity_id: str,
+    body: ConfidenceOverrideRequest,
+    investigation_id: str = Query(
+        ..., description="Investigation ID that owns this entity"
+    ),
+) -> dict:
+    """Override the confidence score for an entity.
+
+    Stores the override in PostgreSQL and updates the entity's confidence.
+    """
+    await _validate_investigation(investigation_id)
+
+    # Get current confidence
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT confidence FROM entities WHERE id = $1 AND investigation_id = $2",
+            entity_id,
+            investigation_id,
+        )
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    original_confidence = row["confidence"]
+
+    # Apply override
+    from app.services.confidence import apply_manual_override
+
+    result = apply_manual_override(
+        entity_id=entity_id,
+        investigation_id=investigation_id,
+        override_confidence=body.confidence,
+        original_confidence=original_confidence,
+        reason=body.reason,
+    )
+
+    return result
+
+
+@router.post(
+    "/entities/relationships",
+    response_model=RelationshipResponse,
+    status_code=201,
+)
+async def create_relationship(
+    body: RelationshipCreate,
+    investigation_id: str = Query(
+        ..., description="Investigation ID to add this relationship to"
+    ),
+) -> RelationshipResponse:
+    """Create a manual relationship between two entities.
+
+    Adds a relationship to the Neo4j graph. Both source and target
+    entities must already exist.
+    """
+    await _validate_investigation(investigation_id)
+
+    from uuid import uuid4
+
+    from app.graph.client import get_driver
+    from app.graph.models import relationship_type_to_cypher
+
+    rel_id = str(uuid4())
+    now = datetime.now(UTC)
+
+    # Write to Neo4j
+    driver = await get_driver()
+    rel_type_cypher = relationship_type_to_cypher(body.rel_type)
+
+    async with driver.session() as session:
+        query = f"""
+        MATCH (src {{id: $source_id, investigation_id: $investigation_id}})
+        MATCH (tgt {{id: $target_id, investigation_id: $investigation_id}})
+        CREATE (src)-[r:{rel_type_cypher} {{
+            id: $rel_id,
+            investigation_id: $investigation_id,
+            confidence: $confidence,
+            evidence: [],
+            discovered_at: $discovered_at,
+            method: $method
+        }}]->(tgt)
+        RETURN r.id AS rel_id
+        """
+        result = await session.run(
+            query,
+            source_id=body.source_entity_id,
+            target_id=body.target_entity_id,
+            investigation_id=investigation_id,
+            rel_id=rel_id,
+            confidence=body.confidence,
+            discovered_at=now.isoformat(),
+            method=body.method,
+        )
+        await result.single()
+
+    return RelationshipResponse(
+        id=rel_id,
+        source_entity_id=body.source_entity_id,
+        target_entity_id=body.target_entity_id,
+        type=body.rel_type,
+        confidence=body.confidence,
+        evidence=[],
+        discovered_at=now,
+        method=body.method,
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

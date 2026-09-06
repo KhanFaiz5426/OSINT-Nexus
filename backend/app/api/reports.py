@@ -57,7 +57,55 @@ async def generate_report(
     except ValueError:
         raise HTTPException(status_code=404, detail="Investigation data not found") from None
 
-    # Generate report file.
+    # Handle STIX format specially
+    if fmt == "stix":
+        from app.services.investigation import export_investigation
+        from app.services.stix_export import investigation_to_stix_bundle
+        import json
+
+        inv_data = await export_investigation(investigation_id)
+        if inv_data is None:
+            raise HTTPException(status_code=404, detail="Investigation data not found")
+
+        stix_bundle = investigation_to_stix_bundle(inv_data)
+
+        # Write STIX bundle to file
+        from app.services.report_generator import _REPORTS_DIR
+
+        report_id = str(uuid4())
+        file_path = _REPORTS_DIR / f"report_{report_id}.json"
+
+        with open(file_path, "w") as f:
+            json.dump(stix_bundle, f, indent=2)
+
+        file_size = file_path.stat().st_size if file_path.exists() else 0
+
+        # Store report metadata
+        now = datetime.now(UTC)
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO reports (id, investigation_id, format, file_path, file_size, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                report_id,
+                investigation_id,
+                "stix",
+                str(file_path),
+                file_size,
+                now,
+            )
+
+        return ReportResponse(
+            id=report_id,
+            investigation_id=investigation_id,
+            format="stix",
+            created_at=now,
+            download_url=f"/api/v1/investigations/{investigation_id}/reports/{report_id}",
+            file_size=file_size,
+        )
+
+    # Generate report file for other formats
     from app.services.report_generator import generate_report as gen
 
     try:

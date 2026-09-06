@@ -67,6 +67,8 @@ TARGET_TYPE_INITIAL_ACTIONS: dict[TargetType, list[PivotAction]] = {
         PivotAction.COLLECT_GITHUB,
         PivotAction.COLLECT_DNS,
         PivotAction.COLLECT_SEARCH,
+        PivotAction.COLLECT_HTTP,
+        PivotAction.COLLECT_WHOIS,
     ],
     TargetType.UNKNOWN: [
         PivotAction.COLLECT_DNS,
@@ -276,19 +278,25 @@ async def plan_pivots_with_ai(
         response_text = await llm_call_fn(messages)
         logger.debug("LLM planner response length: %d chars", len(response_text))
     except Exception as exc:
-        logger.error("LLM call failed during planning: %s", exc)
+        logger.error(
+            "LLM call failed during planning: %s: %s (investigation=%s, round=%d/%d)",
+            type(exc).__name__, str(exc)[:300],
+            investigation_id, current_round + 1, max_rounds,
+        )
+        # Don't recommend stop — let the deterministic pipeline decide
+        # based on budget/depth. Returning empty pivots means this round
+        # contributes nothing, but the investigation continues.
         return AIPlannerOutput(
-            summary=f"LLM call failed: {exc}",
-            stop_recommended=True,
-            stop_reason="LLM unavailable",
+            summary=f"LLM unavailable ({type(exc).__name__}); deterministic mode active",
+            stop_recommended=False,
         )
 
     output = parse_planner_response(response_text)
     if output is None:
+        logger.warning("Failed to parse AI planner response, falling back to deterministic mode")
         return AIPlannerOutput(
-            summary="Failed to parse AI response",
-            stop_recommended=True,
-            stop_reason="Invalid AI output",
+            summary="Failed to parse AI planning response (invalid JSON); deterministic mode active",
+            stop_recommended=False,
         )
 
     # Validate and sanitize evidence_ids in pivots.

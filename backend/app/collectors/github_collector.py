@@ -202,6 +202,7 @@ class GitHubCollector(OSINTCollector):
         normalized = email or name or target
 
         raw_response = {
+            "found": True,
             "profile": {
                 "login": profile.get("login", ""),
                 "name": profile.get("name", ""),

@@ -61,8 +61,8 @@ _PROFILE_PLATFORMS = [
 
 def _split_username_parts(username: str) -> list[str]:
     """Split a username into meaningful parts using common separators."""
-    # Split on non-alphanumeric characters
-    parts = re.split(r"[._\-]+", username)
+    # Split on non-alphanumeric characters including whitespace
+    parts = re.split(r"[._\-\s]+", username)
     # Also try camelCase splitting
     camel_parts = re.sub(r"([a-z])([A-Z])", r"\1 \2", username).split()
     # Merge: use separator-split as primary, add camel parts if different
@@ -225,7 +225,7 @@ def generate_search_queries(
         })
 
     # 3. Username without separators on social platforms
-    no_sep = re.sub(r"[._\-]", "", username)
+    no_sep = re.sub(r"[._\-\s]", "", username)
     if no_sep != username.lower():
         queries.append({
             "query": f'"{no_sep}" site:twitter.com OR site:instagram.com OR site:reddit.com',

@@ -36,7 +36,7 @@
 | **Language** | TypeScript | Type safety; catches errors early; excellent IDE support |
 | **Framework** | React 18+ | Largest ecosystem; most component libraries; student familiarity |
 | **Build tool** | Vite | Fast HMR; simple config; modern defaults |
-| **UI system** | Radix UI + shadcn/ui | Unstyled primitives (Radix) with accessible defaults (shadcn); no vendor lock-in; copy-paste components |
+| **UI system** | Custom CSS + Lucide + TailwindCSS | Hand-crafted components with Lucide icons and Tailwind utility classes; no vendor lock-in |
 | **Styling** | Tailwind CSS | Utility-first; rapid prototyping; consistent design tokens; no CSS-in-JS runtime overhead |
 | **State management** | Zustand | Minimal API; no boilerplate; sufficient for investigation state |
 | **Data fetching** | TanStack Query (React Query) | Server state management; caching; background refetching; optimistic updates |
@@ -78,7 +78,7 @@ The interface should feel like a **data analyst's workstation**, not a consumer 
 
 | Choice | Why |
 |---|---|
-| **shadcn/ui** | Radix primitives with consistent defaults; accessible; customizable via CSS variables; no runtime CSS-in-JS |
+| **Custom CSS** | Tailwind CSS 4 with CSS variables for theming; no runtime overhead |
 | **Tailwind CSS** | Utility-first prevents style drift; design tokens via tailwind.config; fast iteration |
 | **Inter font** | Optimized for screens; neutral; excellent readability at small sizes; free |
 
@@ -575,7 +575,7 @@ CELERY_TASK_SOFT_TIME_LIMIT = 45  # Warning at 45s
 Frontend:
   Language:       TypeScript
   Framework:      React 18+ (Vite)
-  UI:             shadcn/ui (Radix primitives)
+  UI:             Custom CSS + Lucide + TailwindCSS
   Styling:        Tailwind CSS
   Graph:          Cytoscape.js
   Charts:         Recharts
@@ -661,7 +661,7 @@ Testing:
 |---|---|---|---|
 | Frontend framework | React 18+ | Vue, Svelte | Largest ecosystem; most libraries; team familiarity |
 | Build tool | Vite | Webpack, CRA | Fast; modern; simple config |
-| UI components | shadcn/ui | Material UI, Ant Design, Chakra | Unstyled primitives; accessible; no vendor lock-in |
+| UI components | Custom CSS + Lucide + TailwindCSS | Material UI, Ant Design, Chakra | Hand-crafted; accessible; no vendor lock-in |
 | Styling | Tailwind CSS | CSS Modules, Styled Components | Utility-first; fast; consistent tokens |
 | Graph viz | Cytoscape.js | D3.js, vis.js, Sigma.js | Best balance of features and simplicity for graph rendering |
 | Backend | FastAPI | Django REST, Flask, NestJS | Async-native; auto OpenAPI; Pydantic validation |
@@ -688,7 +688,7 @@ Testing:
 | **Vite** | 6.x | Stable | Active | Verify current stable release |
 | **TypeScript** | 5.x | Stable | Active | Verify current stable |
 | **Tailwind CSS** | 4.x | Stable | Active | v4 uses new engine; v3.x also viable if compatibility issues arise |
-| **shadcn/ui** | Latest | Stable | Active | Copies components into project; no runtime dependency |
+| **Custom CSS** | Latest | Stable | Active | Tailwind utility classes with CSS variables for theming |
 | **Cytoscape.js** | 3.x | Stable | Active | Well-established; no major breaking changes expected |
 | **Neo4j** | 5.x Community | Stable | Active | Community edition is free and sufficient |
 | **PostgreSQL** | 16+ | Stable | Active | Verify current stable |
@@ -842,7 +842,7 @@ Testing:
 
 **Python + FastAPI** is the natural backend for an OSINT project. The entire OSINT tooling ecosystem is Python. Choosing anything else means fighting the ecosystem instead of leveraging it.
 
-**React + TypeScript + Tailwind** produces a professional, maintainable frontend without framework lock-in. shadcn/ui gives accessible components without vendor dependency.
+**React + TypeScript + Tailwind** produces a professional, maintainable frontend without framework lock-in. Custom CSS with Lucide icons gives accessible components without vendor dependency.
 
 **PostgreSQL + Neo4j + Redis** covers all storage needs with minimal operational overhead. PostgreSQL handles documents, Neo4j handles graphs, Redis handles caching and queuing. Each does what it's best at.
 
@@ -866,7 +866,7 @@ The orchestrator (Celery + Python) manages the investigation loop. Collectors ar
 
 ### Why It Can Produce a Professional UI
 
-shadcn/ui provides accessible, unstyled primitives that can be themed to any design language. Tailwind CSS enables rapid, consistent styling. Cytoscape.js provides industry-standard graph visualization. The result is a clean, information-dense interface suitable for professional analysts.
+Custom CSS with Lucide icons provides accessible, customizable components that can be themed to any design language. Tailwind CSS enables rapid, consistent styling. Cytoscape.js provides industry-standard graph visualization. The result is a clean, information-dense interface suitable for professional analysts.
 
 ---
 

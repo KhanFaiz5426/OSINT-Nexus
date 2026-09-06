@@ -131,6 +131,23 @@ async def correlate_observations(
         entity_list, observations=observations
     )
 
+    # Step 2b: Fuzzy matching for similar entities (organizations, usernames, persons).
+    try:
+        from app.services.fuzzy_matcher import (
+            find_similar_entities,
+            create_similarity_relationships,
+        )
+        similar_pairs = find_similar_entities(resolved_entities)
+        if similar_pairs:
+            similarity_rels = create_similarity_relationships(similar_pairs)
+            co_occurrence_rels.extend(similarity_rels)
+            logger.info(
+                "Fuzzy matching found %d similar entity pairs",
+                len(similar_pairs),
+            )
+    except Exception:
+        logger.debug("Fuzzy matching skipped", exc_info=True)
+
     # Step 3: Detect relationships from raw collector data.
     structural_rels = detect_relationships(
         resolved_entities,
@@ -162,6 +179,12 @@ async def correlate_observations(
             logger.exception(
                 "Failed to write graph for investigation %s", investigation_id
             )
+
+    # Step 6: Write entity provenance records to PostgreSQL.
+    try:
+        await _write_entity_provenance(investigation_id, scored_entities)
+    except Exception:
+        logger.warning("Failed to write entity provenance for %s", investigation_id)
 
     logger.info(
         "Correlation complete for %s: %d entities, %d relationships "
@@ -858,3 +881,52 @@ def _merge_relationships(
                 existing.confidence = rel.confidence
 
     return list(seen.values())
+
+
+async def _write_entity_provenance(
+    investigation_id: str,
+    entities: list[ExtractedEntity],
+) -> None:
+    """Write entity provenance records linking entities to their source observations.
+
+    This creates an audit trail showing which observations led to the creation
+    or updating of each entity.
+    """
+    import uuid as _uuid
+
+    from app.db.client import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for entity in entities:
+            for obs_id in entity.evidence_ids:
+                if not obs_id:
+                    continue
+                # observation_id column is UUID — skip non-UUID evidence_ids
+                try:
+                    _uuid.UUID(obs_id)
+                except (ValueError, AttributeError):
+                    logger.debug(
+                        "Skipping non-UUID evidence_id '%s' for entity '%s'",
+                        obs_id,
+                        entity.id,
+                    )
+                    continue
+                try:
+                    await conn.execute(
+                        """
+                        INSERT INTO entity_provenance (entity_id, observation_id, investigation_id)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (entity_id, observation_id) DO NOTHING
+                        """,
+                        entity.id,
+                        obs_id,
+                        investigation_id,
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "Provenance insert failed for entity=%s obs=%s: %s",
+                        entity.id,
+                        obs_id,
+                        exc,
+                    )

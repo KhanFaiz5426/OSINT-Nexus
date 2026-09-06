@@ -113,7 +113,6 @@ OSINT Nexus addresses this by providing a unified pipeline: a single target inpu
 ### 4.3 Future Scope
 
 - Phone numbers, cryptocurrency addresses as investigation targets
-- Shodan/Censys integration (with API keys)
 - Historical DNS and infrastructure migration tracking
 - Multi-user collaborative investigation sessions
 - STIX/TAXII and MISP export formats
@@ -514,7 +513,7 @@ Each stage produces output consumed by the next. Raw results are never modified 
 
 | Aspect | Details |
 |---|---|
-| **Collects** | AbuseIPDB scores/reports, VirusTotal reputation, URLhaus malicious URLs, PhishTank entries, Google Safe Browsing status |
+| **Collects** | AbuseIPDB scores/reports, URLhaus malicious URLs |
 | **Why it matters** | Establishes known malicious reputation; links to documented campaigns |
 | **Entities created** | ThreatIndicator |
 | **Pivots produced** | Threat reports → associated campaigns; reputation → risk assessment |
@@ -524,7 +523,7 @@ Each stage produces output consumed by the next. Raw results are never modified 
 
 | Concern | Handling |
 |---|---|
-| API keys required | Some sources (Shodan, VirusTotal) require API keys. If unavailable, adapter is disabled and investigation proceeds with available sources. |
+| API keys required | Some sources (AbuseIPDB, GitHub) require API keys. If unavailable, adapter is disabled and investigation proceeds with available sources. |
 | Rate limits | Each adapter enforces its own rate limit. Exceeding limit causes wait or skip. |
 | Service downtime | Failed collections logged as errors, do not block other collections. Investigation continues with partial data. |
 | Cached results | If same target + module collected within cache TTL (default 24h), cached result used. |

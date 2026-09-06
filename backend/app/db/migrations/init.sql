@@ -95,3 +95,32 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 CREATE INDEX IF NOT EXISTS idx_reports_investigation ON reports(investigation_id);
+
+-- Entity provenance (links entities to the observations that discovered them)
+CREATE TABLE IF NOT EXISTS entity_provenance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_id TEXT NOT NULL,
+    observation_id UUID NOT NULL REFERENCES observations(id) ON DELETE CASCADE,
+    investigation_id UUID NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_entity_provenance_entity ON entity_provenance(entity_id);
+CREATE INDEX IF NOT EXISTS idx_entity_provenance_observation ON entity_provenance(observation_id);
+CREATE INDEX IF NOT EXISTS idx_entity_provenance_investigation ON entity_provenance(investigation_id);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_entity_provenance') THEN
+        ALTER TABLE entity_provenance ADD CONSTRAINT uq_entity_provenance UNIQUE (entity_id, observation_id);
+    END IF;
+END $$;
+
+-- Notes for analyst annotations
+CREATE TABLE IF NOT EXISTS notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    investigation_id UUID NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+    entity_id TEXT,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notes_investigation ON notes(investigation_id);
+CREATE INDEX IF NOT EXISTS idx_notes_entity ON notes(entity_id);

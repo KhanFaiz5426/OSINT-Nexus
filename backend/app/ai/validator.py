@@ -36,9 +36,20 @@ async def validate_observation_ids(
     if not observation_ids:
         return []
 
-    # Filter out empty strings.
-    clean_ids = [oid.strip() for oid in observation_ids if oid.strip()]
-    if not clean_ids:
+    # Filter out empty strings and ensure valid UUID format.
+    import uuid
+    valid_uuid_ids = []
+    for oid in observation_ids:
+        oid = oid.strip()
+        if not oid:
+            continue
+        try:
+            uuid.UUID(oid)
+            valid_uuid_ids.append(oid)
+        except ValueError:
+            logger.warning("AI hallucinated non-UUID observation ID: %s", oid)
+            
+    if not valid_uuid_ids:
         return []
 
     pool = await get_pool()
@@ -49,13 +60,15 @@ async def validate_observation_ids(
             WHERE id = ANY($1::uuid[])
               AND investigation_id = $2
             """,
-            clean_ids,
+            valid_uuid_ids,
             investigation_id,
         )
 
     valid_ids = {str(row["id"]) for row in rows}
-    validated = [oid for oid in clean_ids if oid in valid_ids]
+    validated = [oid for oid in valid_uuid_ids if oid in valid_ids]
 
+    # Include non-UUID strings in hallucinated set for logging
+    clean_ids = [oid.strip() for oid in observation_ids if oid.strip()]
     hallucinated = set(clean_ids) - valid_ids
     if hallucinated:
         logger.warning(

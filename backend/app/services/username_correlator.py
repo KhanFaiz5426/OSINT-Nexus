@@ -209,11 +209,9 @@ def correlate_username_accounts(
     """
     accounts = _extract_accounts_from_observations(observations)
 
-    if len(accounts) < 2:
+    if not accounts:
         return {
-            "accounts": [
-                {"platform": a.platform, "username": a.username} for a in accounts
-            ],
+            "accounts": [],
             "correlations": [],
             "entities": [],
             "relationships": [],
@@ -296,13 +294,11 @@ def correlate_username_accounts(
                 relationships.append(
                     ExtractedRelationship(
                         id=rel_id,
-                        source_id=entity_id,
-                        target_id=person_id,
-                        relationship_type=RelationshipType.RELATED_TO,
+                        source_entity_id=entity_id,
+                        target_entity_id=person_id,
+                        rel_type=RelationshipType.SAME_PERSON,
                         confidence=0.8,
-                        first_seen=now,
-                        last_seen=now,
-                        sources=[account.platform],
+                        discovered_at=now,
                         evidence_ids=[account.observation_id]
                         if account.observation_id
                         else [],
@@ -333,13 +329,11 @@ def correlate_username_accounts(
                 relationships.append(
                     ExtractedRelationship(
                         id=rel_id,
-                        source_id=entity_id,
-                        target_id=email_id,
-                        relationship_type=RelationshipType.HAS_EMAIL,
+                        source_entity_id=entity_id,
+                        target_entity_id=email_id,
+                        rel_type=RelationshipType.HAS_EMAIL,
                         confidence=0.85,
-                        first_seen=now,
-                        last_seen=now,
-                        sources=[account.platform],
+                        discovered_at=now,
                         evidence_ids=[account.observation_id]
                         if account.observation_id
                         else [],
@@ -398,13 +392,11 @@ def correlate_username_accounts(
                     relationships.append(
                         ExtractedRelationship(
                             id=rel_id,
-                            source_id=f"{EntityType.USERNAME.value.lower()}:{a.username}",
-                            target_id=f"{EntityType.USERNAME.value.lower()}:{b.username}",
-                            relationship_type=RelationshipType.SAME_PERSON,
+                            source_entity_id=f"{EntityType.USERNAME.value.lower()}:{a.username}",
+                            target_entity_id=f"{EntityType.USERNAME.value.lower()}:{b.username}",
+                            rel_type=RelationshipType.SAME_PERSON,
                             confidence=confidence,
-                            first_seen=now,
-                            last_seen=now,
-                            sources=[a.platform, b.platform],
+                            discovered_at=now,
                             evidence_ids=[
                                 eid
                                 for eid in [a.observation_id, b.observation_id]
@@ -462,9 +454,6 @@ def _deduplicate_relationships(
     for rel in relationships:
         if rel.id in seen:
             existing = seen[rel.id]
-            for src in rel.sources:
-                if src not in existing.sources:
-                    existing.sources.append(src)
             for eid in rel.evidence_ids:
                 if eid not in existing.evidence_ids:
                     existing.evidence_ids.append(eid)

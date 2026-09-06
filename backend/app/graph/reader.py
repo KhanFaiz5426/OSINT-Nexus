@@ -29,15 +29,21 @@ async def get_investigation_subgraph(
     investigation_id: str,
     *,
     driver: AsyncDriver | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    entity_type_filter: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Return the full knowledge graph for an investigation (Task 5.4).
+    """Return the knowledge graph for an investigation (Task 5.4).
 
-    Returns all nodes and edges scoped to the investigation, formatted
-    for Cytoscape.js consumption.
+    Returns nodes and edges scoped to the investigation, formatted
+    for Cytoscape.js consumption. Supports pagination and type filtering.
 
     Args:
         investigation_id: The investigation UUID.
         driver: Optional driver override.
+        limit: Maximum number of nodes to return (None = all).
+        offset: Number of nodes to skip for pagination.
+        entity_type_filter: Optional entity type to filter by (e.g., 'Domain').
 
     Returns:
         {"nodes": [...], "edges": [...]} where each entry is a dict
@@ -46,9 +52,19 @@ async def get_investigation_subgraph(
     _validate_id(investigation_id)
     driver = driver or await get_driver()
 
-    nodes_query = """
+    # Build node query with optional type filter and pagination
+    where_clauses = ["n.investigation_id = $investigation_id"]
+    params: dict[str, Any] = {"investigation_id": investigation_id}
+
+    if entity_type_filter:
+        where_clauses.append("ANY(label IN labels(n) WHERE label = $entity_type)")
+        params["entity_type"] = entity_type_filter
+
+    where_sql = " AND ".join(where_clauses)
+
+    nodes_query = f"""
     MATCH (n)
-    WHERE n.investigation_id = $investigation_id
+    WHERE {where_sql}
     RETURN
         n.id                AS node_id,
         labels(n)           AS labels,
@@ -59,6 +75,11 @@ async def get_investigation_subgraph(
         n.source_count      AS source_count,
         n.properties        AS properties
     """
+
+    # Apply pagination to nodes
+    if limit is not None:
+        nodes_query += f" SKIP {offset} LIMIT {limit}"
+
     edges_query = """
     MATCH (src)-[r]->(tgt)
     WHERE src.investigation_id = $investigation_id
@@ -74,7 +95,6 @@ async def get_investigation_subgraph(
         r.discovered_at     AS discovered_at,
         r.method            AS method
     """
-    params = {"investigation_id": investigation_id}
 
     async with driver.session() as session:
         nodes_result = await session.run(nodes_query, params)
@@ -94,6 +114,51 @@ async def get_investigation_subgraph(
         len(cyto_edges),
     )
     return {"nodes": cyto_nodes, "edges": cyto_edges}
+
+
+async def get_investigation_graph_stats(
+    investigation_id: str,
+    *,
+    driver: AsyncDriver | None = None,
+) -> dict[str, int]:
+    """Get counts of nodes and edges for an investigation.
+
+    Args:
+        investigation_id: The investigation UUID.
+        driver: Optional driver override.
+
+    Returns:
+        {"total_nodes": int, "total_edges": int}
+    """
+    _validate_id(investigation_id)
+    driver = driver or await get_driver()
+
+    count_nodes_query = """
+    MATCH (n)
+    WHERE n.investigation_id = $investigation_id
+    RETURN count(n) AS count
+    """
+
+    count_edges_query = """
+    MATCH (src)-[r]->(tgt)
+    WHERE src.investigation_id = $investigation_id
+      AND tgt.investigation_id = $investigation_id
+      AND r.investigation_id   = $investigation_id
+    RETURN count(r) AS count
+    """
+
+    params = {"investigation_id": investigation_id}
+
+    async with driver.session() as session:
+        nodes_result = await session.run(count_nodes_query, params)
+        nodes_record = await nodes_result.single()
+        total_nodes = nodes_record["count"] if nodes_record else 0
+
+        edges_result = await session.run(count_edges_query, params)
+        edges_record = await edges_result.single()
+        total_edges = edges_record["count"] if edges_record else 0
+
+    return {"total_nodes": total_nodes, "total_edges": total_edges}
 
 
 # ── Entity neighbors (Task 5.5) ──────────────────────────────────────────────

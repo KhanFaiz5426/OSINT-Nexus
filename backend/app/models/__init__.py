@@ -134,6 +134,8 @@ class RelationshipResponse(BaseModel):
 class GraphResponse(BaseModel):
     nodes: list[dict[str, Any]]
     edges: list[dict[str, Any]]
+    total_nodes: int | None = None
+    total_edges: int | None = None
 
 
 class ReportResponse(BaseModel):
@@ -148,8 +150,8 @@ class ReportResponse(BaseModel):
 class ReportGenerateRequest(BaseModel):
     format: str = Field(
         default="html",
-        pattern="^(html|pdf|json|csv)$",
-        description="Report format: html, pdf, json, or csv",
+        pattern="^(html|pdf|json|csv|stix)$",
+        description="Report format: html, pdf, json, csv, or stix",
     )
 
 
@@ -199,3 +201,25 @@ class CollectorHealth(BaseModel):
     rate_limit_rpm: int = 0
     cache_ttl_seconds: int = 0
     last_error: str = ""
+
+
+# ── Manual Entity / Relationship Creation (Item 9) ─────────────────────────
+
+
+class EntityCreate(BaseModel):
+    """Request model for creating a manual entity."""
+
+    entity_type: EntityType = Field(..., description="Type of entity to create")
+    value: str = Field(..., min_length=1, max_length=500, description="Entity value")
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence score")
+    properties: dict[str, Any] = Field(default_factory=dict, description="Additional properties")
+
+
+class RelationshipCreate(BaseModel):
+    """Request model for creating a manual relationship."""
+
+    source_entity_id: str = Field(..., description="Source entity ID")
+    target_entity_id: str = Field(..., description="Target entity ID")
+    rel_type: RelationshipType = Field(..., description="Relationship type")
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence score")
+    method: str = Field(default="manual", description="How this relationship was discovered")

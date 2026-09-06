@@ -175,19 +175,45 @@ async def analyze_investigation(
         response_text = await llm_call_fn(messages)
         logger.debug("LLM analyzer response length: %d chars", len(response_text))
     except Exception as exc:
-        logger.error("LLM call failed during analysis: %s", exc)
+        logger.error(
+            "LLM call failed during analysis: %s: %s (investigation=%s)",
+            type(exc).__name__, str(exc)[:300], investigation_id,
+        )
+        entity_count = graph_summary.get("entity_count", 0)
+        rel_count = graph_summary.get("relationship_count", 0)
         return AIAnalyzerOutput(
-            summary=f"Analysis failed: {exc}",
-            risk_level="low",
-            risk_reasoning="LLM unavailable",
+            summary=(
+                f"AI analysis unavailable ({type(exc).__name__}). "
+                f"Deterministic collection found {entity_count} entities "
+                f"and {rel_count} relationships. "
+                f"Manual review recommended."
+            ),
+            risk_level="medium" if entity_count > 0 else "low",
+            risk_reasoning=(
+                f"Automated AI analysis failed. {entity_count} entities and "
+                f"{rel_count} relationships were discovered through deterministic "
+                f"collection only. Risk assessment requires manual review."
+            ),
         )
 
     output = parse_analyzer_response(response_text)
     if output is None:
+        logger.warning("Failed to parse AI analyzer response (invalid JSON)")
+        entity_count = graph_summary.get("entity_count", 0)
+        rel_count = graph_summary.get("relationship_count", 0)
         return AIAnalyzerOutput(
-            summary="Failed to parse AI analysis response",
-            risk_level="low",
-            risk_reasoning="Invalid AI output",
+            summary=(
+                f"AI analysis failed to parse. "
+                f"Deterministic collection found {entity_count} entities "
+                f"and {rel_count} relationships. "
+                f"Manual review recommended."
+            ),
+            risk_level="medium" if entity_count > 0 else "low",
+            risk_reasoning=(
+                f"LLM produced invalid output. {entity_count} entities and "
+                f"{rel_count} relationships were discovered through deterministic "
+                f"collection only. Risk assessment requires manual review."
+            ),
         )
 
     # Validate entity_ids in key findings against the database.

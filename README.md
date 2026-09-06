@@ -268,7 +268,7 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 | Framework | React 19 + TypeScript | UI components |
 | Build tool | Vite 8 | Dev server, bundling |
 | Styling | Tailwind CSS 4 | Utility-first CSS |
-| UI components | shadcn/ui (Radix) | Accessible, composable components |
+| UI components | Custom CSS + Lucide + TailwindCSS | Accessible, composable components |
 | State management | Zustand | Client-side state |
 | Data fetching | TanStack Query | Server state, caching, background refetch |
 | Forms | React Hook Form + Zod | Type-safe form validation |
@@ -439,8 +439,6 @@ Collectors with missing keys are automatically disabled. Investigations proceed 
 |---|---|---|
 | `GITHUB_TOKEN` | GitHub API | 5,000 requests/hr |
 | `ABUSEIPDB_API_KEY` | AbuseIPDB | 1,000 requests/day |
-| `VIRUSTOTAL_API_KEY` | VirusTotal | 4 requests/min |
-| `SHODAN_API_KEY` | Shodan | Limited queries |
 | `URLHAUS_API_KEY` | URLhaus | Free |
 
 ### Optional: AI/LLM Provider

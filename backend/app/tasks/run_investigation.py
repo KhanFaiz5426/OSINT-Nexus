@@ -19,6 +19,7 @@ def _run_async(coro):
     """Run an async coroutine in a Celery task (sync context).
 
     Resets all connection pools before each call so drivers bind to the new event loop.
+    Properly cleans up resources in the finally block.
     """
     from app.core.redis import reset_redis
     from app.db.client import reset_pool
@@ -30,8 +31,22 @@ def _run_async(coro):
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
+    except Exception:
+        # Ensure event loop is properly closed even on error
+        raise
     finally:
-        loop.close()
+        try:
+            # Cancel all pending tasks in the loop
+            pending = asyncio.all_tasks(loop)
+            if pending:
+                for task in pending:
+                    task.cancel()
+                # Wait for all tasks to be cancelled
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        except Exception:
+            pass
+        finally:
+            loop.close()
 
 
 @celery_app.task(bind=True, name="app.tasks.run_investigation", max_retries=1)

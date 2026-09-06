@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import activity, config, entities, graph, investigations, reports
+from app.api import activity, config, entities, graph, investigations, notes, reports, sse
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -110,6 +110,8 @@ def create_app() -> FastAPI:
     app.include_router(activity.router, prefix="/api/v1", tags=["activity"])
     app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
     app.include_router(config.router, prefix="/api/v1", tags=["config"])
+    app.include_router(sse.router, prefix="/api/v1", tags=["sse"])
+    app.include_router(notes.router, prefix="/api/v1", tags=["notes"])
 
     @app.get("/health")
     async def health_check():

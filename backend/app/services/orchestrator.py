@@ -420,6 +420,17 @@ async def run_investigation_loop(
         "budget": state.budget_remaining,
     })
 
+    # Publish SSE event
+    try:
+        from app.api.sse import publish_investigation_event
+        await publish_investigation_event(investigation_id, "investigation_started", {
+            "target": state.target,
+            "target_type": state.target_type.value,
+            "status": "running",
+        })
+    except Exception:
+        pass
+
     try:
         # Phase 1: Initial collection based on target type.
         initial_actions = select_initial_actions(state.target_type)
@@ -441,16 +452,19 @@ async def run_investigation_loop(
 
         # Phase 1c: Username cross-platform correlation (for USERNAME targets).
         if state.target_type == TargetType.USERNAME and initial_observations:
-            username_result = correlate_username_accounts(initial_observations)
-            if username_result["entities"] or username_result["relationships"]:
-                await _write_username_correlation(
-                    investigation_id, username_result
-                )
-                await log_activity(investigation_id, "username_correlation", {
-                    "accounts_found": len(username_result["accounts"]),
-                    "correlations": len(username_result["correlations"]),
-                    "entities_created": len(username_result["entities"]),
-                })
+            try:
+                username_result = correlate_username_accounts(initial_observations)
+                if username_result["entities"] or username_result["relationships"]:
+                    await _write_username_correlation(
+                        investigation_id, username_result
+                    )
+                    await log_activity(investigation_id, "username_correlation", {
+                        "accounts_found": len(username_result["accounts"]),
+                        "correlations": len(username_result["correlations"]),
+                        "entities_created": len(username_result["entities"]),
+                    })
+            except Exception as exc:
+                logger.warning("Username correlation failed (Phase 1c): %s", exc)
 
         # Phase 1d: Username expansion — search variations and real names.
         if state.target_type == TargetType.USERNAME and initial_observations:
@@ -469,11 +483,14 @@ async def run_investigation_loop(
                     state.total_observations_collected + len(expansion_obs),
                 )
                 # Re-run username correlation with new observations.
-                username_result = correlate_username_accounts(expansion_obs)
-                if username_result["entities"] or username_result["relationships"]:
-                    await _write_username_correlation(
-                        investigation_id, username_result
-                    )
+                try:
+                    username_result = correlate_username_accounts(expansion_obs)
+                    if username_result["entities"] or username_result["relationships"]:
+                        await _write_username_correlation(
+                            investigation_id, username_result
+                        )
+                except Exception as exc:
+                    logger.warning("Username correlation failed (Phase 1d): %s", exc)
 
         # Phase 2: AI-guided pivot loop.
         while True:
@@ -562,11 +579,14 @@ async def run_investigation_loop(
 
                 # Username cross-platform correlation for pivot observations.
                 if state.target_type == TargetType.USERNAME:
-                    username_result = correlate_username_accounts(round_observations)
-                    if username_result["entities"] or username_result["relationships"]:
-                        await _write_username_correlation(
-                            investigation_id, username_result
-                        )
+                    try:
+                        username_result = correlate_username_accounts(round_observations)
+                        if username_result["entities"] or username_result["relationships"]:
+                            await _write_username_correlation(
+                                investigation_id, username_result
+                            )
+                    except Exception as exc:
+                        logger.warning("Username correlation failed (pivot round): %s", exc)
 
             # Move to next round.
             state.next_round()
@@ -578,6 +598,18 @@ async def run_investigation_loop(
                 "budget_remaining": state.budget_remaining,
                 "entity_count": graph_summary.get("entity_count", 0),
             })
+
+            # Publish SSE event
+            try:
+                from app.api.sse import publish_investigation_event
+                await publish_investigation_event(investigation_id, "pivot_round_completed", {
+                    "round": state.current_round,
+                    "observations": len(round_observations),
+                    "budget_remaining": state.budget_remaining,
+                    "entity_count": graph_summary.get("entity_count", 0),
+                })
+            except Exception:
+                pass
 
         # Phase 3: AI analysis of final state.
         graph_summary = await get_graph_summary(investigation_id)
@@ -609,6 +641,17 @@ async def run_investigation_loop(
             "total_pivots_dispatched": state.total_pivots_dispatched,
             "budget_remaining": state.budget_remaining,
         })
+
+        # Publish SSE event
+        try:
+            from app.api.sse import publish_investigation_event
+            await publish_investigation_event(investigation_id, "investigation_completed", {
+                "status": final_status.value,
+                "stop_reason": state.stop_reason,
+                "total_rounds": state.current_round,
+            })
+        except Exception:
+            pass
 
         result = {
             "investigation_id": investigation_id,
@@ -793,7 +836,6 @@ async def _expand_username_searches(
     This runs BEFORE AI planning so the investigation has data even if AI fails.
     """
     import asyncio
-    from app.collectors.registry import get_collector
     from app.models import TargetType
     from app.models.ai import PivotAction
     from app.services.username_variations import (
@@ -806,35 +848,36 @@ async def _expand_username_searches(
     # ── Step 1: Always check all username-capable platforms ───────────────
     # Don't rely on search results to decide — just check them all.
     platform_collectors = [
-        ("github", PivotAction.COLLECT_GITHUB),
-        ("gitlab", PivotAction.COLLECT_GITLAB),
-        ("reddit", PivotAction.COLLECT_REDDIT),
-        ("keybase", PivotAction.COLLECT_KEYBASE),
-        ("hackernews", PivotAction.COLLECT_HACKERNEWS),
+        (PivotAction.COLLECT_GITHUB, "github"),
+        (PivotAction.COLLECT_GITLAB, "gitlab"),
+        (PivotAction.COLLECT_REDDIT, "reddit"),
+        (PivotAction.COLLECT_KEYBASE, "keybase"),
+        (PivotAction.COLLECT_HACKERNEWS, "hackernews"),
     ]
 
-    for collector_name, action in platform_collectors:
+    for action, collector_name in platform_collectors:
         if state.budget_exhausted:
             break
         # Skip if we already have an observation from this collector
         already_collected = any(
-            obs.get("collector_name") == collector_name for obs in observations
+            obs.get("source_adapter") == collector_name for obs in observations
         )
         if already_collected:
             continue
 
         try:
-            collector = get_collector(collector_name)
-            if not collector:
-                continue
-            obs = await collector.collect(state.target, TargetType.USERNAME)
-            if obs and obs.get("status") == "success":
+            # Platform APIs usually don't accept spaces; strip them if the user entered a full name by mistake
+            platform_target = state.target.replace(" ", "").lower()
+            obs = await collect_and_store(
+                action, platform_target, TargetType.USERNAME, investigation_id
+            )
+            if obs is not None:
                 extra_observations.append(obs)
                 state.consume_budget()
-                state.record_dispatch(action, state.target)
+                state.record_dispatch(action, platform_target)
                 logger.info(
                     "Username platform check: %s found for %s",
-                    collector_name, state.target,
+                    collector_name, platform_target,
                 )
             await asyncio.sleep(0.3)
         except Exception as exc:
@@ -859,16 +902,17 @@ async def _expand_username_searches(
         })
 
     # ── Step 3: Search for real names across the web ──────────────────────
-    search_collector = get_collector("search")
+    from app.collectors.registry import get_collector as _get_collector
+    search_collector = _get_collector("search")
     if search_collector and discovered_names and state.budget_remaining > 1:
         for name in discovered_names[:2]:
             if state.budget_exhausted:
                 break
             try:
-                name_obs = await search_collector.collect(
-                    name, TargetType.USERNAME
+                name_obs = await collect_and_store(
+                    PivotAction.COLLECT_SEARCH, name, TargetType.USERNAME, investigation_id
                 )
-                if name_obs and name_obs.get("status") == "success":
+                if name_obs is not None:
                     extra_observations.append(name_obs)
                     state.consume_budget()
                     state.record_dispatch(
@@ -881,14 +925,14 @@ async def _expand_username_searches(
     # ── Step 4: Search top username variations ────────────────────────────
     if search_collector and state.budget_remaining > 1:
         variations = generate_username_variations(state.target, max_variations=3)
-        for var in variations[1:2]:  # Just try 1 variation
+        for var in variations[1:]:  # Try generated variations
             if state.budget_exhausted:
                 break
             try:
-                var_obs = await search_collector.collect(
-                    var, TargetType.USERNAME
+                var_obs = await collect_and_store(
+                    PivotAction.COLLECT_SEARCH, var, TargetType.USERNAME, investigation_id
                 )
-                if var_obs and var_obs.get("status") == "success":
+                if var_obs is not None:
                     extra_observations.append(var_obs)
                     state.consume_budget()
                     state.record_dispatch(
@@ -902,7 +946,7 @@ async def _expand_username_searches(
         logger.info(
             "Username expansion: %d extra observations from %d platforms, names: %s",
             len(extra_observations),
-            len([o for o in extra_observations if o.get("collector_name") != "search"]),
+            len([o for o in extra_observations if o.get("source_adapter") != "search"]),
             discovered_names,
         )
         await log_activity(investigation_id, "username_expansion_complete", {
@@ -911,3 +955,4 @@ async def _expand_username_searches(
         })
 
     return extra_observations
+
