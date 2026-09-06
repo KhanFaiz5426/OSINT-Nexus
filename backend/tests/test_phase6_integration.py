@@ -263,7 +263,8 @@ class TestAIModelValidation:
         expected = {
             "collect_dns", "collect_whois", "collect_ct",
             "collect_ip_asn", "collect_github", "collect_http",
-            "collect_threat_intel",
+            "collect_threat_intel", "collect_reddit", "collect_keybase",
+            "collect_hackernews", "collect_gitlab", "collect_search",
         }
         actual = {action.value for action in PivotAction}
         assert actual == expected
@@ -867,7 +868,10 @@ class TestInitialActions:
 
         actions = select_initial_actions(TargetType.USERNAME)
         action_values = {a.value for a in actions}
-        assert "collect_github" in action_values
+        # Search is the primary entry point for username investigations
+        assert "collect_search" in action_values
+        # Platform-specific collectors are dispatched after search discovers platforms
+        assert len(actions) == 1
 
     def test_email_initial_actions(self):
         from app.ai.planner import select_initial_actions

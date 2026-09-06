@@ -155,6 +155,27 @@ def collect_threat_intel_task(
     )
 
 
+@celery_app.task(bind=True, name="app.tasks.collect_search", max_retries=2)
+def collect_search_task(
+    self,
+    investigation_id: str,
+    target: str,
+    target_type: str,
+    *,
+    force_refresh: bool = False,
+) -> dict[str, Any]:
+    """Collect public web search results for a target."""
+    return _run_async(
+        _collect_async(
+            "search",
+            investigation_id,
+            target,
+            target_type,
+            force_refresh=force_refresh,
+        )
+    )
+
+
 async def _collect_async(
     collector_name: str,
     investigation_id: str,

@@ -59,9 +59,18 @@ class Settings(BaseSettings):
     URLHAUS_API_KEY: str = ""
     SHODAN_API_KEY: str = ""
 
-    # LLM / AI
+    # Supported providers: nvidia, openai, anthropic, ollama, none
+    # When "none" or empty, AI planner/analyzer return deterministic defaults.
+    LLM_PROVIDER: str = "none"
+    NVIDIA_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    OPENCODE_API_KEY: str = ""
+    LLM_API_KEY: str = ""  # fallback
+    LLM_MODEL: str = ""
+    LLM_BASE_URL: str = ""
+    LLM_MAX_TOKENS: int = 2048
+    LLM_TEMPERATURE: float = 0.3
 
     # Collector Configuration
     DNS_TIMEOUT: int = 10

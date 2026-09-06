@@ -27,6 +27,12 @@ async def close_driver() -> None:
         _driver = None
 
 
+def reset_driver() -> None:
+    """Reset the driver reference (for testing between event loops)."""
+    global _driver
+    _driver = None
+
+
 async def verify_connectivity() -> bool:
     """Verify Neo4j connection is alive."""
     try:

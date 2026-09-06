@@ -11,6 +11,7 @@ by investigation_id to enforce data boundaries.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -127,14 +128,17 @@ async def get_entity_neighbors(
     max_depth = max(1, min(max_depth, 6))
 
     # Use f-string for depth parameter (Cypher range syntax requires literal int).
+    # Match variable-length paths, collect all node IDs on valid paths, then
+    # find edges between those nodes.
     edges_query = f"""
-    MATCH (center)-[*1..{max_depth}]-(neighbor)
+    MATCH path = (center)-[*1..{max_depth}]-(neighbor)
     WHERE center.id = $entity_id
       AND center.investigation_id = $investigation_id
-      AND ALL(n IN nodes(neighbor) WHERE n.investigation_id = $investigation_id)
-    WITH neighbor
+      AND ALL(n IN nodes(path) WHERE n.investigation_id = $investigation_id)
+    WITH [n IN nodes(path) | n.id] AS node_ids
     MATCH (src)-[r]->(tgt)
-    WHERE (src.id = center.id OR src = neighbor OR tgt = neighbor)
+    WHERE src.id IN node_ids
+      AND tgt.id IN node_ids
       AND src.investigation_id = $investigation_id
       AND tgt.investigation_id = $investigation_id
       AND r.investigation_id = $investigation_id
@@ -332,7 +336,11 @@ async def get_entity_detail(
     if record is None:
         return None
 
-    return dict(record)
+    result = dict(record)
+    props = result.get("properties")
+    if isinstance(props, str):
+        result["properties"] = json.loads(props)
+    return result
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -352,7 +360,11 @@ def _node_to_cytoscape(record: dict[str, Any]) -> dict[str, Any]:
         "first_seen": record.get("first_seen", ""),
         "last_seen": record.get("last_seen", ""),
         "source_count": record.get("source_count", 0),
-        "properties": record.get("properties", {}),
+        "properties": (
+            json.loads(record["properties"])
+            if isinstance(record.get("properties"), str)
+            else record.get("properties", {})
+        ),
     }
     return {"data": data}
 

@@ -76,6 +76,8 @@ class RelationshipType(StrEnum):
     LINKS_TO = "links_to"
     ASSOCIATED_WITH_THREAT = "associated_with_threat"
     CO_OCCURS_WITH = "co_occurs_with"
+    SAME_PERSON = "same_person"
+    HAS_EMAIL = "has_email"
 
 
 # ── Request / Response Models ────────────────────────────────────────────────
@@ -140,6 +142,15 @@ class ReportResponse(BaseModel):
     format: str
     created_at: datetime
     download_url: str
+    file_size: int = 0
+
+
+class ReportGenerateRequest(BaseModel):
+    format: str = Field(
+        default="html",
+        pattern="^(html|pdf|json|csv)$",
+        description="Report format: html, pdf, json, or csv",
+    )
 
 
 class MessageResponse(BaseModel):

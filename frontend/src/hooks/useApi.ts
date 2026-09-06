@@ -19,6 +19,7 @@ import {
   entitiesApi,
   graphApi,
   investigationsApi,
+  reportsApi,
   type ActivityResponse,
   type AIAnalysis,
   type Entity,
@@ -30,7 +31,11 @@ import {
   type Observation,
   type ObservationResponse,
   type Relationship,
+  type Report,
+  type ReportFormat,
 } from "../api/investigations";
+
+export type { ReportFormat };
 
 // ── Investigation hooks ─────────────────────────────────────────────────────
 
@@ -212,5 +217,32 @@ export function useAIAnalysis(
     queryFn: () => aiApi.analysis(investigationId as string),
     enabled: Boolean(investigationId),
     refetchInterval: options?.refetchInterval ?? false,
+  });
+}
+
+// ── Report hooks ────────────────────────────────────────────────────────────
+
+export function useReports(
+  investigationId: string | undefined,
+): UseQueryResult<Report[], Error> {
+  return useQuery({
+    queryKey: ["reports", investigationId],
+    queryFn: () => reportsApi.list(investigationId as string),
+    enabled: Boolean(investigationId),
+  });
+}
+
+export function useGenerateReport(): UseMutationResult<
+  Report,
+  Error,
+  { investigationId: string; format: ReportFormat }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ investigationId, format }) =>
+      reportsApi.generate(investigationId, { format }),
+    onSuccess: (_data, { investigationId }) => {
+      qc.invalidateQueries({ queryKey: ["reports", investigationId] });
+    },
   });
 }

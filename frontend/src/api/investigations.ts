@@ -376,3 +376,34 @@ export const aiApi = {
   analysis: (investigationId: string) =>
     http<AIAnalysis>(`/investigations/${investigationId}/ai-analysis`),
 };
+
+// ── Reports ─────────────────────────────────────────────────────────────────
+
+export type ReportFormat = "html" | "pdf" | "json" | "csv";
+
+export interface Report {
+  id: string;
+  investigation_id: string;
+  format: ReportFormat;
+  created_at: string;
+  download_url: string;
+  file_size: number;
+}
+
+export interface ReportGenerateRequest {
+  format: ReportFormat;
+}
+
+export const reportsApi = {
+  list: (investigationId: string) =>
+    http<Report[]>(`/investigations/${investigationId}/reports`),
+  get: (investigationId: string, reportId: string) =>
+    http<Report>(`/investigations/${investigationId}/reports/${reportId}`),
+  generate: (investigationId: string, data: ReportGenerateRequest) =>
+    http<Report>(`/investigations/${investigationId}/reports`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  downloadUrl: (investigationId: string, reportId: string) =>
+    `${API_BASE}/investigations/${investigationId}/reports/${reportId}/download`,
+};

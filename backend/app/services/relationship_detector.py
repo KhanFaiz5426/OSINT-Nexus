@@ -12,6 +12,13 @@ from app.models import EntityType, RelationshipType
 from app.models.processing import ExtractedEntity, ExtractedRelationship
 
 
+def _record_value(record: Any) -> str:
+    """Extract string value from a DNS record dict or string."""
+    if isinstance(record, dict):
+        return str(record.get("value", record.get("data", "")))
+    return str(record)
+
+
 def detect_relationships(
     entities: list[ExtractedEntity],
     raw_results: list[dict[str, Any]],
@@ -115,6 +122,28 @@ def detect_relationships(
                 target, raw_response, _find_entity, _add_rel, obs_id
             )
 
+        # Fix for email targets: ensure relationship between Email and its Domain
+        from app.services.classifier import classify_target
+        from app.models import TargetType, EntityType, RelationshipType
+        
+        if classify_target(target) == TargetType.EMAIL:
+            from app.services.normalizer import normalize_email, normalize_domain
+            email_val = normalize_email(target)
+            domain_val = normalize_domain(target.split("@")[-1])
+            
+            email_entity = _find_entity(EntityType.EMAIL, email_val)
+            domain_entity = _find_entity(EntityType.DOMAIN, domain_val)
+            
+            if email_entity and domain_entity:
+                _add_rel(
+                    email_entity.id,
+                    RelationshipType.ASSOCIATED_WITH_EMAIL, # Or maybe a new type? Let's use ASSOCIATED_WITH_EMAIL but reversed, or just use it.
+                    domain_entity.id,
+                    "target_email_domain",
+                    1.0,
+                    [obs_id] if obs_id else [],
+                )
+
     return relationships
 
 
@@ -141,7 +170,7 @@ def _process_dns_relationships(
     # A/AAAA → hosted_on
     for record_type in ("A", "AAAA"):
         for record in raw.get(record_type, []):
-            ip_val = record.get("data", record) if isinstance(record, dict) else str(record)
+            ip_val = _record_value(record)
             ip_entity = find_entity(EntityType.IP, ip_val)
             if ip_entity:
                 add_rel(
@@ -155,7 +184,7 @@ def _process_dns_relationships(
 
     # NS → uses_nameserver
     for record in raw.get("NS", []):
-        ns_val = record.get("data", record) if isinstance(record, dict) else str(record)
+        ns_val = _record_value(record)
         ns_entity = find_entity(EntityType.DOMAIN, ns_val)
         if ns_entity:
             add_rel(
@@ -170,7 +199,7 @@ def _process_dns_relationships(
     # MX → sends_mail_via
     for record in raw.get("MX", []):
         mx_val = (
-            record.get("exchange", record.get("data", ""))
+            record.get("exchange", _record_value(record))
             if isinstance(record, dict)
             else str(record)
         )

@@ -81,6 +81,30 @@ async def correlate_observations(
             collector, target, raw_response, observation_id=obs_id
         )
 
+        # Fix for email targets: explicitly inject Email entity
+        from app.services.classifier import classify_target
+        from app.models import TargetType, EntityType
+        from app.services.normalizer import normalize_email
+        
+        if classify_target(target) == TargetType.EMAIL:
+            email_val = normalize_email(target)
+            email_id = f"{EntityType.EMAIL.value.lower()}:{email_val}"
+            
+            # Ensure email entity exists
+            if not any(e.id == email_id for e in entities):
+                entities.append(
+                    ExtractedEntity(
+                        id=email_id,
+                        entity_type=EntityType.EMAIL,
+                        value=email_val,
+                        confidence=1.0,
+                        first_seen=datetime.now(UTC),
+                        last_seen=datetime.now(UTC),
+                        sources=[collector],
+                        evidence_ids=[obs_id] if obs_id else [],
+                    )
+                )
+
         for entity in entities:
             if entity.id in all_entities:
                 existing = all_entities[entity.id]
@@ -186,10 +210,20 @@ def _extract_from_observation(
         return _extract_from_http(target, raw_response, observation_id=observation_id)
     elif collector == "github":
         return _extract_from_github(target, raw_response, observation_id=observation_id)
+    elif collector == "reddit":
+        return _extract_from_reddit(target, raw_response, observation_id=observation_id)
+    elif collector == "keybase":
+        return _extract_from_keybase(target, raw_response, observation_id=observation_id)
+    elif collector == "hackernews":
+        return _extract_from_hackernews(target, raw_response, observation_id=observation_id)
+    elif collector == "gitlab":
+        return _extract_from_gitlab(target, raw_response, observation_id=observation_id)
     elif collector == "ip_to_asn":
         return _extract_from_ip_asn(target, raw_response, observation_id=observation_id)
     elif collector == "threat_intel":
         return _extract_from_threat_intel(target, raw_response, observation_id=observation_id)
+    elif collector == "search":
+        return _extract_from_search(target, raw_response, observation_id=observation_id)
     else:
         # Generic text extraction as fallback.
         return _extract_generic(target, raw_response, observation_id=observation_id), []
@@ -426,6 +460,98 @@ def _extract_from_threat_intel(
     return entities, []
 
 
+def _extract_from_search(
+    target: str,
+    raw_response: dict[str, Any],
+    *,
+    observation_id: str = "",
+) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
+    """Extract entities from search collector output.
+
+    The search collector returns extracted_entities with domains, emails,
+    URLs, and IPs discovered in search result snippets.
+    """
+    from app.models import EntityType
+    from app.services.normalizer import normalize_domain, normalize_email, normalize_ip
+
+    entities: list[ExtractedEntity] = []
+    relationships: list[ExtractedRelationship] = []
+    source = "search"
+    now = datetime.now(UTC)
+
+    extracted = raw_response.get("extracted_entities", {})
+
+    # Extract domains found in search results
+    for domain in extracted.get("domains", []):
+        norm_domain = normalize_domain(domain)
+        if norm_domain:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.DOMAIN.value.lower()}:{norm_domain}",
+                    entity_type=EntityType.DOMAIN,
+                    value=norm_domain,
+                    confidence=0.7,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                )
+            )
+
+    # Extract emails found in search results
+    for email in extracted.get("emails", []):
+        norm_email = normalize_email(email)
+        if norm_email:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.EMAIL.value.lower()}:{norm_email}",
+                    entity_type=EntityType.EMAIL,
+                    value=norm_email,
+                    confidence=0.6,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                )
+            )
+
+    # Extract IPs found in search results
+    for ip in extracted.get("ips", []):
+        norm_ip = normalize_ip(ip)
+        if norm_ip:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.IP.value.lower()}:{norm_ip}",
+                    entity_type=EntityType.IP,
+                    value=norm_ip,
+                    confidence=0.6,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                )
+            )
+
+    # Create a search result entity linking the target to what was found
+    result_count = raw_response.get("result_count", 0)
+    if result_count > 0:
+        search_query = raw_response.get("query", target)
+        entities.append(
+            ExtractedEntity(
+                id=f"search_result:{target}:{search_query}",
+                entity_type=EntityType.DOMAIN,  # Use Domain as the closest type
+                value=f"Search results for: {search_query}",
+                confidence=0.5,
+                first_seen=now,
+                last_seen=now,
+                sources=[source],
+                evidence_ids=[observation_id] if observation_id else [],
+            )
+        )
+
+    return entities, relationships
+
+
 def _extract_generic(
     target: str,
     raw_response: dict[str, Any],
@@ -440,6 +566,265 @@ def _extract_generic(
     return extract_entities_from_text(
         text, source="generic", evidence_id=observation_id
     )
+
+
+def _extract_from_reddit(
+    target: str,
+    raw_response: dict[str, Any],
+    *,
+    observation_id: str = "",
+) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
+    """Extract entities from Reddit collector output."""
+    from app.models import EntityType
+
+    entities: list[ExtractedEntity] = []
+    source = "reddit"
+    now = datetime.now(UTC)
+
+    profile = raw_response.get("profile", {})
+    if not profile or not raw_response.get("found"):
+        return entities, []
+
+    # Username entity.
+    username = profile.get("name", target)
+    entities.append(
+        ExtractedEntity(
+            id=f"{EntityType.USERNAME.value.lower()}:{username}",
+            entity_type=EntityType.USERNAME,
+            value=username,
+            confidence=0.9,
+            first_seen=now,
+            last_seen=now,
+            sources=[source],
+            evidence_ids=[observation_id] if observation_id else [],
+        )
+    )
+
+    return entities, []
+
+
+def _extract_from_keybase(
+    target: str,
+    raw_response: dict[str, Any],
+    *,
+    observation_id: str = "",
+) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
+    """Extract entities from Keybase collector output."""
+    from app.models import EntityType
+    from app.services.normalizer import normalize_email
+
+    entities: list[ExtractedEntity] = []
+    source = "keybase"
+    now = datetime.now(UTC)
+
+    profile = raw_response.get("profile", {})
+    if not profile or not raw_response.get("found"):
+        return entities, []
+
+    # Username entity.
+    username = profile.get("username", target)
+    entities.append(
+        ExtractedEntity(
+            id=f"{EntityType.USERNAME.value.lower()}:{username}",
+            entity_type=EntityType.USERNAME,
+            value=username,
+            confidence=0.9,
+            first_seen=now,
+            last_seen=now,
+            sources=[source],
+            evidence_ids=[observation_id] if observation_id else [],
+        )
+    )
+
+    # Full name → PERSON entity.
+    full_name = profile.get("full_name", "")
+    if full_name:
+        entities.append(
+            ExtractedEntity(
+                id=f"{EntityType.PERSON.value.lower()}:{full_name}",
+                entity_type=EntityType.PERSON,
+                value=full_name,
+                confidence=0.7,
+                first_seen=now,
+                last_seen=now,
+                sources=[source],
+                evidence_ids=[observation_id] if observation_id else [],
+            )
+        )
+
+    # Social proofs → USERNAME entities on other platforms.
+    for proof in profile.get("social_proofs", []):
+        service = proof.get("service", "")
+        proof_username = proof.get("username", "")
+        if service and proof_username:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.USERNAME.value.lower()}:{proof_username}",
+                    entity_type=EntityType.USERNAME,
+                    value=proof_username,
+                    confidence=0.85,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                )
+            )
+
+    # Website → URL entity.
+    website = profile.get("website", "")
+    if website:
+        entities.append(
+            ExtractedEntity(
+                id=f"{EntityType.URL.value.lower()}:{website}",
+                entity_type=EntityType.URL,
+                value=website,
+                confidence=0.6,
+                first_seen=now,
+                last_seen=now,
+                sources=[source],
+                evidence_ids=[observation_id] if observation_id else [],
+            )
+        )
+
+    return entities, []
+
+
+def _extract_from_hackernews(
+    target: str,
+    raw_response: dict[str, Any],
+    *,
+    observation_id: str = "",
+) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
+    """Extract entities from HackerNews collector output."""
+    from app.models import EntityType
+
+    entities: list[ExtractedEntity] = []
+    source = "hackernews"
+    now = datetime.now(UTC)
+
+    profile = raw_response.get("profile", {})
+    if not profile or not raw_response.get("found"):
+        return entities, []
+
+    # Username entity.
+    username = profile.get("username", target)
+    entities.append(
+        ExtractedEntity(
+            id=f"{EntityType.USERNAME.value.lower()}:{username}",
+            entity_type=EntityType.USERNAME,
+            value=username,
+            confidence=0.9,
+            first_seen=now,
+            last_seen=now,
+            sources=[source],
+            evidence_ids=[observation_id] if observation_id else [],
+        )
+    )
+
+    return entities, []
+
+
+def _extract_from_gitlab(
+    target: str,
+    raw_response: dict[str, Any],
+    *,
+    observation_id: str = "",
+) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
+    """Extract entities from GitLab collector output."""
+    from app.models import EntityType
+    from app.services.normalizer import normalize_email
+
+    entities: list[ExtractedEntity] = []
+    source = "gitlab"
+    now = datetime.now(UTC)
+
+    profile = raw_response.get("profile", {})
+    if not profile or not raw_response.get("found"):
+        return entities, []
+
+    # Username entity.
+    username = profile.get("username", target)
+    entities.append(
+        ExtractedEntity(
+            id=f"{EntityType.USERNAME.value.lower()}:{username}",
+            entity_type=EntityType.USERNAME,
+            value=username,
+            confidence=0.9,
+            first_seen=now,
+            last_seen=now,
+            sources=[source],
+            evidence_ids=[observation_id] if observation_id else [],
+        )
+    )
+
+    # Email entity.
+    email = profile.get("email", "")
+    if email:
+        norm_email = normalize_email(email)
+        entities.append(
+            ExtractedEntity(
+                id=f"{EntityType.EMAIL.value.lower()}:{norm_email}",
+                entity_type=EntityType.EMAIL,
+                value=norm_email,
+                confidence=0.8,
+                first_seen=now,
+                last_seen=now,
+                sources=[source],
+                evidence_ids=[observation_id] if observation_id else [],
+            )
+        )
+
+    # Organization entity.
+    org = profile.get("organization", "")
+    if org:
+        entities.append(
+            ExtractedEntity(
+                id=f"{EntityType.ORGANIZATION.value.lower()}:{org}",
+                entity_type=EntityType.ORGANIZATION,
+                value=org,
+                confidence=0.75,
+                first_seen=now,
+                last_seen=now,
+                sources=[source],
+                evidence_ids=[observation_id] if observation_id else [],
+            )
+        )
+
+    # Projects → REPOSITORY entities.
+    for project in raw_response.get("projects", []):
+        project_path = project.get("path", "")
+        if project_path:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.REPOSITORY.value.lower()}:{project_path}",
+                    entity_type=EntityType.REPOSITORY,
+                    value=project_path,
+                    confidence=0.85,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                )
+            )
+
+    # Groups → ORGANIZATION entities.
+    for group in raw_response.get("groups", []):
+        group_path = group.get("path", "")
+        if group_path:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.ORGANIZATION.value.lower()}:{group_path}",
+                    entity_type=EntityType.ORGANIZATION,
+                    value=group_path,
+                    confidence=0.7,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                )
+            )
+
+    return entities, []
 
 
 def _merge_relationships(

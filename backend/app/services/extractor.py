@@ -229,6 +229,13 @@ def _parse_server_header(server: str) -> str | None:
     return server.lower()
 
 
+def _record_value(record: Any) -> str:
+    """Extract string value from a DNS record dict or string."""
+    if isinstance(record, dict):
+        return str(record.get("value", record.get("data", "")))
+    return str(record)
+
+
 def _normalize_entity_value(entity_type: EntityType, value: str) -> str | None:
     """Normalize an extracted entity value based on its type."""
     value = value.strip()
@@ -273,10 +280,17 @@ def extract_from_dns(
     Returns:
         (entities, relationships) tuple.
     """
+    from app.services.classifier import classify_target
+    from app.models import TargetType
+    from app.services.normalizer import normalize_email
+
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)
-    source_domain = normalize_domain(target)
+    
+    is_email = classify_target(target) == TargetType.EMAIL
+    actual_target = target.split("@")[-1].strip() if is_email else target
+    source_domain = normalize_domain(actual_target)
 
     def _add_entity(
         etype: EntityType, value: str, confidence: float = 0.9
@@ -322,23 +336,28 @@ def extract_from_dns(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
+    
+    if is_email:
+        email_val = normalize_email(target)
+        email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
+        _add_rel(domain_entity.id, RelationshipType.ASSOCIATED_WITH_EMAIL, email_entity.id, "email_domain", confidence=1.0)
 
     # A records → IP entities + hosted_on relationship
     for record in raw_response.get("A", []):
-        ip_val = record.get("data", record) if isinstance(record, dict) else str(record)
+        ip_val = _record_value(record)
         ip_entity = _add_entity(EntityType.IP, ip_val)
         _add_rel(domain_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "dns_a_record")
 
     # AAAA records
     for record in raw_response.get("AAAA", []):
-        ip_val = record.get("data", record) if isinstance(record, dict) else str(record)
+        ip_val = _record_value(record)
         ip_entity = _add_entity(EntityType.IP, ip_val)
         _add_rel(domain_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "dns_aaaa_record")
 
     # MX records → sends_mail_via
     for record in raw_response.get("MX", []):
         if isinstance(record, dict):
-            exchange = record.get("exchange", record.get("data", ""))
+            exchange = record.get("exchange", _record_value(record))
             priority = record.get("priority", "")
         else:
             exchange = str(record)
@@ -355,7 +374,7 @@ def extract_from_dns(
 
     # NS records → uses_nameserver
     for record in raw_response.get("NS", []):
-        ns_val = record.get("data", record) if isinstance(record, dict) else str(record)
+        ns_val = _record_value(record)
         ns_entity = _add_entity(EntityType.DOMAIN, ns_val)
         _add_rel(
             domain_entity.id,
@@ -395,7 +414,7 @@ def extract_from_dns(
 
     # TXT records → extract embedded entities
     for record in raw_response.get("TXT", []):
-        txt_val = record.get("data", record) if isinstance(record, dict) else str(record)
+        txt_val = _record_value(record)
         # Extract emails from SPF/DMARC
         txt_entities = extract_entities_from_text(
             txt_val, source=source, evidence_id=observation_id
@@ -406,7 +425,7 @@ def extract_from_dns(
 
     # PTR records (for reverse DNS)
     for record in raw_response.get("PTR", []):
-        ptr_val = record.get("data", record) if isinstance(record, dict) else str(record)
+        ptr_val = _record_value(record)
         ptr_entity = _add_entity(EntityType.DOMAIN, ptr_val)
         _add_rel(
             domain_entity.id,
@@ -436,10 +455,17 @@ def extract_from_whois(
     Returns:
         (entities, relationships) tuple.
     """
+    from app.services.classifier import classify_target
+    from app.models import TargetType
+    from app.services.normalizer import normalize_email
+
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)
-    source_domain = normalize_domain(target)
+    
+    is_email = classify_target(target) == TargetType.EMAIL
+    actual_target = target.split("@")[-1].strip() if is_email else target
+    source_domain = normalize_domain(actual_target)
 
     def _add_entity(
         etype: EntityType, value: str, confidence: float = 0.9
@@ -485,6 +511,11 @@ def extract_from_whois(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.9)
+    
+    if is_email:
+        email_val = normalize_email(target)
+        email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
+        _add_rel(domain_entity.id, RelationshipType.ASSOCIATED_WITH_EMAIL, email_entity.id, "email_domain", confidence=1.0)
 
     # Registrar → Organization
     registrar = raw_response.get("registrar", "")
@@ -578,10 +609,17 @@ def extract_from_ct(
     Returns:
         (entities, relationships) tuple.
     """
+    from app.services.classifier import classify_target
+    from app.models import TargetType
+    from app.services.normalizer import normalize_email
+
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)
-    source_domain = normalize_domain(target)
+    
+    is_email = classify_target(target) == TargetType.EMAIL
+    actual_target = target.split("@")[-1].strip() if is_email else target
+    source_domain = normalize_domain(actual_target)
 
     def _add_entity(
         etype: EntityType, value: str, confidence: float = 0.9
@@ -627,6 +665,11 @@ def extract_from_ct(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
+    
+    if is_email:
+        email_val = normalize_email(target)
+        email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
+        _add_rel(domain_entity.id, RelationshipType.ASSOCIATED_WITH_EMAIL, email_entity.id, "email_domain", confidence=1.0)
 
     # Certificates
     certificates = raw_response.get("certificates", [])

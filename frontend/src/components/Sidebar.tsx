@@ -1,5 +1,6 @@
-import { LayoutDashboard, Search } from "lucide-react";
+import { LayoutDashboard, Search, Plus, Crosshair } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { cn } from "../lib/utils";
 
 interface SidebarProps {
   open: boolean;
@@ -21,32 +22,68 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-30 bg-black/20 lg:hidden" onClick={onClose} />}
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-gray-200 bg-gray-900 transition-transform lg:static lg:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-[56px] flex-col border-r border-[var(--nx-border)] bg-[var(--nx-surface-1)] transition-transform lg:static lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+        )}
       >
-        <div className="flex h-14 items-center border-b border-gray-800 px-4">
-          <span className="text-lg font-semibold text-white">OSINT Nexus</span>
+        {/* Logo mark */}
+        <div className="flex h-14 items-center justify-center border-b border-[var(--nx-border)]">
+          <Link to="/" className="flex items-center justify-center" title="OSINT Nexus">
+            <Crosshair className="h-5 w-5 text-[var(--nx-accent)]" />
+            <span className="sr-only">OSINT Nexus</span>
+          </Link>
         </div>
-        <nav className="mt-4 space-y-1 px-3">
+
+        {/* Navigation */}
+        <nav className="flex flex-1 flex-col items-center gap-1 px-2 pt-3">
           {navigation.map((item) => (
             <Link
               key={item.name}
               to={item.href}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              title={item.name}
+              className={cn(
+                "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
                 isActive(item.href)
-                  ? "bg-gray-800 text-white"
-                  : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
-              }`}
+                  ? "bg-[var(--nx-accent-subtle)] text-[var(--nx-accent)]"
+                  : "text-[var(--nx-text-tertiary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)]",
+              )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {item.name}
+              {isActive(item.href) && (
+                <span className="absolute left-[-9px] h-5 w-[3px] rounded-r-full bg-[var(--nx-accent)]" />
+              )}
+              <item.icon className="h-[18px] w-[18px]" />
+              <span className="sr-only">{item.name}</span>
             </Link>
           ))}
+
+          {/* New Investigation button */}
+          <Link
+            to="/investigations/new"
+            title="New Investigation"
+            className="mt-2 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--nx-accent)] text-[var(--nx-base)] transition-colors hover:bg-[var(--nx-accent)]/90"
+          >
+            <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
+            <span className="sr-only">New Investigation</span>
+          </Link>
         </nav>
+
+        {/* Bottom section */}
+        <div className="flex flex-col items-center gap-2 border-t border-[var(--nx-border)] px-2 py-3">
+          <span className="text-[9px] font-medium text-[var(--nx-text-muted)] [writing-mode:vertical-lr]">
+            v0.1
+          </span>
+        </div>
       </aside>
     </>
   );
 }
+
+export const AppNav = Sidebar;

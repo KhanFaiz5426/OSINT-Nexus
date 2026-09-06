@@ -41,6 +41,7 @@ TARGET_TYPE_INITIAL_ACTIONS: dict[TargetType, list[PivotAction]] = {
         PivotAction.COLLECT_WHOIS,
         PivotAction.COLLECT_CT,
         PivotAction.COLLECT_HTTP,
+        PivotAction.COLLECT_SEARCH,
     ],
     TargetType.IP: [
         PivotAction.COLLECT_DNS,
@@ -51,21 +52,26 @@ TARGET_TYPE_INITIAL_ACTIONS: dict[TargetType, list[PivotAction]] = {
     TargetType.URL: [
         PivotAction.COLLECT_DNS,
         PivotAction.COLLECT_HTTP,
+        PivotAction.COLLECT_SEARCH,
     ],
     TargetType.EMAIL: [
-        PivotAction.COLLECT_WHOIS,
+        PivotAction.COLLECT_GITHUB,
         PivotAction.COLLECT_DNS,
+        PivotAction.COLLECT_WHOIS,
+        PivotAction.COLLECT_HTTP,
     ],
     TargetType.USERNAME: [
-        PivotAction.COLLECT_GITHUB,
+        PivotAction.COLLECT_SEARCH,
     ],
     TargetType.ORGANIZATION: [
         PivotAction.COLLECT_GITHUB,
         PivotAction.COLLECT_DNS,
+        PivotAction.COLLECT_SEARCH,
     ],
     TargetType.UNKNOWN: [
         PivotAction.COLLECT_DNS,
         PivotAction.COLLECT_HTTP,
+        PivotAction.COLLECT_SEARCH,
     ],
 }
 
@@ -189,20 +195,10 @@ def parse_planner_response(response_text: str) -> AIPlannerOutput | None:
     Returns:
         Validated AIPlannerOutput or None if parsing/validation fails.
     """
-    # Strip markdown code blocks if present.
-    text = response_text.strip()
-    if text.startswith("```json"):
-        text = text[7:]
-    elif text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
-    text = text.strip()
+    from app.ai.response_parser import extract_json_from_llm_response
 
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        logger.warning("Failed to parse AI planner response as JSON: %s", exc)
+    data = extract_json_from_llm_response(response_text)
+    if data is None:
         return None
 
     return validate_planner_output(data)
@@ -278,6 +274,7 @@ async def plan_pivots_with_ai(
 
     try:
         response_text = await llm_call_fn(messages)
+        logger.debug("LLM planner response length: %d chars", len(response_text))
     except Exception as exc:
         logger.error("LLM call failed during planning: %s", exc)
         return AIPlannerOutput(

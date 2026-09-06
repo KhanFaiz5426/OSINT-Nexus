@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { statusBadgeClass, formatRelativeTime } from "../lib/format";
 import { cn } from "../lib/utils";
 import type { InvestigationStatus } from "../api/investigations";
+import { Plus, Search } from "lucide-react";
 
 const STATUSES: (InvestigationStatus | "all")[] = [
   "all",
@@ -37,42 +38,47 @@ export function InvestigationsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-5xl py-2">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-[var(--nx-text-primary)]">
             Investigations
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-0.5 text-sm text-[var(--nx-text-muted)]">
             Manage and monitor OSINT investigations
           </p>
         </div>
         <Link
           to="/investigations/new"
-          className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--nx-accent)] px-4 py-2 text-sm font-semibold text-[var(--nx-base)] hover:brightness-110 transition-all"
         >
+          <Plus className="h-4 w-4" />
           New Investigation
         </Link>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search investigations..."
-          className="block flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:max-w-xs"
-        />
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--nx-text-muted)]" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search investigations..."
+            className="block w-full rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] py-1.5 pl-8 pr-3 text-sm text-[var(--nx-text-primary)] placeholder:text-[var(--nx-text-muted)] focus:border-[var(--nx-accent-dim)] focus:outline-none transition-colors"
+          />
+        </div>
         <div className="flex flex-wrap gap-1">
           {STATUSES.map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide transition-colors",
+                "rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors",
                 statusFilter === s
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                  ? "bg-[var(--nx-accent-subtle)] text-[var(--nx-accent)] border border-[var(--nx-accent)]/30"
+                  : "bg-[var(--nx-surface-3)] text-[var(--nx-text-muted)] border border-[var(--nx-border)] hover:text-[var(--nx-text-secondary)]",
               )}
             >
               {s}
@@ -81,12 +87,13 @@ export function InvestigationsPage() {
         </div>
       </div>
 
+      {/* Content */}
       {isLoading && <LoadingState rows={5} />}
       {error && (
         <ErrorState message="Failed to load investigations. Is the backend running?" />
       )}
       {!isLoading && !error && filtered.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
+        <div className="rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-2)]">
           <EmptyState
             title={search || statusFilter !== "all" ? "No matches" : "No investigations yet"}
             description={
@@ -99,8 +106,9 @@ export function InvestigationsPage() {
               statusFilter === "all" && (
                 <Link
                   to="/investigations/new"
-                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 rounded-md bg-[var(--nx-accent)] px-3 py-1.5 text-sm font-medium text-[var(--nx-base)] hover:brightness-110 transition-all"
                 >
+                  <Plus className="h-3.5 w-3.5" />
                   New Investigation
                 </Link>
               )
@@ -110,69 +118,69 @@ export function InvestigationsPage() {
       )}
 
       {!isLoading && !error && filtered.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-2)]">
+          <table className="min-w-full divide-y divide-[var(--nx-border)]">
+            <thead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Target
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Depth
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Entities
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
                   Updated
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-[var(--nx-border-subtle)]">
               {filtered.map((inv) => (
-                <tr key={inv.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
+                <tr key={inv.id} className="hover:bg-[var(--nx-surface-3)] transition-colors">
+                  <td className="px-4 py-2.5">
                     <Link
                       to={`/investigations/${inv.id}`}
-                      className="font-medium text-blue-600 hover:underline"
+                      className="font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80 transition-colors"
                     >
                       {inv.name}
                     </Link>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <span className="font-mono text-sm">{inv.target}</span>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <span className="font-mono text-sm text-[var(--nx-text-secondary)]">{inv.target}</span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    <span className="inline-flex items-center rounded bg-[var(--nx-surface-3)] px-1.5 py-0.5 text-[10px] font-medium uppercase text-[var(--nx-text-tertiary)]">
                       {inv.target_type}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                  <td className="whitespace-nowrap px-4 py-2.5">
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide",
+                        "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
                         statusBadgeClass(inv.status),
                       )}
                     >
                       {inv.status}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm capitalize text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-sm capitalize text-[var(--nx-text-tertiary)]">
                     {inv.depth}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right text-sm font-mono tabular-nums text-[var(--nx-text-secondary)]">
                     {inv.entity_count}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-xs text-gray-500">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-right text-xs text-[var(--nx-text-muted)]">
                     {formatRelativeTime(inv.updated_at)}
                   </td>
                 </tr>

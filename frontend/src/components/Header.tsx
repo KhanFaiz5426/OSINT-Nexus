@@ -6,15 +6,18 @@ interface HeaderProps {
 
 export function Header({ onMenuToggle }: HeaderProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-gray-200 bg-white px-4">
+    <header className="flex h-11 shrink-0 items-center gap-4 border-b border-[var(--nx-border)] bg-[var(--nx-surface-1)] px-4">
       <button
         onClick={onMenuToggle}
-        className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 lg:hidden"
+        className="rounded-md p-1 text-[var(--nx-text-tertiary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)] lg:hidden"
       >
-        <Menu className="h-5 w-5" />
+        <Menu className="h-4 w-4" />
       </button>
+      <span className="text-xs font-semibold tracking-wider text-[var(--nx-accent)] uppercase">
+        OSINT Nexus
+      </span>
       <div className="flex-1" />
-      <div className="text-sm text-gray-500">v0.1.0</div>
+      <div className="text-[10px] text-[var(--nx-text-muted)] font-mono">v0.1.0</div>
     </header>
   );
 }

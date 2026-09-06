@@ -41,13 +41,17 @@ class WhoisCollector(OSINTCollector):
 
     name = "whois"
     version = "1.0.0"
-    supported_target_types = [TargetType.DOMAIN]
+    supported_target_types = [TargetType.DOMAIN, TargetType.EMAIL]
     requires_api_key = False
     cache_ttl = 86400  # 24 hours
     rate_limit_rpm = 300  # 5 req/s
 
     async def _collect(self, target: str, target_type: TargetType) -> RawResult:
         get_settings()
+
+        # Extract domain from email for WHOIS lookup
+        if target_type == TargetType.EMAIL and "@" in target:
+            target = target.split("@")[-1].strip().lower()
 
         try:
             # python-whois is synchronous; run in executor to avoid blocking

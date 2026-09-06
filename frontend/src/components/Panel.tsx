@@ -21,14 +21,14 @@ export function Panel({
   return (
     <section
       className={cn(
-        "flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm",
+        "flex h-full flex-col border border-[var(--nx-border)] bg-[var(--nx-surface-2)]",
         className,
       )}
     >
       {(title || actions) && (
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-2.5">
+        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--nx-border)] px-4 py-2.5">
           {title && (
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--nx-text-secondary)]">
               {title}
             </h2>
           )}

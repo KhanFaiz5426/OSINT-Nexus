@@ -22,9 +22,11 @@ RELATIONSHIP_TYPES: list[str] = [rt.value.upper() for rt in RelationshipType]
 
 # ── Cypher DDL for schema constraints ─────────────────────────────────────────
 
-# Unique constraints on (id) for every node label.  These double as indexes.
+# Composite unique constraints on (id, investigation_id) for every node label.
+# This allows the same entity id across different investigations while keeping
+# nodes unique within an investigation.
 CONSTRAINTS_CYPHER: list[str] = [
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE n.id IS UNIQUE"
+    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE (n.id, n.investigation_id) IS UNIQUE"
     for label in NODE_LABELS
 ]
 

@@ -56,8 +56,13 @@ async def initialize_collectors(cache: CollectorCache | None = None) -> None:
     from app.collectors.ct_collector import CTCollector
     from app.collectors.dns_collector import DNSCollector
     from app.collectors.github_collector import GitHubCollector
+    from app.collectors.gitlab_collector import GitLabCollector
+    from app.collectors.hackernews_collector import HackerNewsCollector
     from app.collectors.http_collector import HTTPCollector
     from app.collectors.ip_asn_collector import IPToASNBCollector
+    from app.collectors.keybase_collector import KeybaseCollector
+    from app.collectors.reddit_collector import RedditCollector
+    from app.collectors.search_collector import SearchCollector
     from app.collectors.threat_intel_collector import ThreatIntelCollector
     from app.collectors.whois_collector import WhoisCollector
 
@@ -69,6 +74,11 @@ async def initialize_collectors(cache: CollectorCache | None = None) -> None:
         GitHubCollector,
         HTTPCollector,
         ThreatIntelCollector,
+        RedditCollector,
+        KeybaseCollector,
+        HackerNewsCollector,
+        GitLabCollector,
+        SearchCollector,
     ]
 
     for cls in collector_classes:

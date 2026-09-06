@@ -26,7 +26,7 @@ class GitHubCollector(OSINTCollector):
 
     name = "github"
     version = "1.0.0"
-    supported_target_types = [TargetType.USERNAME]
+    supported_target_types = [TargetType.USERNAME, TargetType.EMAIL]
     requires_api_key = False  # Works without token, but rate limited
     cache_ttl = 3600  # 1 hour
     rate_limit_rpm = 30  # Conservative: 30 req/min
@@ -48,7 +48,136 @@ class GitHubCollector(OSINTCollector):
     async def _collect(self, target: str, target_type: TargetType) -> RawResult:
         settings = get_settings()
 
-        # Fetch user profile
+        # For email targets, search GitHub by email first
+        if target_type == TargetType.EMAIL:
+            return await self._collect_by_email(target, target_type, settings)
+
+        # For username targets, fetch profile directly
+        return await self._collect_by_username(target, target_type, settings)
+
+    async def _collect_by_email(
+        self, target: str, target_type: TargetType, settings: Any
+    ) -> RawResult:
+        """Search GitHub for users associated with an email address."""
+        url = f"{GITHUB_API_BASE}/search/users"
+        params = {"q": f"{target} in:email", "per_page": 10}
+
+        try:
+            async with httpx.AsyncClient(timeout=settings.GITHUB_TIMEOUT) as client:
+                response = await client.get(url, headers=self._get_headers(), params=params)
+
+                if response.status_code == 403:
+                    return RawResult(
+                        collector_name=self.name,
+                        collector_version=self.version,
+                        target=target,
+                        target_type=target_type,
+                        query=f"github:search:email:{target}",
+                        status=ObservationStatus.ERROR,
+                        error_message="GitHub API rate limit exceeded",
+                    )
+                if response.status_code != 200:
+                    return RawResult(
+                        collector_name=self.name,
+                        collector_version=self.version,
+                        target=target,
+                        target_type=target_type,
+                        query=f"github:search:email:{target}",
+                        status=ObservationStatus.ERROR,
+                        error_message=f"GitHub search returned HTTP {response.status_code}",
+                    )
+
+                data = response.json()
+                users = data.get("items", [])
+
+                if not users:
+                    return RawResult(
+                        collector_name=self.name,
+                        collector_version=self.version,
+                        target=target,
+                        target_type=target_type,
+                        query=f"github:search:email:{target}",
+                        status=ObservationStatus.SUCCESS,
+                        raw_response={"email": target, "users": [], "profile": None},
+                        normalized_value=target,
+                        confidence=0.3,
+                        metadata={"message": "No GitHub users found for this email"},
+                    )
+
+                # Fetch full profile for the first matching user
+                username = users[0].get("login", "")
+                profile = await self._fetch_profile(username, settings.GITHUB_TIMEOUT)
+                repos = await self._fetch_repos(username, settings.GITHUB_TIMEOUT)
+                orgs = await self._fetch_orgs(username, settings.GITHUB_TIMEOUT)
+
+                raw_response = {
+                    "email": target,
+                    "search_results": [
+                        {"login": u.get("login", ""), "id": u.get("id", 0)}
+                        for u in users
+                    ],
+                    "profile": {
+                        "login": profile.get("login", ""),
+                        "name": profile.get("name", ""),
+                        "email": profile.get("email", ""),
+                        "bio": profile.get("bio", ""),
+                        "company": profile.get("company", ""),
+                        "location": profile.get("location", ""),
+                        "blog": profile.get("blog", ""),
+                        "public_repos": profile.get("public_repos", 0),
+                        "followers": profile.get("followers", 0),
+                        "following": profile.get("following", 0),
+                        "created_at": profile.get("created_at", ""),
+                        "updated_at": profile.get("updated_at", ""),
+                        "avatar_url": profile.get("avatar_url", ""),
+                    },
+                    "repositories": repos,
+                    "organizations": orgs,
+                }
+
+                return RawResult(
+                    collector_name=self.name,
+                    collector_version=self.version,
+                    target=target,
+                    target_type=target_type,
+                    query=f"github:search:email:{target}",
+                    status=ObservationStatus.SUCCESS,
+                    raw_response=raw_response,
+                    normalized_value=target,
+                    confidence=0.85,
+                    metadata={
+                        "repo_count": len(repos),
+                        "org_count": len(orgs),
+                        "search_result_count": len(users),
+                        "matched_username": username,
+                    },
+                )
+
+        except httpx.TimeoutException:
+            return RawResult(
+                collector_name=self.name,
+                collector_version=self.version,
+                target=target,
+                target_type=target_type,
+                query=f"github:search:email:{target}",
+                status=ObservationStatus.TIMEOUT,
+                error_message=f"GitHub search timed out after {settings.GITHUB_TIMEOUT}s",
+            )
+        except Exception as exc:
+            return RawResult(
+                collector_name=self.name,
+                collector_version=self.version,
+                target=target,
+                target_type=target_type,
+                query=f"github:search:email:{target}",
+                status=ObservationStatus.ERROR,
+                error_message=f"GitHub email search failed: {exc}",
+            )
+
+    async def _collect_by_username(
+        self, target: str, target_type: TargetType, settings: Any
+    ) -> RawResult:
+        """Fetch GitHub profile for a username."""
         profile = await self._fetch_profile(target, settings.GITHUB_TIMEOUT)
         if profile.get("error"):
             return RawResult(

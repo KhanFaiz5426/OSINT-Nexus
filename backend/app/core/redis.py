@@ -25,3 +25,9 @@ async def close_redis() -> None:
     if _redis_client:
         await _redis_client.aclose()
         _redis_client = None
+
+
+def reset_redis() -> None:
+    """Reset the Redis client reference (for testing between event loops)."""
+    global _redis_client
+    _redis_client = None

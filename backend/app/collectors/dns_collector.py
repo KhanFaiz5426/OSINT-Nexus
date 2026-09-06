@@ -30,7 +30,7 @@ class DNSCollector(OSINTCollector):
 
     name = "dns"
     version = "1.0.0"
-    supported_target_types = [TargetType.DOMAIN, TargetType.IP]
+    supported_target_types = [TargetType.DOMAIN, TargetType.IP, TargetType.EMAIL]
     requires_api_key = False
     cache_ttl = 3600  # 1 hour
     rate_limit_rpm = 600  # 10 req/s
@@ -46,6 +46,11 @@ class DNSCollector(OSINTCollector):
         settings = get_settings()
         resolver = dns.resolver.Resolver()
         resolver.lifetime = settings.DNS_TIMEOUT
+
+        # Extract domain from email for DNS lookup
+        if target_type == TargetType.EMAIL and "@" in target:
+            domain = target.split("@")[-1].strip().lower()
+            return await self._forward_dns(resolver, domain)
 
         if target_type == TargetType.IP and self._is_ip_address(target):
             return await self._reverse_dns(resolver, target)

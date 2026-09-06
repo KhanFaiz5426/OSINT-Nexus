@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ChevronLeft, Link2, X } from "lucide-react";
+import { ChevronRight, Link2, X } from "lucide-react";
 import { useWorkspaceStore } from "../store/workspace";
 import { Panel } from "./Panel";
 import { EmptyState } from "./EmptyState";
@@ -26,8 +26,6 @@ export function EntityDetailPanel({
 }) {
   const selectedEntityId = useWorkspaceStore((s) => s.selectedEntityId);
   const selectEntity = useWorkspaceStore((s) => s.selectEntity);
-  const rightPanelOpen = useWorkspaceStore((s) => s.rightPanelOpen);
-  const setRightPanel = useWorkspaceStore((s) => s.setRightPanel);
 
   const entity = useEntity(selectedEntityId ?? undefined, investigationId);
   const evidence = useEntityEvidence(
@@ -47,24 +45,15 @@ export function EntityDetailPanel({
     "overview",
   );
 
-  if (!rightPanelOpen) {
-    return (
-      <button
-        onClick={() => setRightPanel(true)}
-        className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow hover:bg-gray-50"
-      >
-        <ChevronLeft className="h-3 w-3" /> Entity
-      </button>
-    );
-  }
-
   return (
     <Panel
+      className="h-full border-0 rounded-none bg-transparent"
+      bodyClassName="p-0 flex flex-col flex-1 min-h-0"
       title={
         selectedEntityId ? (
           <span className="flex items-center gap-2">
-            <span>Entity</span>
-            <span className="font-mono text-xs normal-case text-gray-500">
+            <span>Inspector</span>
+            <span className="font-mono text-[10px] normal-case text-[var(--nx-text-muted)]">
               {selectedEntityId.split(":").slice(1).join(":") || selectedEntityId}
             </span>
           </span>
@@ -76,19 +65,18 @@ export function EntityDetailPanel({
         selectedEntityId && (
           <button
             onClick={() => selectEntity(null)}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)] transition-colors"
             aria-label="Close entity panel"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         )
       }
-      bodyClassName="p-0"
     >
       {!selectedEntityId && (
         <EmptyState
           title="No entity selected"
-          description="Click any row in the entity list or any node in the graph to inspect details here."
+          description="Click any entity in the list or any node in the graph to inspect details."
         />
       )}
 
@@ -101,14 +89,15 @@ export function EntityDetailPanel({
 
       {selectedEntityId && entity.data && (
         <div className="flex h-full flex-col">
-          <div className="border-b border-gray-200 px-4 py-3">
+          {/* Entity header */}
+          <div className="border-b border-[var(--nx-border)] px-4 py-3">
             <div className="flex items-center gap-2">
               {(() => {
                 const color = entityTypeColor(entity.data.type);
                 return (
                   <span
                     className={cn(
-                      "inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ring-1",
+                      "inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1",
                       color.bg,
                       color.text,
                       color.ring,
@@ -118,16 +107,16 @@ export function EntityDetailPanel({
                   </span>
                 );
               })()}
-              <span className="font-mono text-sm font-medium text-gray-900">
+              <span className="font-mono text-sm font-medium text-[var(--nx-text-primary)]">
                 {entity.data.value}
               </span>
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
               <div>
-                <dt className="text-gray-500">Confidence</dt>
+                <dt className="text-[var(--nx-text-muted)]">Confidence</dt>
                 <dd
                   className={cn(
-                    "font-medium tabular-nums",
+                    "font-medium font-mono tabular-nums",
                     confidenceBadgeClass(entity.data.confidence),
                   )}
                 >
@@ -135,23 +124,23 @@ export function EntityDetailPanel({
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500">Sources</dt>
-                <dd className="font-medium tabular-nums text-gray-900">
+                <dt className="text-[var(--nx-text-muted)]">Sources</dt>
+                <dd className="font-medium font-mono tabular-nums text-[var(--nx-text-secondary)]">
                   {entity.data.source_count}
                 </dd>
               </div>
               {entity.data.first_seen && (
                 <div>
-                  <dt className="text-gray-500">First seen</dt>
-                  <dd className="text-gray-900">
+                  <dt className="text-[var(--nx-text-muted)]">First seen</dt>
+                  <dd className="text-[var(--nx-text-secondary)]">
                     {formatDateTime(entity.data.first_seen)}
                   </dd>
                 </div>
               )}
               {entity.data.last_seen && (
                 <div>
-                  <dt className="text-gray-500">Last seen</dt>
-                  <dd className="text-gray-900">
+                  <dt className="text-[var(--nx-text-muted)]">Last seen</dt>
+                  <dd className="text-[var(--nx-text-secondary)]">
                     {formatDateTime(entity.data.last_seen)}
                   </dd>
                 </div>
@@ -159,26 +148,27 @@ export function EntityDetailPanel({
             </dl>
           </div>
 
-          <nav className="flex shrink-0 border-b border-gray-200 bg-gray-50 text-xs">
+          {/* Tabs */}
+          <nav className="flex shrink-0 border-b border-[var(--nx-border)] text-xs">
             {(["overview", "evidence", "relationships"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={cn(
-                  "border-b-2 px-3 py-2 font-medium uppercase tracking-wide transition-colors",
+                  "border-b-2 px-3 py-2 font-medium uppercase tracking-wider transition-colors",
                   tab === t
-                    ? "border-blue-500 text-blue-700"
-                    : "border-transparent text-gray-500 hover:text-gray-700",
+                    ? "border-[var(--nx-accent)] text-[var(--nx-accent)]"
+                    : "border-transparent text-[var(--nx-text-muted)] hover:text-[var(--nx-text-secondary)]",
                 )}
               >
                 {t}
                 {t === "evidence" && evidence.data && (
-                  <span className="ml-1 text-gray-400">
+                  <span className="ml-1 text-[var(--nx-text-muted)]">
                     {evidence.data.length}
                   </span>
                 )}
                 {t === "relationships" && relationships.data && (
-                  <span className="ml-1 text-gray-400">
+                  <span className="ml-1 text-[var(--nx-text-muted)]">
                     {relationships.data.length}
                   </span>
                 )}
@@ -186,6 +176,7 @@ export function EntityDetailPanel({
             ))}
           </nav>
 
+          {/* Tab content */}
           <div className="min-h-0 flex-1 overflow-auto p-4">
             {tab === "overview" && (
               <OverviewTab
@@ -224,27 +215,27 @@ function OverviewTab({
   const entries = Object.entries(properties ?? {});
   if (entries.length === 0) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-[var(--nx-text-muted)]">
         No additional properties recorded for this entity.
       </p>
     );
   }
   return (
     <div className="space-y-2">
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
         Properties
       </div>
-      <dl className="space-y-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs">
+      <dl className="space-y-1 rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] p-3 text-xs">
         {entries.map(([k, v]) => (
           <div key={k} className="flex gap-2">
-            <dt className="shrink-0 font-medium text-gray-600">{k}</dt>
-            <dd className="break-all font-mono text-gray-900">
+            <dt className="shrink-0 font-medium text-[var(--nx-text-tertiary)]">{k}</dt>
+            <dd className="break-all font-mono text-[var(--nx-text-secondary)]">
               {typeof v === "string" ? v : JSON.stringify(v)}
             </dd>
           </div>
         ))}
       </dl>
-      <div className="pt-2 text-[10px] text-gray-400">id: {entityId}</div>
+      <div className="pt-2 text-[10px] font-mono text-[var(--nx-text-muted)]">id: {entityId}</div>
     </div>
   );
 }
@@ -279,61 +270,61 @@ function EvidenceTab({
         return (
           <li
             key={id}
-            className="rounded-md border border-gray-200 bg-white"
+            className="rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)]"
           >
             <button
               onClick={() =>
                 setEvidenceOpen((s) => ({ ...s, [id]: !open }))
               }
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-[var(--nx-surface-4)] transition-colors rounded-md"
             >
               <span className="flex items-center gap-2">
-                <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+                <span className="inline-flex items-center rounded bg-[var(--nx-surface-4)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-tertiary)]">
                   {obs.source_adapter}
                 </span>
-                <span className="font-mono text-xs text-gray-900">
+                <span className="font-mono text-xs text-[var(--nx-text-secondary)]">
                   {obs.target}
                 </span>
               </span>
               {open ? (
-                <ChevronRight className="h-3.5 w-3.5 rotate-90 text-gray-400" />
+                <ChevronRight className="h-3.5 w-3.5 rotate-90 text-[var(--nx-text-muted)]" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                <ChevronRight className="h-3.5 w-3.5 text-[var(--nx-text-muted)]" />
               )}
             </button>
             {open && (
-              <div className="border-t border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="border-t border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-2">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                   <div>
-                    <span className="text-gray-500">Collected:</span>{" "}
-                    <span className="font-mono text-gray-900">
+                    <span className="text-[var(--nx-text-muted)]">Collected:</span>{" "}
+                    <span className="font-mono text-[var(--nx-text-secondary)]">
                       {formatDateTime(obs.collected_at)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Confidence:</span>{" "}
-                    <span className="font-mono text-gray-900">
+                    <span className="text-[var(--nx-text-muted)]">Confidence:</span>{" "}
+                    <span className="font-mono text-[var(--nx-text-secondary)]">
                       {formatPercent(obs.confidence, 0)}
                     </span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-gray-500">Method:</span>{" "}
-                    <span className="font-mono text-gray-900">
+                    <span className="text-[var(--nx-text-muted)]">Method:</span>{" "}
+                    <span className="font-mono text-[var(--nx-text-secondary)]">
                       {obs.method || "—"}
                     </span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-gray-500">Normalized:</span>{" "}
-                    <span className="font-mono text-gray-900">
+                    <span className="text-[var(--nx-text-muted)]">Normalized:</span>{" "}
+                    <span className="font-mono text-[var(--nx-text-secondary)]">
                       {obs.normalized_value || "—"}
                     </span>
                   </div>
                 </div>
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-[11px] font-medium text-blue-600 hover:text-blue-800">
+                  <summary className="cursor-pointer text-[11px] font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80">
                     Raw response
                   </summary>
-                  <pre className="mt-1 max-h-64 overflow-auto rounded bg-gray-900 px-2 py-1.5 text-[10px] text-gray-100">
+                  <pre className="mt-1 max-h-64 overflow-auto rounded bg-[var(--nx-base)] px-2 py-1.5 text-[10px] text-[var(--nx-text-tertiary)] font-mono">
                     {JSON.stringify(obs.raw_response, null, 2)}
                   </pre>
                 </details>
@@ -385,15 +376,15 @@ function RelationshipsTab({
         return (
           <li
             key={rel.id}
-            className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs"
+            className="rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] px-3 py-2 text-xs"
           >
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+              <span className="inline-flex items-center rounded bg-[var(--nx-surface-4)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-tertiary)]">
                 {rel.type.replace(/_/g, " ")}
               </span>
               <span
                 className={cn(
-                  "tabular-nums",
+                  "tabular-nums font-mono",
                   confidenceBadgeClass(rel.confidence),
                 )}
               >
@@ -402,13 +393,13 @@ function RelationshipsTab({
             </div>
             <button
               onClick={() => onSelectEntity(otherId)}
-              className="mt-1 flex w-full items-center gap-1.5 truncate text-left font-mono text-xs text-blue-600 hover:text-blue-800"
+              className="mt-1.5 flex w-full items-center gap-1.5 truncate text-left font-mono text-xs text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80 transition-colors"
             >
               <Link2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{otherLabel}</span>
             </button>
             {rel.method && (
-              <div className="mt-1 text-[10px] text-gray-500">
+              <div className="mt-1 text-[10px] text-[var(--nx-text-muted)]">
                 via {rel.method}
               </div>
             )}

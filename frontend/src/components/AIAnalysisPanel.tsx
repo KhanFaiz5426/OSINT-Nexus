@@ -54,60 +54,62 @@ export function AIAnalysisPanel({
     <Panel
       title="AI Analysis"
       actions={
-        <span className="text-[10px] text-gray-400">
-          {data.pivot_rounds_completed} pivot rounds
+        <span className="text-[10px] font-mono text-[var(--nx-text-muted)]">
+          {data.pivot_rounds_completed} pivots
         </span>
       }
     >
       {!analyzer && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[var(--nx-text-muted)]">
           Analysis is unavailable for this investigation.
         </p>
       )}
       {analyzer && (
         <div className="space-y-4">
+          {/* Risk level + summary */}
           <div>
             <div className="flex items-center gap-2">
               <span
                 className={cn(
-                  "inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
+                  "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
                   riskBadgeClass(analyzer.risk_level),
                 )}
               >
                 {analyzer.risk_level} risk
               </span>
             </div>
-            <p className="mt-2 text-sm leading-relaxed text-gray-800">
+            <p className="mt-2 text-sm leading-relaxed text-[var(--nx-text-secondary)]">
               {analyzer.summary}
             </p>
             {analyzer.risk_reasoning && (
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--nx-text-muted)]">
                 {analyzer.risk_reasoning}
               </p>
             )}
           </div>
 
+          {/* Key findings */}
           {analyzer.key_findings.length > 0 && (
             <div>
-              <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-700">
-                <Lightbulb className="h-3.5 w-3.5" />
+              <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-tertiary)]">
+                <Lightbulb className="h-3.5 w-3.5 text-amber-400" />
                 Key Findings ({analyzer.key_findings.length})
               </h3>
               <ul className="space-y-2">
                 {analyzer.key_findings.map((f, i: number) => (
                   <li
                     key={i}
-                    className="rounded-md border border-gray-200 bg-gray-50 p-2.5"
+                    className="rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] p-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-sm font-medium text-gray-900">
+                      <h4 className="text-sm font-medium text-[var(--nx-text-primary)]">
                         {f.title}
                       </h4>
-                      <span className="shrink-0 text-xs tabular-nums text-gray-500">
+                      <span className="shrink-0 text-[10px] font-mono tabular-nums text-[var(--nx-text-muted)]">
                         {(f.confidence * 100).toFixed(0)}%
                       </span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-gray-700">
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-tertiary)]">
                       {f.description}
                     </p>
                     {f.entity_ids.length > 0 && (
@@ -116,13 +118,13 @@ export function AIAnalysisPanel({
                           <button
                             key={eid}
                             onClick={() => selectEntity(eid)}
-                            className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-blue-600 ring-1 ring-gray-300 hover:bg-blue-50"
+                            className="rounded bg-[var(--nx-surface-4)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--nx-accent)] ring-1 ring-[var(--nx-border)] hover:bg-[var(--nx-accent-subtle)] transition-colors"
                           >
                             {eid}
                           </button>
                         ))}
                         {f.entity_ids.length > 5 && (
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-[var(--nx-text-muted)]">
                             +{f.entity_ids.length - 5} more
                           </span>
                         )}
@@ -134,20 +136,21 @@ export function AIAnalysisPanel({
             </div>
           )}
 
+          {/* Recommendations */}
           {analyzer.recommendations.length > 0 && (
             <div>
-              <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-700">
-                <ShieldAlert className="h-3.5 w-3.5" />
+              <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-tertiary)]">
+                <ShieldAlert className="h-3.5 w-3.5 text-sky-400" />
                 Recommendations
               </h3>
-              <ul className="space-y-1 text-sm text-gray-800">
+              <ul className="space-y-1 text-sm">
                 {analyzer.recommendations.map((r: string, i: number) => (
                   <li
                     key={i}
-                    className="flex items-start gap-2 rounded-md border border-gray-200 bg-white p-2"
+                    className="flex items-start gap-2 rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] p-2"
                   >
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                    <span>{r}</span>
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                    <span className="text-[var(--nx-text-secondary)]">{r}</span>
                   </li>
                 ))}
               </ul>
@@ -156,7 +159,7 @@ export function AIAnalysisPanel({
         </div>
       )}
 
-      <div className="mt-4 border-t border-gray-100 pt-3 text-[10px] text-gray-400">
+      <div className="mt-4 border-t border-[var(--nx-border)] pt-3 text-[10px] font-mono text-[var(--nx-text-muted)]">
         {data.graph_summary.entity_count} entities ·{" "}
         {data.graph_summary.relationship_count} relationships ·{" "}
         Generated {data.generated_at ? new Date(data.generated_at).toLocaleString() : "—"}

@@ -37,7 +37,8 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
                 (name, target, target_type, status, depth, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, name, target, target_type, status, depth,
-                      created_at, updated_at, api_calls_used, api_budget
+                      created_at, updated_at, api_calls_used, api_budget,
+                      entity_count, relationship_count, observation_count
             """,
             data.name,
             normalized_target,
@@ -62,8 +63,9 @@ async def list_investigations(
         if status:
             rows = await conn.fetch(
                 """
-                SELECT id, name, target, target_type, status, depth, created_at, updated_at,
-                       api_calls_used, api_budget
+                SELECT id, name, target, target_type, status, depth,
+                       created_at, updated_at, api_calls_used, api_budget,
+                       entity_count, relationship_count, observation_count
                 FROM investigations
                 WHERE status = $1
                 ORDER BY created_at DESC
@@ -76,8 +78,9 @@ async def list_investigations(
         else:
             rows = await conn.fetch(
                 """
-                SELECT id, name, target, target_type, status, depth, created_at, updated_at,
-                       api_calls_used, api_budget
+                SELECT id, name, target, target_type, status, depth,
+                       created_at, updated_at, api_calls_used, api_budget,
+                       entity_count, relationship_count, observation_count
                 FROM investigations
                 ORDER BY created_at DESC
                 LIMIT $1 OFFSET $2
@@ -96,7 +99,7 @@ async def get_investigation(investigation_id: str) -> InvestigationResponse | No
         row = await conn.fetchrow(
             """
             SELECT id, name, target, target_type, status, depth, created_at, updated_at,
-                   api_calls_used, api_budget
+                   api_calls_used, api_budget, entity_count, relationship_count, observation_count
             FROM investigations
             WHERE id = $1
             """,
@@ -119,8 +122,9 @@ async def stop_investigation(investigation_id: str) -> InvestigationResponse | N
             UPDATE investigations
             SET status = $1, updated_at = $2
             WHERE id = $3 AND status IN ($4, $5)
-            RETURNING id, name, target, target_type, status, depth, created_at, updated_at,
-                      api_calls_used, api_budget
+            RETURNING id, name, target, target_type, status, depth,
+                      created_at, updated_at, api_calls_used, api_budget,
+                      entity_count, relationship_count, observation_count
             """,
             InvestigationStatus.STOPPED.value,
             now,
@@ -146,4 +150,7 @@ def _row_to_response(row: asyncpg.Record) -> InvestigationResponse:
         depth=InvestigationDepth(row["depth"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        entity_count=row.get("entity_count", 0) or 0,
+        relationship_count=row.get("relationship_count", 0) or 0,
+        observation_count=row.get("observation_count", 0) or 0,
     )

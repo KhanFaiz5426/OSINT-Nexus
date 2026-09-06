@@ -1,5 +1,6 @@
 /**
  * Shared formatting and display helpers.
+ * Adapted for the dark-first OSINT Nexus theme.
  */
 
 import type { InvestigationStatus, RiskLevel } from "../api/investigations";
@@ -61,46 +62,48 @@ export function formatPercent(v: number, digits = 0): string {
   return `${(v * 100).toFixed(digits)}%`;
 }
 
+/** Status badge classes for light and dark backgrounds. */
 export function statusBadgeClass(status: InvestigationStatus): string {
   switch (status) {
     case "running":
-      return "bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200";
+      return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30";
     case "completed":
-      return "bg-green-50 text-green-800 ring-1 ring-green-200";
+      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30";
     case "error":
-      return "bg-red-50 text-red-800 ring-1 ring-red-200";
+      return "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30";
     case "stopped":
-      return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
+      return "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30";
     case "paused":
-      return "bg-orange-50 text-orange-800 ring-1 ring-orange-200";
+      return "bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30";
     case "created":
-      return "bg-blue-50 text-blue-800 ring-1 ring-blue-200";
+      return "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30";
   }
 }
 
+/** Risk level badge classes for light and dark backgrounds. */
 export function riskBadgeClass(level: RiskLevel): string {
   switch (level) {
     case "low":
-      return "bg-green-50 text-green-800 ring-1 ring-green-200";
+      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30";
     case "medium":
-      return "bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200";
+      return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30";
     case "high":
-      return "bg-orange-50 text-orange-800 ring-1 ring-orange-200";
+      return "bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30";
     case "critical":
-      return "bg-red-50 text-red-800 ring-1 ring-red-200";
+      return "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30";
   }
 }
 
+/** Confidence text color for light and dark backgrounds. */
 export function confidenceBadgeClass(c: number): string {
-  if (c >= 0.8) return "text-green-700";
-  if (c >= 0.5) return "text-yellow-700";
-  if (c > 0) return "text-orange-700";
-  return "text-gray-500";
+  if (c >= 0.8) return "text-emerald-600 dark:text-emerald-400";
+  if (c >= 0.5) return "text-amber-600 dark:text-amber-400";
+  if (c > 0) return "text-orange-600 dark:text-orange-400";
+  return "text-slate-600 dark:text-slate-400";
 }
 
 /**
- * Type color tokens for entities. Returns a Tailwind text/ring combo.
- * Values come from the backend's EntityType enum.
+ * Entity type color tokens for dark backgrounds.
  */
 export function entityTypeColor(type: string): {
   bg: string;
@@ -110,93 +113,92 @@ export function entityTypeColor(type: string): {
   const t = type.toLowerCase();
   if (t.includes("threat")) {
     return {
-      bg: "bg-red-100",
-      text: "text-red-800",
-      ring: "ring-red-300",
+      bg: "bg-red-500/15",
+      text: "text-red-400",
+      ring: "ring-red-500/30",
     };
   }
   if (t.includes("ip") || t.includes("asn")) {
     return {
-      bg: "bg-indigo-100",
-      text: "text-indigo-800",
-      ring: "ring-indigo-300",
+      bg: "bg-indigo-500/15",
+      text: "text-indigo-400",
+      ring: "ring-indigo-500/30",
     };
   }
   if (t.includes("domain") || t.includes("subdomain")) {
     return {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
-      ring: "ring-blue-300",
+      bg: "bg-sky-500/15",
+      text: "text-sky-400",
+      ring: "ring-sky-500/30",
     };
   }
   if (t.includes("email") || t.includes("person")) {
     return {
-      bg: "bg-purple-100",
-      text: "text-purple-800",
-      ring: "ring-purple-300",
+      bg: "bg-purple-500/15",
+      text: "text-purple-400",
+      ring: "ring-purple-500/30",
     };
   }
   if (t.includes("certificate")) {
     return {
-      bg: "bg-emerald-100",
-      text: "text-emerald-800",
-      ring: "ring-emerald-300",
+      bg: "bg-emerald-500/15",
+      text: "text-emerald-400",
+      ring: "ring-emerald-500/30",
     };
   }
   if (t.includes("url")) {
     return {
-      bg: "bg-cyan-100",
-      text: "text-cyan-800",
-      ring: "ring-cyan-300",
+      bg: "bg-cyan-500/15",
+      text: "text-cyan-400",
+      ring: "ring-cyan-500/30",
     };
   }
   if (t.includes("username") || t.includes("repository")) {
     return {
-      bg: "bg-amber-100",
-      text: "text-amber-800",
-      ring: "ring-amber-300",
+      bg: "bg-amber-500/15",
+      text: "text-amber-400",
+      ring: "ring-amber-500/30",
     };
   }
   if (t.includes("technology")) {
     return {
-      bg: "bg-slate-100",
-      text: "text-slate-800",
-      ring: "ring-slate-300",
+      bg: "bg-slate-500/15",
+      text: "text-slate-400",
+      ring: "ring-slate-500/30",
     };
   }
   if (t.includes("organization")) {
     return {
-      bg: "bg-rose-100",
-      text: "text-rose-800",
-      ring: "ring-rose-300",
+      bg: "bg-rose-500/15",
+      text: "text-rose-400",
+      ring: "ring-rose-500/30",
     };
   }
   return {
-    bg: "bg-gray-100",
-    text: "text-gray-800",
-    ring: "ring-gray-300",
+    bg: "bg-slate-500/15",
+    text: "text-slate-400",
+    ring: "ring-slate-500/30",
   };
 }
 
 /**
- * Build a Cytoscape.js style selector mapping for node type colors.
- * Values are flat strings (no rgba) for clarity.
+ * Cytoscape node type colors — brighter variants for dark canvas.
  */
 export const NODE_TYPE_COLORS: Record<string, string> = {
-  Domain: "#1d4ed8",
-  Subdomain: "#3b82f6",
-  IP: "#6366f1",
-  ASN: "#4f46e5",
-  Certificate: "#059669",
-  Email: "#7c3aed",
-  URL: "#0891b2",
-  Username: "#b45309",
-  Repository: "#92400e",
-  Technology: "#475569",
-  Organization: "#be123c",
-  Person: "#a21caf",
-  ThreatIndicator: "#dc2626",
+  Domain: "#38bdf8",
+  Subdomain: "#7dd3fc",
+  IP: "#818cf8",
+  ASN: "#a78bfa",
+  Certificate: "#34d399",
+  Email: "#c084fc",
+  URL: "#22d3ee",
+  Username: "#fbbf24",
+  Repository: "#f59e0b",
+  Technology: "#94a3b8",
+  Organization: "#fb7185",
+  Person: "#e879f9",
+  ThreatIndicator: "#f87171",
 };
 
-export const DEFAULT_NODE_COLOR = "#6b7280";
-export const DEFAULT_EDGE_COLOR = "#9ca3af";
+export const DEFAULT_NODE_COLOR = "#64748b";
+export const DEFAULT_EDGE_COLOR = "#475569";

@@ -35,6 +35,7 @@ from app.models.ai import PivotAction, PivotRecommendation
 from app.services.classifier import classify_target
 from app.services.correlator import correlate_observations
 from app.services.pivot_selector import ACTION_TO_COLLECTOR, select_pivots
+from app.services.username_correlator import correlate_username_accounts
 
 logger = logging.getLogger(__name__)
 
@@ -335,6 +336,35 @@ async def increment_api_calls(investigation_id: str, count: int = 1) -> None:
         logger.warning("Failed to increment API calls: %s", exc)
 
 
+async def update_investigation_counts(
+    investigation_id: str,
+    entity_count: int,
+    relationship_count: int,
+    observation_count: int,
+) -> None:
+    """Update entity, relationship, and observation counts in PostgreSQL."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE investigations
+                SET entity_count = $1,
+                    relationship_count = $2,
+                    observation_count = $3,
+                    updated_at = $4
+                WHERE id = $5
+                """,
+                entity_count,
+                relationship_count,
+                observation_count,
+                datetime.now(UTC),
+                investigation_id,
+            )
+    except Exception as exc:
+        logger.warning("Failed to update investigation counts: %s", exc)
+
+
 # ── Main orchestration loop ──────────────────────────────────────────────────
 
 
@@ -399,8 +429,51 @@ async def run_investigation_loop(
 
         # Phase 1b: Correlate initial observations.
         if initial_observations:
-            await correlate_observations(investigation_id, initial_observations)
+            corr_result = await correlate_observations(investigation_id, initial_observations)
             await increment_api_calls(investigation_id, len(initial_observations))
+            # Update PostgreSQL counts from correlation results.
+            await update_investigation_counts(
+                investigation_id,
+                corr_result.get("entities_resolved", 0),
+                corr_result.get("relationships_detected", 0),
+                len(initial_observations),
+            )
+
+        # Phase 1c: Username cross-platform correlation (for USERNAME targets).
+        if state.target_type == TargetType.USERNAME and initial_observations:
+            username_result = correlate_username_accounts(initial_observations)
+            if username_result["entities"] or username_result["relationships"]:
+                await _write_username_correlation(
+                    investigation_id, username_result
+                )
+                await log_activity(investigation_id, "username_correlation", {
+                    "accounts_found": len(username_result["accounts"]),
+                    "correlations": len(username_result["correlations"]),
+                    "entities_created": len(username_result["entities"]),
+                })
+
+        # Phase 1d: Username expansion — search variations and real names.
+        if state.target_type == TargetType.USERNAME and initial_observations:
+            expansion_obs = await _expand_username_searches(
+                state, initial_observations, investigation_id
+            )
+            if expansion_obs:
+                initial_observations.extend(expansion_obs)
+                # Correlate expansion observations.
+                corr_result = await correlate_observations(investigation_id, expansion_obs)
+                await increment_api_calls(investigation_id, len(expansion_obs))
+                await update_investigation_counts(
+                    investigation_id,
+                    corr_result.get("entities_resolved", 0),
+                    corr_result.get("relationships_detected", 0),
+                    state.total_observations_collected + len(expansion_obs),
+                )
+                # Re-run username correlation with new observations.
+                username_result = correlate_username_accounts(expansion_obs)
+                if username_result["entities"] or username_result["relationships"]:
+                    await _write_username_correlation(
+                        investigation_id, username_result
+                    )
 
         # Phase 2: AI-guided pivot loop.
         while True:
@@ -475,8 +548,25 @@ async def run_investigation_loop(
 
             # Correlate round observations.
             if round_observations:
-                await correlate_observations(investigation_id, round_observations)
+                corr_result = await correlate_observations(investigation_id, round_observations)
                 await increment_api_calls(investigation_id, len(round_observations))
+                # Accumulate counts across rounds.
+                total_obs = state.total_observations_collected + len(round_observations)
+                state.total_observations_collected = total_obs
+                await update_investigation_counts(
+                    investigation_id,
+                    corr_result.get("entities_resolved", 0),
+                    corr_result.get("relationships_detected", 0),
+                    total_obs,
+                )
+
+                # Username cross-platform correlation for pivot observations.
+                if state.target_type == TargetType.USERNAME:
+                    username_result = correlate_username_accounts(round_observations)
+                    if username_result["entities"] or username_result["relationships"]:
+                        await _write_username_correlation(
+                            investigation_id, username_result
+                        )
 
             # Move to next round.
             state.next_round()
@@ -656,3 +746,168 @@ async def _get_recent_pivots(investigation_id: str) -> list[dict[str, Any]]:
         ]
     except Exception:
         return []
+
+
+async def _write_username_correlation(
+    investigation_id: str,
+    username_result: dict[str, Any],
+) -> None:
+    """Write username correlation entities and relationships to Neo4j."""
+    entities = username_result.get("entities", [])
+    relationships = username_result.get("relationships", [])
+
+    if not entities and not relationships:
+        return
+
+    try:
+        from app.graph.client import get_driver
+        from app.graph.writer import write_graph
+
+        driver = await get_driver()
+        nodes_written, edges_written = await write_graph(
+            entities,
+            relationships,
+            investigation_id=investigation_id,
+            driver=driver,
+        )
+        logger.info(
+            "Username correlation graph write: %d nodes, %d edges",
+            nodes_written,
+            edges_written,
+        )
+    except Exception as exc:
+        logger.warning("Failed to write username correlation to graph: %s", exc)
+
+
+async def _expand_username_searches(
+    state: "InvestigationState",
+    observations: list[dict[str, Any]],
+    investigation_id: str,
+) -> list[dict[str, Any]]:
+    """Expand username investigation by checking all platforms and searching variations.
+
+    For USERNAME targets, this always dispatches platform-specific collectors
+    (GitHub, GitLab, Reddit, Keybase, HackerNews) regardless of search results.
+    It also extracts real names from any profile data and searches for them.
+
+    This runs BEFORE AI planning so the investigation has data even if AI fails.
+    """
+    import asyncio
+    from app.collectors.registry import get_collector
+    from app.models import TargetType
+    from app.models.ai import PivotAction
+    from app.services.username_variations import (
+        extract_real_name_from_profile,
+        generate_username_variations,
+    )
+
+    extra_observations: list[dict[str, Any]] = []
+
+    # ── Step 1: Always check all username-capable platforms ───────────────
+    # Don't rely on search results to decide — just check them all.
+    platform_collectors = [
+        ("github", PivotAction.COLLECT_GITHUB),
+        ("gitlab", PivotAction.COLLECT_GITLAB),
+        ("reddit", PivotAction.COLLECT_REDDIT),
+        ("keybase", PivotAction.COLLECT_KEYBASE),
+        ("hackernews", PivotAction.COLLECT_HACKERNEWS),
+    ]
+
+    for collector_name, action in platform_collectors:
+        if state.budget_exhausted:
+            break
+        # Skip if we already have an observation from this collector
+        already_collected = any(
+            obs.get("collector_name") == collector_name for obs in observations
+        )
+        if already_collected:
+            continue
+
+        try:
+            collector = get_collector(collector_name)
+            if not collector:
+                continue
+            obs = await collector.collect(state.target, TargetType.USERNAME)
+            if obs and obs.get("status") == "success":
+                extra_observations.append(obs)
+                state.consume_budget()
+                state.record_dispatch(action, state.target)
+                logger.info(
+                    "Username platform check: %s found for %s",
+                    collector_name, state.target,
+                )
+            await asyncio.sleep(0.3)
+        except Exception as exc:
+            logger.debug("Platform %s failed for %s: %s", collector_name, state.target, exc)
+
+    # ── Step 2: Extract real names from all observations ──────────────────
+    all_obs = observations + extra_observations
+    discovered_names: list[str] = []
+    for obs in all_obs:
+        raw = obs.get("raw_response", {})
+        if isinstance(raw, dict):
+            profile = raw.get("profile") or raw
+            if isinstance(profile, dict):
+                name = extract_real_name_from_profile(profile)
+                if name and name not in discovered_names:
+                    discovered_names.append(name)
+
+    if discovered_names:
+        logger.info("Discovered real names: %s", discovered_names)
+        await log_activity(investigation_id, "username_names_discovered", {
+            "names": discovered_names,
+        })
+
+    # ── Step 3: Search for real names across the web ──────────────────────
+    search_collector = get_collector("search")
+    if search_collector and discovered_names and state.budget_remaining > 1:
+        for name in discovered_names[:2]:
+            if state.budget_exhausted:
+                break
+            try:
+                name_obs = await search_collector.collect(
+                    name, TargetType.USERNAME
+                )
+                if name_obs and name_obs.get("status") == "success":
+                    extra_observations.append(name_obs)
+                    state.consume_budget()
+                    state.record_dispatch(
+                        PivotAction.COLLECT_SEARCH, f"real_name:{name}"
+                    )
+                await asyncio.sleep(1.0)
+            except Exception as exc:
+                logger.debug("Real name search failed: %s", exc)
+
+    # ── Step 4: Search top username variations ────────────────────────────
+    if search_collector and state.budget_remaining > 1:
+        variations = generate_username_variations(state.target, max_variations=3)
+        for var in variations[1:2]:  # Just try 1 variation
+            if state.budget_exhausted:
+                break
+            try:
+                var_obs = await search_collector.collect(
+                    var, TargetType.USERNAME
+                )
+                if var_obs and var_obs.get("status") == "success":
+                    extra_observations.append(var_obs)
+                    state.consume_budget()
+                    state.record_dispatch(
+                        PivotAction.COLLECT_SEARCH, f"variation:{var}"
+                    )
+                await asyncio.sleep(1.0)
+            except Exception as exc:
+                logger.debug("Variation search failed: %s", exc)
+
+    if extra_observations:
+        logger.info(
+            "Username expansion: %d extra observations from %d platforms, names: %s",
+            len(extra_observations),
+            len([o for o in extra_observations if o.get("collector_name") != "search"]),
+            discovered_names,
+        )
+        await log_activity(investigation_id, "username_expansion_complete", {
+            "extra_observations": len(extra_observations),
+            "names_discovered": discovered_names,
+        })
+
+    return extra_observations

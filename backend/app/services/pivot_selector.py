@@ -24,6 +24,11 @@ ACTION_TO_COLLECTOR: dict[PivotAction, str] = {
     PivotAction.COLLECT_GITHUB: "github",
     PivotAction.COLLECT_HTTP: "http",
     PivotAction.COLLECT_THREAT_INTEL: "threat_intel",
+    PivotAction.COLLECT_REDDIT: "reddit",
+    PivotAction.COLLECT_KEYBASE: "keybase",
+    PivotAction.COLLECT_HACKERNEWS: "hackernews",
+    PivotAction.COLLECT_GITLAB: "gitlab",
+    PivotAction.COLLECT_SEARCH: "search",
 }
 
 

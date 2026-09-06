@@ -33,17 +33,17 @@ export function GraphLegend({ investigationId }: GraphLegendProps) {
   if (presentTypes.length === 0) return null;
 
   return (
-    <div className="rounded-md border border-gray-200 bg-white p-2">
-      <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+    <div className="absolute left-3 top-3 z-10 rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-2)]/90 backdrop-blur-sm p-2">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
           Legend
         </h3>
         {graphTypeFilter.size > 0 && (
           <button
             onClick={clearGraphTypeFilter}
-            className="text-[10px] font-medium text-blue-600 hover:text-blue-800"
+            className="text-[10px] font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80 transition-colors"
           >
-            Show all
+            Reset
           </button>
         )}
       </div>
@@ -57,16 +57,16 @@ export function GraphLegend({ investigationId }: GraphLegendProps) {
               key={type}
               onClick={() => toggleGraphType(type)}
               className={cn(
-                "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide transition-opacity",
-                active ? "opacity-100" : "opacity-30 hover:opacity-70",
+                "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide transition-opacity",
+                active ? "opacity-100" : "opacity-30 hover:opacity-60",
               )}
             >
               <span
                 className="inline-block h-2 w-2 rounded-full"
                 style={{ backgroundColor: color }}
               />
-              {type}
-              <span className="ml-0.5 text-gray-400">{count}</span>
+              <span className="text-[var(--nx-text-secondary)]">{type}</span>
+              <span className="text-[var(--nx-text-muted)]">{count}</span>
             </button>
           );
         })}

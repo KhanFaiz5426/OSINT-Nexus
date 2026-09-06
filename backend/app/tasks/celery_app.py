@@ -10,6 +10,7 @@ celery_app = Celery(
     "osint_nexus",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
+    include=["app.tasks.run_investigation"],
 )
 
 celery_app.conf.update(
@@ -19,15 +20,13 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=60,
-    task_soft_time_limit=45,
+    task_time_limit=600,
+    task_soft_time_limit=540,
     worker_concurrency=4,
     task_routes={
+        "app.tasks.run_investigation": {"queue": "osint"},
         "app.tasks.collect_*": {"queue": "osint"},
         "app.tasks.ai_*": {"queue": "ai"},
         "app.tasks.generate_*": {"queue": "reports"},
     },
 )
-
-# Auto-discover tasks in the tasks package
-celery_app.autodiscover_tasks(["app.tasks"])

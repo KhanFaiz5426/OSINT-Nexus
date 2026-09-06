@@ -131,6 +131,7 @@ backend/build/
 backend/dist/
 backend/coverage/
 frontend/build/
+frontend/dist/
 frontend/coverage/
 
 # Frontend package manifests — keep these tracked (NOT ignored):
@@ -299,6 +300,13 @@ server-*.log
 access.log
 error.log
 
+# Build / docker logs (local scratch)
+backend_build.txt
+build_log*.txt
+down_log.txt
+*_build.txt
+*_log.txt
+
 
 # ── Temporary files ──────────────────────────────────────────────────────────
 tmp/
@@ -375,6 +383,7 @@ elastic_data/
 # ── Generated reports / exports / runtime investigation data ─────────────────
 # Anything produced by the running app or investigator
 reports/
+reports_output/
 exports/
 investigation_data/
 investigations_data/
@@ -474,3 +483,8 @@ obj/
 .history/
 .idea/
 *~
+
+# Local scratch / test output (not for repo)
+test_nvidia_api.py
+test_ai_output.txt
+test_parser.py

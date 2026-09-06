@@ -123,19 +123,10 @@ def parse_analyzer_response(response_text: str) -> AIAnalyzerOutput | None:
     Returns:
         Validated AIAnalyzerOutput or None if parsing/validation fails.
     """
-    text = response_text.strip()
-    if text.startswith("```json"):
-        text = text[7:]
-    elif text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
-    text = text.strip()
+    from app.ai.response_parser import extract_json_from_llm_response
 
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        logger.warning("Failed to parse AI analyzer response as JSON: %s", exc)
+    data = extract_json_from_llm_response(response_text)
+    if data is None:
         return None
 
     return validate_analyzer_output(data)
@@ -182,6 +173,7 @@ async def analyze_investigation(
 
     try:
         response_text = await llm_call_fn(messages)
+        logger.debug("LLM analyzer response length: %d chars", len(response_text))
     except Exception as exc:
         logger.error("LLM call failed during analysis: %s", exc)
         return AIAnalyzerOutput(

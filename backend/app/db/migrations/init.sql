@@ -12,12 +12,29 @@ CREATE TABLE IF NOT EXISTS investigations (
     depth TEXT NOT NULL DEFAULT 'standard',
     api_calls_used INT NOT NULL DEFAULT 0,
     api_budget INT NOT NULL DEFAULT 100,
+    entity_count INT NOT NULL DEFAULT 0,
+    relationship_count INT NOT NULL DEFAULT 0,
+    observation_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_investigations_status ON investigations(status);
 CREATE INDEX IF NOT EXISTS idx_investigations_created ON investigations(created_at DESC);
+
+-- Add count columns if they don't exist (for existing databases)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='investigations' AND column_name='entity_count') THEN
+        ALTER TABLE investigations ADD COLUMN entity_count INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='investigations' AND column_name='relationship_count') THEN
+        ALTER TABLE investigations ADD COLUMN relationship_count INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='investigations' AND column_name='observation_count') THEN
+        ALTER TABLE investigations ADD COLUMN observation_count INT NOT NULL DEFAULT 0;
+    END IF;
+END $$;
 
 -- Observations (immutable evidence records)
 CREATE TABLE IF NOT EXISTS observations (
@@ -66,3 +83,15 @@ CREATE TABLE IF NOT EXISTS activity_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_log_investigation ON activity_log(investigation_id);
+
+-- Reports (generated investigation reports)
+CREATE TABLE IF NOT EXISTS reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    investigation_id UUID NOT NULL REFERENCES investigations(id) ON DELETE CASCADE,
+    format TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_investigation ON reports(investigation_id);

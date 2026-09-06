@@ -3,6 +3,8 @@
 Task 5.8: GET /investigations/{id}/graph — return nodes + edges for Cytoscape.js.
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 
 from app.db.client import get_pool
@@ -10,6 +12,7 @@ from app.graph.reader import get_entity_neighbors, get_investigation_subgraph
 from app.models import GraphResponse
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/investigations/{investigation_id}/graph", response_model=GraphResponse)
@@ -43,8 +46,9 @@ async def get_investigation_graph(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Failed to query knowledge graph for %s", investigation_id)
         raise HTTPException(
-            status_code=500, detail="Failed to query knowledge graph"
+            status_code=500, detail=f"Failed to query knowledge graph: {exc}"
         ) from exc
 
     return GraphResponse(nodes=result["nodes"], edges=result["edges"])

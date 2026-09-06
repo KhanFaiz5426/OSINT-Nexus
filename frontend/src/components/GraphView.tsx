@@ -26,6 +26,9 @@ export function GraphView({ investigationId }: GraphViewProps) {
   const graphTypeFilter = useWorkspaceStore((s) => s.graphTypeFilter);
   const selectedEntityId = useWorkspaceStore((s) => s.selectedEntityId);
   const selectEntity = useWorkspaceStore((s) => s.selectEntity);
+  const graphLayout = useWorkspaceStore((s) => s.graphLayout);
+  const fitTrigger = useWorkspaceStore((s) => s.fitTrigger);
+  const theme = useWorkspaceStore((s) => s.theme);
 
   // Initialize cytoscape once.
   useEffect(() => {
@@ -40,56 +43,70 @@ export function GraphView({ investigationId }: GraphViewProps) {
           style: {
             "background-color": DEFAULT_NODE_COLOR,
             label: "data(displayLabel)",
-            color: "#111827",
+            color: theme === "light" ? "#0f172a" : "#cbd5e1",
             "font-size": "10px",
             "font-family": "Inter, system-ui, sans-serif",
             "text-valign": "bottom",
             "text-halign": "center",
-            "text-margin-y": 4,
+            "text-margin-y": 5,
             "text-wrap": "wrap",
             "text-max-width": "120px",
-            "border-width": 1,
-            "border-color": "#ffffff",
-            width: 26,
-            height: 26,
+            "border-width": 2,
+            "border-color": "data(color)",
+            "background-opacity": 0.9,
+            width: 30,
+            height: 30,
+            "text-background-color": theme === "light" ? "#ffffff" : "#0f1420",
+            "text-background-opacity": 0.85,
+            "text-background-padding": "2px",
+            "text-background-shape": "roundrectangle",
           },
         },
         {
           selector: "node:selected",
           style: {
             "border-width": 3,
-            "border-color": "#2563eb",
-            width: 34,
-            height: 34,
+            "border-color": theme === "light" ? "#0284c7" : "#22d3ee",
+            width: 38,
+            height: 38,
             "z-index": 999,
           },
         },
         {
           selector: "node.dimmed",
-          style: { opacity: 0.2 },
+          style: { opacity: 0.15 },
         },
         {
           selector: "edge",
           style: {
-            width: 1.2,
-            "line-color": DEFAULT_EDGE_COLOR,
+            width: 1,
+            "line-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
             "curve-style": "bezier",
-            "target-arrow-color": DEFAULT_EDGE_COLOR,
+            "target-arrow-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
             "target-arrow-shape": "triangle",
-            "arrow-scale": 0.8,
+            "arrow-scale": 0.7,
             "font-size": "8px",
             label: "data(displayLabel)",
-            color: "#6b7280",
+            color: theme === "light" ? "#475569" : "#64748b",
             "text-rotation": "autorotate",
-            "text-background-color": "#ffffff",
-            "text-background-opacity": 0.8,
+            "text-background-color": theme === "light" ? "#ffffff" : "#0f1420",
+            "text-background-opacity": 0.85,
             "text-background-padding": "1px",
-            opacity: 0.7,
+            opacity: 0.6,
           },
         },
         {
           selector: "edge.dimmed",
-          style: { opacity: 0.05 },
+          style: { opacity: 0.04 },
+        },
+        {
+          selector: "edge:selected",
+          style: {
+            "line-color": theme === "light" ? "#0284c7" : "#22d3ee",
+            "target-arrow-color": theme === "light" ? "#0284c7" : "#22d3ee",
+            opacity: 1,
+            width: 2,
+          },
         },
       ],
       layout: { name: "preset" },
@@ -169,6 +186,88 @@ export function GraphView({ investigationId }: GraphViewProps) {
     } as cytoscape.LayoutOptions).run();
   }, [data]);
 
+  // Handle graph layout changes
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy || !data || data.nodes.length === 0) return;
+
+    const layoutOptions: Record<string, cytoscape.LayoutOptions> = {
+      cose: {
+        name: "cose",
+        animate: true,
+        animationDuration: 400,
+        padding: 30,
+        nodeRepulsion: () => 4500,
+        idealEdgeLength: () => 90,
+        gravity: 0.25,
+        fit: true,
+      } as cytoscape.LayoutOptions,
+      concentric: {
+        name: "concentric",
+        animate: true,
+        animationDuration: 400,
+        padding: 30,
+        fit: true,
+      } as cytoscape.LayoutOptions,
+      circle: {
+        name: "circle",
+        animate: true,
+        animationDuration: 400,
+        padding: 30,
+        fit: true,
+      } as cytoscape.LayoutOptions,
+      grid: {
+        name: "grid",
+        animate: true,
+        animationDuration: 400,
+        padding: 30,
+        fit: true,
+      } as cytoscape.LayoutOptions,
+    };
+
+    const chosen = layoutOptions[graphLayout] || layoutOptions.cose;
+    cy.layout(chosen).run();
+  }, [graphLayout, data]);
+
+  // Handle fit trigger
+  useEffect(() => {
+    if (fitTrigger === 0) return;
+    const cy = cyRef.current;
+    if (cy) {
+      cy.fit(undefined, 30);
+    }
+  }, [fitTrigger]);
+
+  // Handle dynamic theme change
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    const isLight = theme === "light";
+    cy.style()
+      .selector("node")
+      .style({
+        color: isLight ? "#0f172a" : "#cbd5e1",
+        "text-background-color": isLight ? "#ffffff" : "#0f1420",
+      })
+      .selector("node:selected")
+      .style({
+        "border-color": isLight ? "#0284c7" : "#22d3ee",
+      })
+      .selector("edge")
+      .style({
+        "line-color": isLight ? "#94a3b8" : DEFAULT_EDGE_COLOR,
+        "target-arrow-color": isLight ? "#94a3b8" : DEFAULT_EDGE_COLOR,
+        color: isLight ? "#475569" : "#64748b",
+        "text-background-color": isLight ? "#ffffff" : "#0f1420",
+      })
+      .selector("edge:selected")
+      .style({
+        "line-color": isLight ? "#0284c7" : "#22d3ee",
+        "target-arrow-color": isLight ? "#0284c7" : "#22d3ee",
+      })
+      .update();
+  }, [theme]);
+
   // Highlight / dim based on selected node.
   useEffect(() => {
     const cy = cyRef.current;
@@ -221,10 +320,10 @@ export function GraphView({ investigationId }: GraphViewProps) {
     <div className="relative h-full w-full">
       <div
         ref={containerRef}
-        className="cy-container h-full w-full rounded-md border border-gray-200"
+        className="cy-container h-full w-full rounded-md border border-[var(--nx-border)]"
       />
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--nx-surface-1)]/80">
           <LoadingState label="Loading graph..." rows={1} />
         </div>
       )}
@@ -237,8 +336,8 @@ export function GraphView({ investigationId }: GraphViewProps) {
         </div>
       )}
       {data && data.nodes.length > 0 && (
-        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-white/90 px-2 py-1 text-xs text-gray-600 shadow">
-          {data.nodes.length} nodes · {data.edges.length} edges · click a node to inspect
+        <div className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-[var(--nx-surface-2)]/90 border border-[var(--nx-border)] px-2.5 py-1 text-[10px] font-mono text-[var(--nx-text-tertiary)]">
+          {data.nodes.length} nodes · {data.edges.length} edges
         </div>
       )}
     </div>

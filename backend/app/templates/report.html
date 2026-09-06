@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Investigation Report — {{ investigation.name }}</title>
+  <style>
+    :root {
+      --color-primary: #1e40af;
+      --color-text: #111827;
+      --color-text-secondary: #6b7280;
+      --color-border: #e5e7eb;
+      --color-bg: #ffffff;
+      --color-bg-alt: #f9fafb;
+      --color-success: #059669;
+      --color-warning: #d97706;
+      --color-danger: #dc2626;
+      --color-critical: #991b1b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--color-text);
+      background: var(--color-bg);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .report-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 30px;
+    }
+
+    .report-header {
+      border-bottom: 2px solid var(--color-primary);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+
+    .report-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 6px;
+    }
+
+    .report-header .subtitle {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 20px 0;
+      padding: 16px;
+      background: var(--color-bg-alt);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+    }
+
+    .meta-item { font-size: 13px; }
+    .meta-label { font-weight: 600; color: var(--color-text-secondary); }
+    .meta-value { color: var(--color-text); }
+
+    .section { margin-bottom: 30px; }
+    .section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-primary);
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    .section h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      margin-top: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid var(--color-border);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--color-bg-alt);
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:nth-child(even) { background: var(--color-bg-alt); }
+
+    .confidence {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .confidence-high { background: #d1fae5; color: #065f46; }
+    .confidence-medium { background: #fef3c7; color: #92400e; }
+    .confidence-low { background: #fee2e2; color: #991b1b; }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .risk-low { background: #d1fae5; color: #065f46; }
+    .risk-medium { background: #fef3c7; color: #92400e; }
+    .risk-high { background: #fed7aa; color: #9a3412; }
+    .risk-critical { background: #fee2e2; color: #991b1b; }
+
+    .finding-card {
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .finding-title { font-weight: 600; margin-bottom: 4px; }
+    .finding-desc { font-size: 13px; color: var(--color-text-secondary); }
+
+    .raw-data {
+      background: #f3f4f6;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 10px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .recommendations li {
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border);
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      text-align: center;
+    }
+
+    @media print {
+      body { font-size: 12px; }
+      .report-container { padding: 20px; max-width: 100%; }
+      .raw-data { max-height: none; }
+      .section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+
+    <div class="report-header">
+      <h1>Investigation Report</h1>
+      <div class="subtitle">OSINT Nexus — AI-Assisted Investigation Framework</div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Investigation:</span>
+        <span class="meta-value">{{ investigation.name }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Target:</span>
+        <span class="meta-value">{{ investigation.target }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Target Type:</span>
+        <span class="meta-value">{{ investigation.target_type }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Status:</span>
+        <span class="meta-value">{{ investigation.status }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Depth:</span>
+        <span class="meta-value">{{ investigation.depth }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">API Calls Used:</span>
+        <span class="meta-value">{{ investigation.api_calls_used }} / {{ investigation.api_budget }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Created:</span>
+        <span class="meta-value">{{ investigation.created_at }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Report Generated:</span>
+        <span class="meta-value">{{ generated_at }}</span>
+      </div>
+    </div>
+
+    {% if ai_analysis %}
+    <div class="section">
+      <h2>Executive Summary</h2>
+      <p>{{ ai_analysis.summary }}</p>
+
+      {% if ai_analysis.risk_level %}
+      <h3>Risk Assessment</h3>
+      <p>
+        <span class="risk-badge risk-{{ ai_analysis.risk_level }}">{{ ai_analysis.risk_level }}</span>
+      </p>
+      <p style="margin-top: 8px; font-size: 13px;">{{ ai_analysis.risk_reasoning }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if ai_analysis and ai_analysis.key_findings %}
+    <div class="section">
+      <h2>Key Findings</h2>
+      {% for finding in ai_analysis.key_findings %}
+      <div class="finding-card">
+        <div class="finding-title">{{ finding.title }}</div>
+        <div class="finding-desc">{{ finding.description }}</div>
+        <div style="margin-top: 6px;">
+          <span class="confidence confidence-{% if finding.confidence >= 0.7 %}high{% elif finding.confidence >= 0.4 %}medium{% else %}low{% endif %}">
+            {{ "%.0f"|format(finding.confidence * 100) }}% confidence
+          </span>
+          {% if finding.entity_ids %}
+          <span style="font-size: 12px; color: var(--color-text-secondary); margin-left: 8px;">
+            {{ finding.entity_ids|length }} entity reference(s)
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="section">
+      <h2>Entities ({{ entities|length }})</h2>
+      {% if entities %}
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Value</th>
+            <th>Confidence</th>
+            <th>Sources</th>
+            <th>First Seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ent in entities %}
+          <tr>
+            <td>{{ ent.type }}</td>
+            <td><code>{{ ent.value }}</code></td>
+            <td>
+              <span class="confidence confidence-{% if ent.confidence >= 0.7 %}high{% elif ent.confidence >= 0.4 %}medium{% else %}low{% endif %}">
+                {{ "%.0f"|format(ent.confidence * 100) }}%
+              </span>
+            </td>
+            <td>{{ ent.source_count }}</td>
+            <td>{{ ent.first_seen or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--color-text-secondary);">No entities discovered.</p>
+      {% endif %}
+    </div>
+
+    <div class="section">
+      <h2>Relationships ({{ relationships|length }})</h2>
+      {% if relationships %}
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Source</th>
+            <th>Target</th>
+            <th>Confidence</th>
+            <th>Method</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rel in relationships %}
+          <tr>
+            <td>{{ rel.type }}</td>
+            <td><code>{{ rel.source }}</code></td>
+            <td><code>{{ rel.target }}</code></td>
+            <td>
+              <span class="confidence confidence-{% if rel.confidence >= 0.7 %}high{% elif rel.confidence >= 0.4 %}medium{% else %}low{% endif %}">
+                {{ "%.0f"|format(rel.confidence * 100) }}%
+              </span>
+            </td>
+            <td>{{ rel.method or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color: var(--color-text-secondary);">No relationships detected.</p>
+      {% endif %}
+    </div>
+
+    <div class="section">
+      <h2>Evidence / Observations ({{ observations|length }})</h2>
+      {% if observations %}
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Method</th>
+            <th>Target</th>
+            <th>Confidence</th>
+            <th>Status</th>
+            <th>Collected At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obs in observations %}
+          <tr>
+            <td>{{ obs.source_adapter }}</td>
+            <td>{{ obs.method }}</td>
+            <td><code>{{ obs.target }}</code></td>
+            <td>
+              {% if obs.confidence is not none %}
+              <span class="confidence confidence-{% if obs.confidence >= 0.7 %}high{% elif obs.confidence >= 0.4 %}medium{% else %}low{% endif %}">
+                {{ "%.0f"|format(obs.confidence * 100) }}%
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ obs.status }}</td>
+            <td>{{ obs.collected_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h3>Evidence Provenance Details</h3>
+      {% for obs in observations[:20] %}
+      <details style="margin-bottom: 6px;">
+        <summary style="cursor: pointer; font-size: 13px;">
+          {{ obs.source_adapter }} — {{ obs.method }} ({{ obs.target }})
+        </summary>
+        <div class="raw-data">{{ obs.raw_response | tojson(indent=2) }}</div>
+      </details>
+      {% endfor %}
+      {% if observations|length > 20 %}
+      <p style="font-size: 12px; color: var(--color-text-secondary);">
+        Showing 20 of {{ observations|length }} observations. See JSON export for full data.
+      </p>
+      {% endif %}
+      {% else %}
+      <p style="color: var(--color-text-secondary);">No observations recorded.</p>
+      {% endif %}
+    </div>
+
+    {% if ai_analysis and ai_analysis.recommendations %}
+    <div class="section">
+      <h2>Recommendations</h2>
+      <ul class="recommendations">
+        {% for rec in ai_analysis.recommendations %}
+        <li>{{ rec }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="section">
+      <h2>Methodology</h2>
+      <p style="font-size: 13px;">
+        This report was generated by OSINT Nexus, an AI-assisted OSINT investigation
+        and correlation framework. Data was collected from open sources including DNS,
+        WHOIS/RDAP, Certificate Transparency logs, HTTP analysis, GitHub, and threat
+        intelligence feeds. All observations include source attribution and timestamps.
+        Confidence scores reflect source reliability, data quality, corroboration, and
+        recency. AI-generated analysis is advisory and labeled as such.
+      </p>
+    </div>
+
+    <div class="footer">
+      OSINT Nexus Investigation Report &mdash; Generated {{ generated_at }}<br>
+      Investigation ID: {{ investigation.id }}
+    </div>
+
+  </div>
+</body>
+</html>

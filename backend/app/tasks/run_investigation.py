@@ -16,7 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 def _run_async(coro):
-    """Run an async coroutine in a Celery task (sync context)."""
+    """Run an async coroutine in a Celery task (sync context).
+
+    Resets all connection pools before each call so drivers bind to the new event loop.
+    """
+    from app.core.redis import reset_redis
+    from app.db.client import reset_pool
+    from app.graph.client import reset_driver
+
+    reset_pool()
+    reset_driver()
+    reset_redis()
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
@@ -45,7 +55,11 @@ def run_investigation_task(
     logger.info("Celery task: starting investigation %s", investigation_id)
 
     try:
-        result = _run_async(run_investigation_loop(investigation_id))
+        # Build LLM callable from configured provider (None if unconfigured).
+        from app.ai.client import get_llm_call_fn
+
+        llm_fn = get_llm_call_fn()
+        result = _run_async(run_investigation_loop(investigation_id, llm_call_fn=llm_fn))
     except Exception as exc:
         logger.exception("Celery task failed for investigation %s: %s", investigation_id, exc)
         # Update investigation status to error.

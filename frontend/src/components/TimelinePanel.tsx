@@ -18,25 +18,25 @@ interface TimelineEntry {
 }
 
 function eventIcon(kind: EventKind) {
-  if (kind === "activity") return <Activity className="h-3.5 w-3.5" />;
-  return <Database className="h-3.5 w-3.5" />;
+  if (kind === "activity") return <Activity className="h-3 w-3" />;
+  return <Database className="h-3 w-3" />;
 }
 
 function badgeColor(kind: string): string {
   const k = kind.toLowerCase();
   if (k.includes("error") || k.includes("fail")) {
-    return "bg-red-50 text-red-700 ring-red-200";
+    return "bg-red-500/15 text-red-400 border border-red-500/25";
   }
   if (k.includes("complete") || k.includes("stopped")) {
-    return "bg-green-50 text-green-700 ring-green-200";
+    return "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25";
   }
   if (k.includes("start") || k.includes("pivot")) {
-    return "bg-blue-50 text-blue-700 ring-blue-200";
+    return "bg-sky-500/15 text-sky-400 border border-sky-500/25";
   }
   if (k.includes("investigation")) {
-    return "bg-purple-50 text-purple-700 ring-purple-200";
+    return "bg-purple-500/15 text-purple-400 border border-purple-500/25";
   }
-  return "bg-gray-100 text-gray-700 ring-gray-200";
+  return "bg-slate-500/15 text-slate-400 border border-slate-500/25";
 }
 
 export function TimelinePanel({
@@ -124,30 +124,30 @@ export function TimelinePanel({
 
   return (
     <Panel title="Timeline" bodyClassName="p-0">
-      <ol className="divide-y divide-gray-100">
+      <ol className="divide-y divide-[var(--nx-border-subtle)]">
         {entries.map((e) => (
           <li key={e.id} className="flex gap-2 px-3 py-2">
-            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--nx-surface-3)] text-[var(--nx-text-muted)]">
               {eventIcon(e.kind)}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${badgeColor(
+                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${badgeColor(
                     e.badge ?? "",
                   )}`}
                 >
                   {e.badge}
                 </span>
-                <span className="shrink-0 text-[10px] text-gray-400">
+                <span className="shrink-0 text-[10px] font-mono text-[var(--nx-text-muted)]">
                   {formatRelativeTime(e.timestamp)}
                 </span>
               </div>
-              <div className="mt-1 truncate text-xs font-medium text-gray-900">
+              <div className="mt-1 truncate text-xs font-medium text-[var(--nx-text-secondary)]">
                 {e.title}
               </div>
               {e.detail && (
-                <div className="truncate text-[11px] text-gray-500">
+                <div className="truncate text-[11px] text-[var(--nx-text-muted)]">
                   {e.detail}
                 </div>
               )}

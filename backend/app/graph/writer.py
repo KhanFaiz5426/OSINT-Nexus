@@ -10,6 +10,7 @@ scoped to a single investigation_id to enforce data boundaries.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -180,7 +181,7 @@ def _entity_to_node(
         "first_seen": entity.first_seen.isoformat() if entity.first_seen else "",
         "last_seen": entity.last_seen.isoformat() if entity.last_seen else "",
         "source_count": len(entity.sources),
-        "properties": entity.properties or {},
+        "properties": json.dumps(entity.properties) if entity.properties else "{}",
     }
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ── Planner output models ────────────────────────────────────────────────────
 
@@ -24,6 +24,11 @@ class PivotAction(StrEnum):
     COLLECT_GITHUB = "collect_github"
     COLLECT_HTTP = "collect_http"
     COLLECT_THREAT_INTEL = "collect_threat_intel"
+    COLLECT_REDDIT = "collect_reddit"
+    COLLECT_KEYBASE = "collect_keybase"
+    COLLECT_HACKERNEWS = "collect_hackernews"
+    COLLECT_GITLAB = "collect_gitlab"
+    COLLECT_SEARCH = "collect_search"
 
 
 class PivotRecommendation(BaseModel):
@@ -72,6 +77,20 @@ class AIPlannerOutput(BaseModel):
         max_length=1000,
         description="Reason for recommending stop",
     )
+
+    @field_validator("stop_reason", mode="before")
+    @classmethod
+    def coerce_stop_reason(cls, v: Any) -> str:
+        if v is None:
+            return ""
+        return str(v)
+
+    @field_validator("summary", mode="before")
+    @classmethod
+    def coerce_summary(cls, v: Any) -> str:
+        if v is None:
+            return ""
+        return str(v)
 
 
 # ── Analyzer output models ───────────────────────────────────────────────────

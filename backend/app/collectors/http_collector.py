@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 
 from app.collectors.base import OSINTCollector
 from app.core.config import get_settings
+from app.core.security import SSRFBlockedError, validate_url_not_internal
 from app.models import ObservationStatus, RawResult, TargetType
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class HTTPCollector(OSINTCollector):
 
     name = "http"
     version = "1.0.0"
-    supported_target_types = [TargetType.DOMAIN, TargetType.URL]
+    supported_target_types = [TargetType.DOMAIN, TargetType.URL, TargetType.EMAIL]
     requires_api_key = False
     cache_ttl = 3600  # 1 hour
     rate_limit_rpm = 300  # 5 req/s
@@ -75,6 +76,23 @@ class HTTPCollector(OSINTCollector):
         url = target
         if target_type == TargetType.DOMAIN:
             url = f"https://{target}"
+        elif target_type == TargetType.EMAIL and "@" in target:
+            # Extract domain from email for HTTP probe
+            url = f"https://{target.split('@')[-1].strip().lower()}"
+
+        # SSRF protection: block internal/private network targets
+        try:
+            validate_url_not_internal(url)
+        except SSRFBlockedError as exc:
+            return RawResult(
+                collector_name=self.name,
+                collector_version=self.version,
+                target=target,
+                target_type=target_type,
+                query=f"http:{url}",
+                status=ObservationStatus.ERROR,
+                error_message=f"Request blocked: {exc}",
+            )
 
         try:
             async with httpx.AsyncClient(
