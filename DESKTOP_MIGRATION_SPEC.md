@@ -1,6 +1,6 @@
 # OSINT Nexus: Desktop Migration Specification
 
-**Version:** 2.1 (Detailed Desktop Architecture Transition)
+**Version:** 3.0 (Final Architecture Refinement)
 **Date:** 2026-09-10
 **Document Type:** Technical Migration Specification
 
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-OSINT Nexus is transitioning from a distributed containerized web service (Docker, PostgreSQL, Neo4j, Celery, Redis) into a standalone, locally executing desktop application. The application will retain its automated OSINT pipeline, AI-assisted investigation planning, and workstation-style UI, but will require zero infrastructure management from the end user.
+OSINT Nexus is transitioning from a distributed containerized web service (Docker, PostgreSQL, Neo4j, Celery, Redis) into a standalone, locally executing desktop application. The application will retain its automated OSINT pipeline, AI-assisted investigation planning, and workstation-style UI, requiring zero infrastructure management from the end user.
 
 The target experience is a double-click executable (`osint-nexus.exe` / `osint-nexus.app`) that opens directly into a native window, allowing the user to create or open portable `.osint` investigation files.
 
@@ -17,238 +17,292 @@ The target experience is a double-click executable (`osint-nexus.exe` / `osint-n
 ## 2. Product Goals & Non-Goals
 
 ### 2.1 Product Goals
-- Zero-configuration launch (no Docker, no manual database setup).
+- Zero-configuration launch (no Docker, no manual database setup, no manual browser navigation).
 - Portable investigation state via `.osint` files (save, share, continue later).
-- Complete preservation of the existing OSINT correlation engine and AI planner.
+- Complete preservation of the existing OSINT correlation engine, data models, and AI planner.
 - Native desktop window experience.
-- Graceful degradation if offline (though live collection requires internet).
+- Passive/public OSINT workflow only.
 
 ### 2.2 Non-Goals (Explicitly Out of Scope)
 - Modifying or redesigning the existing React/Cytoscape UI workstation.
 - Multi-user collaboration, RBAC, or team syncing.
+- Authentication mechanisms for the local app.
 - Cloud hosting capabilities or browser-based remote access.
-- Active exploitation, vulnerability scanning, or non-OSINT features.
+- Active exploitation, vulnerability scanning, or non-OSINT features (e.g., Maltego clone).
 - Distributed task scaling across multiple machines.
 
 ---
 
-## 3. Current Architecture & Implementation Map
+## 3. Current Architecture & Implementation Dependency Map
 
 The repository implements a rigid Collect → Normalize → Extract → Resolve → Correlate pipeline.
 
 ### 3.1 Subsystem Mapping
-- **Frontend Layer:** React SPA (Vite). Relies heavily on Cytoscape.js for the investigation graph and TanStack query for state. Currently built to `frontend/dist/`.
-- **API Layer:** FastAPI (`backend/app/main.py`). Defines endpoints in `backend/app/api/` (investigations, entities, graph, reports). Heavily relies on dependency injection.
-- **Investigation Lifecycle:** Managed deterministically by `backend/app/services/orchestrator.py` (`run_investigation_loop`). It calls the AI planner for advice, but dispatches collection tasks sequentially within rounds.
-- **Relational Storage:** PostgreSQL via raw `asyncpg` queries (`backend/app/db/`). Stores investigations, immutable observations (JSONB), and activity logs.
-- **Graph Storage:** Neo4j via Cypher queries (`backend/app/graph/`). Stores extracted entities and relationships.
-- **Background Execution:** Celery + Redis (`backend/app/tasks/run_investigation.py`). It primarily wraps the asynchronous orchestrator loop to prevent HTTP request blocking.
-- **Caching & Rate Limiting:** Redis-backed (`backend/app/core/redis.py`), utilized by the collector adapter interfaces.
+- **Frontend Layer:** React SPA (Vite, Cytoscape.js, TanStack query).
+- **API Layer:** FastAPI (`backend/app/main.py`). Defines endpoints in `backend/app/api/` via dependency injection.
+- **Investigation Lifecycle:** Managed deterministically by `backend/app/services/orchestrator.py` (`run_investigation_loop`).
+- **Relational Storage:** PostgreSQL via raw `asyncpg` queries (`backend/app/db/`). Stores investigations, JSONB observations, and activity logs.
+- **Graph Storage:** Neo4j via Cypher queries (`backend/app/graph/`). Stores extracted entities and relationships. Used for bounded BFS paths and neighbor retrieval.
+- **Background Execution:** Celery + Redis (`backend/app/tasks/run_investigation.py`). Wraps the async orchestrator loop.
+- **Caching & Rate Limiting:** Redis-backed (`backend/app/core/redis.py`), utilized by the OSINT collector adapters.
 - **Configuration:** Handled via `.env` and `backend/app/core/settings_store.py`.
 
 ---
 
-## 4. Technology Evaluation & Decision Records
+## 4. Target Desktop Architecture
 
-### ADR 1: Storage Layer (PostgreSQL -> SQLite)
-- **Current:** PostgreSQL 16+ via `asyncpg`.
-- **Purpose:** Stores JSON evidence (observations), tracking, activity logs.
-- **Decision:** **Approved.** Migrate to SQLite via `aiosqlite`.
-- **Justification:** Fits the requirement for portable `.osint` files. SQLite perfectly handles the concurrent read/write scale of a single-user OSINT investigation.
-- **Risks/Implications:** 
-  - Raw SQL queries must be rewritten. SQLite uses `json_extract()` instead of Postgres `->>` JSONB operators.
-  - `asyncpg` connection pools must be replaced with dynamic `aiosqlite` connections pointing to the active file.
-- **Acceptance Criteria:** E2E data integrity tests pass; observation JSON can be reliably searched and retrieved.
-
-### ADR 2: Graph Layer (Neo4j -> Local Graph)
-- **Current:** Neo4j via official async driver.
-- **Purpose:** Multi-hop graph traversal, neighbor discovery, entity resolution logic.
-- **Decision:** **Requires Benchmark.** Migrate to SQLite edge tables + In-Memory NetworkX.
-- **Justification:** Removing the JVM Neo4j dependency is strictly required for a lightweight desktop app. For typical OSINT graphs (<100,000 nodes), `NetworkX` is exceptionally fast in Python.
-- **Risks/Implications:**
-  - `app/graph/reader.py` and `writer.py` must be completely rewritten.
-  - Cypher's `MATCH path = (src)-[*1..4]-(tgt)` must be implemented as a bounded BFS in Python.
-- **Evidence Required:** A benchmark script proving NetworkX can load 10,000 nodes/30,000 edges from SQLite and calculate a 4-hop path in <500ms. If it fails, pure SQLite recursive CTEs will be evaluated.
-
-### ADR 3: Background Execution (Celery/Redis -> Local Asyncio)
-- **Current:** Celery worker orchestrated via Redis.
-- **Purpose:** Prevents API timeouts during long-running investigations.
-- **Decision:** **Approved.** Migrate to local `asyncio` task execution inside the FastAPI process.
-- **Justification:** The current `orchestrator.py` is already an `async` loop. Celery merely provides a background boundary. A simple `asyncio.create_task` or a lightweight `BackgroundTasks` queue is fully sufficient for a local application. 
-- **Risks/Implications:**
-  - Need to ensure long-running tasks don't block UI event loops or SSE (Server-Sent Events) streams.
-  - In-process crash means the investigation terminates abruptly, requiring graceful save-state logic.
-
-### ADR 4: Caching & Rate Limiting (Redis -> In-Process)
-- **Current:** Redis.
-- **Decision:** **Approved.** Migrate to Python `cachetools` (TTL Cache) and `aiolimiter`.
-- **Justification:** Solves the Redis dependency. Limits are applied per API key / OSINT source, easily handled in memory.
-
-### ADR 5: Desktop Shell Architecture
-- **Decision:** **Approved.** Use `pywebview`.
-- **Justification:** `pywebview` creates a native OS window utilizing Edge Chromium (Windows) or WebKit (Mac). It is entirely Python-native, requiring no Rust (like Tauri) or heavy Chromium bundles (like Electron), minimizing the packaging complexity of the Python backend.
-- **Architecture:** 
-  1. User launches `osint-nexus.exe`.
-  2. Bootstrapper finds a free local port.
-  3. Bootstrapper spawns `uvicorn` (FastAPI) on that port in a daemon thread.
-  4. Bootstrapper opens `pywebview` window pointing to `http://localhost:port`.
-  5. Upon window close, the FastAPI thread is gracefully terminated.
+- **Frontend:** React SPA built with Vite (compiled to static files).
+- **Desktop Shell:** Technology-neutral container (e.g., `pywebview` or Electron) wrapping the FastAPI instance and React build into a single native window.
+- **Storage:** A single `.osint` file (embedded SQLite database) per investigation containing both document data and graph edges.
+- **Graph Engine:** Local graph engine (NetworkX in-memory or raw SQLite recursive queries) replacing Neo4j.
+- **Task Queue:** Local execution pool (Python `asyncio`) running within the same process.
+- **Cache/Rate Limiting:** In-memory Python caching (`cachetools`) and token-bucket limiters.
+- **Deployment:** Single packaged executable via PyInstaller or equivalent.
 
 ---
 
 ## 5. Investigation File Specification (`.osint`)
 
-The `.osint` file is the fundamental unit of the new architecture. It is a standard **SQLite3 database file**.
+The `.osint` file is a robust, portable data format representing the entire state of an investigation. It is implemented as a **SQLite 3 database**.
 
-### 5.1 Internal Schema
-- `metadata`: Schema version, investigation name, creation date, status.
-- `observations`: The immutable evidence logs (target, source, raw JSON response, method, timestamp).
-- `entities`: Normalized extracted intelligence (id, type, value, properties).
-- `relationships`: Graph edges (source_id, target_id, type, confidence, evidence_ids).
-- `activity_log`: Audit trail of the investigation loop (AI plans, user actions).
+### 5.1 Internal Schema & Entities
+- `metadata`: Tracks `schema_version`, investigation name, target, target_type, status, depth, budget utilized, created/updated timestamps.
+- `observations`: Immutable evidence records containing raw source JSON, normalization results, confidence scores, and timestamps.
+- `entities`: Extracted intelligence nodes (id, type, value, properties).
+- `relationships`: Discovered graph edges (source_id, target_id, type, confidence, evidence_ids).
+- `activity_log`: Audit trail of the orchestration loop, AI recommendations, and manual user actions.
+- `notes`: Analyst scratchpad and hypotheses.
 
-### 5.2 Atomic Operations & Recovery
-- File operations (Save, Export) utilize WAL (Write-Ahead Logging) mode to prevent corruption if the app crashes during API collection.
-- The app will automatically sync state to the active `.osint` file upon every completed orchestrator round.
+### 5.2 Lifecycle Behavior
+- **Save/Atomic Save:** Because it is a live SQLite database, saves are continuous via transactions. "Save As" is accomplished via the SQLite Online Backup API or safe file duplication during a locked state.
+- **Open/Close:** Opening a file binds the FastAPI dependency pool to that specific file. Closing it releases locks and connection pools.
+- **Corruption/Recovery:** Before opening an existing `.osint` file, the app must create an automatic `.bak` backup copy. SQLite WAL (Write-Ahead Logging) mode must be enabled to prevent corruption during sudden power loss or process crashes.
+- **File Locking:** Standard SQLite file locking mechanisms apply. If the file is locked by another process (e.g., opened twice), the app must gracefully deny access.
 
-### 5.3 Secrets Separation
-- **CRITICAL:** API keys (OpenAI, GitHub, Shodan, etc.) must **never** be saved into the `.osint` file. 
-- Configuration and API keys will live in `~/.osint-nexus/config.json` (or OS credential manager) globally on the user's machine.
+### 5.3 Versioning & Migrations
+- `schema_version` is tracked strictly via SQLite `PRAGMA user_version`. 
+- Opening an older `.osint` file automatically triggers sequential migration scripts (similar to Alembic) before allowing read/write access.
+- Future compatibility is guaranteed by strict schema immutability for older versions.
+
+### 5.4 Configuration & Secrets (CRITICAL)
+- The `.osint` file must **NEVER** contain API keys, LLM tokens, or local path secrets.
+- Application-level configuration (theme, API keys, default search providers) remains strictly separated in a global config directory (e.g., `~/.osint-nexus/config.json` or Windows Credential Manager).
 
 ---
 
 ## 6. Security Architecture
 
-- **Authentication:** Removed. Since this is a local desktop application bound to `127.0.0.1`, traditional JWT/user auth is unnecessary overhead.
-- **API Security:** The local API must only bind to `127.0.0.1` / `localhost` to prevent network exposure.
-- **SSRF Protection:** The existing `security.py` preventing internal network scanning remains strictly enforced to prevent maliciously crafted `.osint` targets from triggering local network scans.
-- **File Parsing:** SQLite pragmas must be used to ensure safely opening `.osint` files imported from unknown sources (preventing malicious SQL triggers).
+### 6.1 Authentication (Intentionally Out of Scope)
+Authentication (JWT/RBAC) is **explicitly removed and intentionally out of scope** for the standalone local product. The application runs on the user's local machine, under their OS user context, binding only to local interfaces. 
+
+### 6.2 Application Security Areas
+- **API Bindings:** Local API endpoints must bind strictly to `127.0.0.1` and reject cross-origin requests from non-local domains to prevent drive-by localhost attacks.
+- **SSRF Protection:** The existing `security.py` preventing internal network scanning remains strictly enforced. Malicious `.osint` targets cannot be used to map the user's LAN.
+- **File Parsing & Injection:** Imported `.osint` files (from untrusted parties) must be handled safely. SQLite PRAGMAs restricting external extensions and preventing malicious trigger execution must be enabled.
+- **Path Traversal:** File open/save APIs must strictly validate paths against traversal payloads.
 
 ---
 
-## 7. Scalability & Performance Requirements
+## 7. Scalability Requirements
 
-We define investigation sizes based on the entity count generated by OSINT correlation:
-- **Small:** 10–50 entities (Rapid target check).
-- **Medium:** 100–500 entities (Standard AI pivot depth).
-- **Large:** 1,000–10,000 entities (Deep infrastructure analysis).
+Scalability verification is broken down across physical and logical domains. 
+**Target Benchmarks (Large Investigation = 5,000 entities, 15,000 relationships):**
 
-**Performance Targets:**
-- App startup time: < 3 seconds.
-- `.osint` file load time (Large): < 2 seconds.
-- Cytoscape UI render (1,000 nodes): < 1.5 seconds.
-- Graph pathfinding (4 hops, Large graph): < 500ms.
-- API limits: Maximum 5 concurrent external OSINT API requests at any given time (enforced by `aiolimiter`).
+### 7.1 Storage Scalability (SQLite)
+- **Load/Open Time:** SQLite database connection and schema verification < 1.0 seconds.
+- **Observation Write:** Inserting 100 concurrent JSONB observations < 200ms.
+- **File Size:** 15,000 entities + heavy JSON observations must remain < 50MB on disk.
+
+### 7.2 Processing Scalability (Asyncio)
+- **Concurrency:** The orchestration loop must comfortably manage 10 concurrent I/O-bound collector tasks without blocking the main event loop.
+- **CPU Profiling:** JSON deserialization must not cause event loop lag exceeding 50ms per tick.
+
+### 7.3 Graph Query Scalability
+- **Loading:** Loading the entire graph representation from SQLite into memory < 500ms.
+- **Multi-Hop Traversal:** Extracting a 4-hop bounded path between two distant nodes < 500ms.
+- **Neighbor Retrieval:** 1-hop neighbor lookup < 50ms.
+
+### 7.4 Visualization & UI Scalability
+- **Render Time:** Cytoscape rendering up to 2,000 nodes without noticeable UI freezing (< 1.5 seconds).
+- **Pagination:** If graph exceeds 2,000 nodes, the UI must gracefully paginate or aggressively cluster nodes by default.
 
 ---
 
-## 8. Migration Dependency Graph
+## 8. Architectural Decision Records (ADRs)
 
+### ADR 1: Storage Layer
+- **Current:** PostgreSQL 16+ via `asyncpg`.
+- **Candidate Replacement:** SQLite via `aiosqlite`.
+- **Required Behavior:** JSON querying, transactional integrity, concurrent read access.
+- **Risks:** SQLite JSON1 syntax differs from Postgres; concurrent writes can hit "database is locked" errors if WAL is not properly tuned.
+- **Status:** **Proposed / Requires PoC.**
+- **PoC Acceptance Criteria:** Prove robust concurrent JSON inserts using `aiosqlite` with WAL mode enabled.
+- **Rollback:** Retain local PostgreSQL via Docker (violates primary goal).
+
+### ADR 2: Graph Engine
+- **Current:** Neo4j via AsyncDriver.
+- **Candidate Replacement:** Local `NetworkX` in Python, populated from SQLite edge tables.
+- **Required Behavior:** 4-hop bounded pathfinding, subgraph extraction, neighbor queries.
+- **Alternatives:** Raw SQLite Recursive CTEs, DuckDB.
+- **Risks:** Loading 15k edges into NetworkX on every request is inefficient; caching mechanisms may be required. Memory bloat in Python.
+- **Status:** **Requires Benchmark.**
+- **Benchmark Acceptance Criteria:** Load 10k nodes/30k edges from SQLite and calculate 4-hop paths in < 500ms.
+
+### ADR 3: Background Workers & Execution
+- **Current:** Celery + Redis.
+- **Candidate Replacement:** Native `asyncio` task pool (`asyncio.create_task` or bounded `asyncio.Semaphore`).
+- **Required Behavior:** Concurrent API collection, timeout enforcement, rate-limiting, failure recovery.
+- **Risks:** Task crashes taking down the entire FastAPI server; event-loop starvation.
+- **Status:** **Proposed / Requires PoC.**
+- **PoC Acceptance Criteria:** Successfully execute 50 mock OSINT collections concurrently with timeouts and rate limits, proving the FastAPI web endpoints remain responsive.
+
+### ADR 4: Caching & Rate Limiting
+- **Current:** Redis.
+- **Candidate Replacement:** `cachetools.TTLCache` (in-memory) + `aiolimiter`.
+- **Required Behavior:** Prevent OSINT API bans via strict token buckets; cache repeated queries for 24h.
+- **Risks:** Cache disappears on application restart. (Acceptable for an OSINT app).
+- **Status:** **Approved.**
+
+### ADR 5: Desktop Shell Integration
+- **Candidate Replacements:** `pywebview`, Electron (via HTTP), PySide6 (QWebEngineView).
+- **Required Behavior:** Open a native OS window, serve React static files, communicate with FastAPI, handle native File/Save dialogs, shut down Python gracefully on close.
+- **Risks:** `pywebview` relies on OS-level browser engines which can introduce rendering inconsistencies. Electron bloats the bundle size heavily.
+- **Status:** **Requires PoC.**
+- **PoC Acceptance Criteria:** A skeleton app that spawns FastAPI on a random port, opens a native window pointing to it, and cleanly terminates the Python process when the 'X' button is clicked.
+
+### ADR 6: Packaging & Distribution
+- **Candidate Replacement:** PyInstaller.
+- **Required Behavior:** Bundle Python, React dist, and SQLite DLLs into one `.exe` (Windows).
+- **Risks:** PyInstaller struggles with dynamic imports (like the AI and collector registries) and static asset paths. False positives with Antivirus software.
+- **Status:** **Requires PoC.**
+- **PoC Acceptance Criteria:** Successfully compile and run the backend API from a single `.exe` on a clean Windows VM.
+
+---
+
+## 9. Migration Dependency Graph
+
+```text
+[Phase 1] Architecture Prototyping & Benchmarks (Approval Gate)
+   |
+   +--> (If pass) --> [Phase 2] Core Storage Migration (Postgres -> SQLite)
+                         |
+                         +--> [Phase 3] Graph Engine Migration (Neo4j -> Local Graph)
+                         |       |
+                         |       +--> [Phase 4] Execution Migration (Celery -> Asyncio)
+                         |               |
+                         +---------------+
+                                 |
+                                 v
+                      [Phase 5] Workspace File Architecture (.osint API lifecycle)
+                                 |
+                                 v
+                      [Phase 6] Desktop Shell Integration (pywebview/Electron)
+                                 |
+                                 v
+                      [Phase 7] Application Packaging (PyInstaller)
+                                 |
+                                 v
+                      [Phase 8] Final Verification & E2E
 ```
-[Phase 1] Architecture Benchmarking (NetworkX / SQLite)
-       |
-       v
-[Phase 2] Storage Migration (asyncpg -> aiosqlite)
-       |
-       +------------------------------------+
-       |                                    |
-       v                                    v
-[Phase 3] Graph Migration            [Phase 4] Background Workers
-(Neo4j -> NetworkX)                  (Celery -> asyncio)
-       |                                    |
-       +------------------------------------+
-       |
-       v
-[Phase 5] Workspace Management (File API)
-       |
-       v
-[Phase 6] Desktop Shell Integration (pywebview)
-       |
-       v
-[Phase 7] Packaging & Distribution (PyInstaller)
-       |
-       v
-[Phase 8] Final Verification
-```
 
 ---
 
-## 9. Detailed Phase Breakdown
+## 10. Phase Breakdown & Detailed Tasks
 
-### Phase 1: Architecture Benchmarking & Validation
-- **Objective:** Prove that NetworkX and SQLite can handle OSINT-scale graphs efficiently before committing to the architecture.
-- **Complexity:** Low. **Risk:** High (Decision blocks Phase 3).
-- **Tasks:**
-  1. Write a standalone Python script generating a SQLite database with 10,000 nodes and 30,000 edges.
-  2. Implement the `get_multi_hop_paths` algorithm using `NetworkX`.
-  3. Measure execution time and memory overhead.
-- **Acceptance Criteria:** 4-hop path query returns in < 500ms.
-- **Outcome Status:** *Requires Benchmark.*
+### Phase 1: Architecture Prototyping & Benchmarks
+- **Objective:** Mitigate the highest risks (ADR 1, ADR 2, ADR 5) via isolated PoCs before touching application code.
+- **Why Grouped:** These form the "Approval Gate." No architectural migration should begin until these prove viable.
+- **Complexity/Risk:** High.
+- **Task 1.1 (Graph Benchmark):** Write a standalone Python script generating a 10k node/30k edge SQLite dataset. Implement Cypher pathfinding logic in `NetworkX`. Measure load/query times.
+- **Task 1.2 (Storage Benchmark):** Write an `aiosqlite` script inserting 100 concurrent complex JSONB payloads into a SQLite WAL database. Ensure no lock contention.
+- **Task 1.3 (Desktop PoC):** Create a skeleton `pywebview` or PySide6 app that spawns a dummy FastAPI server on a random port and successfully shuts it down on close.
+- **Acceptance Criteria:** All benchmarks meet the targets defined in Section 7. Results formally documented.
+
+*(Approval Gate: Do not proceed to Phase 2 until Phase 1 is signed off)*
 
 ### Phase 2: Core Storage Migration
-- **Objective:** Port the PostgreSQL backend to SQLite.
-- **Why Separate Phase:** Highest data-integrity risk. 
-- **Tasks:**
-  1. Replace `asyncpg` with `aiosqlite` in `app/db/client.py`.
-  2. Rewrite `init.sql` / Alembic schemas for SQLite (handling `JSON` extensions).
-  3. Refactor CRUD queries to use SQLite JSON functions.
-  4. Establish dynamic DB connection patterns based on active file.
+- **Objective:** Port the PostgreSQL `asyncpg` backend to `aiosqlite`.
+- **Why Grouped:** Modifies the core persistence layer affecting all other data operations. High data-integrity risk.
+- **Dependencies:** Phase 1.
+- **Task 2.1 (Schema):** Rewrite PostgreSQL Alembic/SQL schema to SQLite syntax. Implement `metadata` table for versioning.
+- **Task 2.2 (Connection Pool):** Rewrite `app/db/client.py` to use `aiosqlite`. Implement a dynamic connection manager that binds to a specific `database_path`.
+- **Task 2.3 (Queries):** Refactor all CRUD queries in `app/db/` to replace `->>` JSON operators with `json_extract()` and UUIDs with strings.
 - **Affected Modules:** `app/db/*`, `alembic/*`.
-- **Tests:** Data consistency tests, JSON read/write validation.
+- **Tests:** Database integrity tests; schema creation; JSON serialization validation.
 
 ### Phase 3: Graph Engine Migration
-- **Objective:** Replace Neo4j with NetworkX.
-- **Why Separate Phase:** Replaces the core relationship discovery logic.
-- **Dependencies:** Phase 1, Phase 2.
-- **Tasks:**
-  1. Add `relationships` table to SQLite schema.
-  2. Rewrite `app/graph/writer.py` to insert edges into SQLite.
-  3. Rewrite `app/graph/reader.py` to load edges into `NetworkX` and execute BFS traversal.
-  4. Ensure output maps perfectly to the Cytoscape format `{"nodes": [], "edges": []}`.
+- **Objective:** Replace Neo4j Cypher queries with local graph traversals.
+- **Why Grouped:** Isolated, complex algorithmic work replacing a dedicated database technology.
+- **Dependencies:** Phase 2.
+- **Task 3.1 (Schema Updates):** Add `entities` and `relationships` tables to the SQLite schema.
+- **Task 3.2 (Writers):** Rewrite `app/graph/writer.py` to insert extracted nodes and edges into SQLite instead of Neo4j.
+- **Task 3.3 (Readers):** Rewrite `app/graph/reader.py` to load edges from SQLite into NetworkX and execute bounded BFS for multi-hop, neighbor, and subgraph queries. Format output identically to existing Cytoscape expected models.
 - **Affected Modules:** `app/graph/*`.
-- **Tests:** Unit tests comparing old Cypher logic vs new NetworkX logic for neighbor discovery.
+- **Tests:** Unit tests comparing old Cypher logic vs new NetworkX logic for neighbor discovery and multi-hop paths.
 
-### Phase 4: Execution Engine Migration
-- **Objective:** Eliminate Celery and Redis.
-- **Tasks:**
-  1. Remove Celery initialization from `app/tasks/celery_app.py`.
-  2. Modify `app/api/investigations.py` to trigger `run_investigation_loop` via `asyncio.create_task()` (or similar queue manager).
-  3. Implement `cachetools` TTLCache in `app/collectors/cache.py`.
-  4. Implement `aiolimiter` in OSINT collector adapters.
+### Phase 4: Background Execution Migration
+- **Objective:** Remove Celery and Redis dependencies.
+- **Why Grouped:** Replaces the orchestration and rate-limiting infrastructure.
+- **Dependencies:** None (Can run parallel to Phase 2/3).
+- **Task 4.1 (Execution):** Remove Celery. Modify `app/api/investigations.py` to trigger `run_investigation_loop` via `asyncio.create_task()`. Ensure exceptions are caught and logged without crashing FastAPI.
+- **Task 4.2 (Caching/Limits):** Replace Redis calls in `app/collectors/cache.py` with `cachetools.TTLCache`. Replace Redis rate limiters with `aiolimiter`.
 - **Affected Modules:** `app/tasks/*`, `app/core/redis.py`, `app/api/investigations.py`.
-- **Tests:** Concurrency stress tests.
+- **Tests:** Concurrency stress tests; API rate-limit strictness tests.
 
-### Phase 5: Workspace File API
-- **Objective:** Introduce the `.osint` file model to the application state.
-- **Tasks:**
-  1. Create `/api/v1/workspace/new`, `open`, `close` endpoints.
-  2. Implement backend state locking (only one investigation open at a time).
-  3. Update React frontend to show "Welcome" screen, allowing file selection.
+### Phase 5: Workspace File Architecture
+- **Objective:** Implement the `.osint` file lifecycle (New, Open, Save, Close).
+- **Why Grouped:** Establishes how the backend handles state transitions between different databases.
+- **Dependencies:** Phase 2.
+- **Task 5.1 (API Endpoints):** Create `/api/v1/workspace/new`, `open`, `close`, and `status`.
+- **Task 5.2 (State Management):** Implement backend locks preventing multiple `.osint` files from being modified simultaneously by the same process. Handle automatic `.bak` creation on open.
+- **Task 5.3 (Frontend Welcome):** Update React to intercept unauthorized API calls if no workspace is active and display a "Start/Open Investigation" landing screen.
 - **Affected Modules:** `app/api/workspace.py`, `frontend/src/App.tsx`.
+- **Tests:** Save/reopen state persistence tests.
 
 ### Phase 6: Desktop Shell Integration
-- **Objective:** Provide a native application window.
-- **Tasks:**
-  1. Implement `launcher.py` using `pywebview`.
-  2. Start `uvicorn` on a dynamic port in a daemon thread.
-  3. Mount React `dist/` directory as static files in FastAPI.
-  4. Bind OS native Open/Save dialogs to trigger workspace endpoints.
-- **Affected Modules:** `launcher.py`, `app/main.py`.
+- **Objective:** Wrap the backend and frontend into a native window.
+- **Why Grouped:** Specific to OS and window management APIs.
+- **Dependencies:** Phase 5, Phase 1 (Desktop PoC).
+- **Task 6.1 (Launcher):** Implement `launcher.py` integrating the chosen shell technology (e.g., `pywebview`).
+- **Task 6.2 (Lifecycle):** Bind shell close events to graceful FastAPI shutdown.
+- **Task 6.3 (Native Dialogs):** Wire frontend "Open File" and "Save File" buttons to trigger native OS file dialogs via desktop shell APIs.
+- **Affected Modules:** `launcher.py`, `frontend/*`.
 
-### Phase 7: Packaging & Distribution
+### Phase 7: Application Packaging
 - **Objective:** Generate a standalone installer/executable.
-- **Tasks:**
-  1. Write `build.py` utilizing PyInstaller.
-  2. Ensure `aiosqlite`, `NetworkX`, and React static files are correctly embedded in the `.spec` bundle.
+- **Why Grouped:** Final distribution mechanics; high probability of edge cases.
+- **Dependencies:** Phase 6.
+- **Task 7.1 (Build Script):** Write a script to compile React via Vite, copy `dist` to the Python directory, and run PyInstaller.
+- **Task 7.2 (PyInstaller Specs):** Ensure all dynamic imports (collectors, AI) and SQLite DLLs are strictly defined in `osint-nexus.spec`.
 - **Affected Modules:** `build.py`, `osint-nexus.spec`.
+- **Tests:** Execute the `.exe` on a clean Windows VM.
+
+### Phase 8: Final Integration & E2E
+- **Objective:** Complete regression testing against the final packaged product.
+- **Tasks:** Execute the Final Verification Plan (Section 11).
 
 ---
 
-## 10. Final Verification Plan
+## 11. Final Verification Plan
 
-The completed application must pass:
-1. **Migration Integrity:** Importing an old investigation JSON export into the new SQLite format preserves all nodes, edges, and provenance data.
-2. **Crash/Recovery:** Force-killing the `.exe` during a running investigation correctly preserves the investigation state up to the last completed round.
-3. **Packaging:** The compiled executable launches cleanly on a fresh Windows sandbox without Python installed.
-4. **Performance:** Loading a synthetic `.osint` file with 5,000 entities visualizes in the React frontend within 3 seconds, without crashing the internal FastAPI thread.
-5. **Security:** The backend correctly rejects target URLs resolving to `127.0.0.1` or `192.168.x.x`.
+Before shipping, the packaged `.exe` must pass:
+1. **Collector E2E:** A complete investigation against a known safe target completes successfully without API bans.
+2. **Migration Integrity:** An old investigation JSON export can be imported into the new SQLite format with zero loss of graph or provenance data.
+3. **Crash/Recovery Test:** Force-killing the `.exe` midway through a pivot round preserves the investigation state up to the last successful transaction without SQLite corruption.
+4. **Performance/Large Investigation:** Loading a pre-generated `.osint` file with 5,000 nodes renders the graph within 3 seconds and remains interactively responsive.
+5. **Clean Install:** The executable runs successfully on a pristine Windows 11 Sandbox without any prior Python, Docker, or Node.js installations.
+6. **Security Scan:** Backend rejects all target URLs attempting to resolve to `127.0.0.1`, `169.254.169.254`, or RFC 1918 addresses.
+
+---
+
+## 12. Open Decisions / Approval Gates
+
+**STOP! The following items require explicit resolution or approval before Phase 2 implementation begins:**
+
+1. **[Requires PoC] Desktop Shell Technology:** We must finalize between `pywebview` (lightweight, uses edge/webkit) vs `Electron` (heavier, embeds chromium) vs `PySide6` (Qt-based). 
+2. **[Requires Benchmark] Graph Engine Replacement:** We must prove `NetworkX` is performant enough for our max node thresholds (10k nodes, 30k edges, <500ms multi-hop query).
+3. **[Requires Benchmark] Storage Layer (JSONB equivalent):** We must prove `aiosqlite` with WAL mode can handle the concurrent JSON observation insertions without database lock contention. 
+4. **[Approval] Phasing:** The Phase Breakdown detailed above must be explicitly approved.
+
+---
+*(End of Specification)*

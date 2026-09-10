@@ -27,6 +27,20 @@ jobs:
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: osintnexus
+          POSTGRES_USER: osintnexus
+          POSTGRES_PASSWORD: osintnexus_dev
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,6 +53,7 @@ jobs:
       - name: Run tests
         run: |
           cd backend
+          alembic upgrade head
           python -m pytest tests/ -v --tb=short -x \
             --ignore=tests/test_investigations_api.py \
             --ignore=tests/test_activity_api.py \
