@@ -1,6 +1,5 @@
 """Tests for entity extractor (Tasks 4.5–4.8)."""
 
-
 from app.models import EntityType
 from app.services.extractor import (
     extract_entities_from_text,
@@ -133,7 +132,8 @@ class TestExtractFromDNS:
         entities, rels = extract_from_dns("example.com", raw, observation_id="obs_1")
 
         mx_domains = [
-            e for e in entities
+            e
+            for e in entities
             if e.entity_type == EntityType.DOMAIN and e.value == "mail.example.com"
         ]
         assert len(mx_domains) == 1
@@ -146,7 +146,8 @@ class TestExtractFromDNS:
         entities, rels = extract_from_dns("example.com", raw, observation_id="obs_1")
 
         ns_entities = [
-            e for e in entities
+            e
+            for e in entities
             if e.entity_type == EntityType.DOMAIN
             and e.value in ("ns1.example.com", "ns2.example.com")
         ]
@@ -194,7 +195,8 @@ class TestExtractFromWHOIS:
         entities, rels = extract_from_whois("example.com", raw, observation_id="obs_1")
 
         orgs = [
-            e for e in entities
+            e
+            for e in entities
             if e.entity_type == EntityType.ORGANIZATION and e.value == "GoDaddy LLC"
         ]
         assert len(orgs) == 1
@@ -207,7 +209,8 @@ class TestExtractFromWHOIS:
         entities, rels = extract_from_whois("example.com", raw, observation_id="obs_1")
 
         emails = [
-            e for e in entities
+            e
+            for e in entities
             if e.entity_type == EntityType.EMAIL and e.value == "admin@example.com"
         ]
         assert len(emails) == 1
@@ -283,7 +286,8 @@ class TestExtractFromCT:
         entities, _ = extract_from_ct("example.com", raw, observation_id="obs_1")
 
         orgs = [
-            e for e in entities
+            e
+            for e in entities
             if e.entity_type == EntityType.ORGANIZATION and "DigiCert" in e.value
         ]
         assert len(orgs) == 1

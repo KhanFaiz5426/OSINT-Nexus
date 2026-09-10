@@ -73,9 +73,7 @@ class MultiProviderOrchestrator:
 
         for provider, response in zip(self._providers, raw_responses, strict=False):
             if isinstance(response, BaseException):
-                logger.warning(
-                    "Provider %s raised exception: %s", provider.name, response
-                )
+                logger.warning("Provider %s raised exception: %s", provider.name, response)
                 statuses.append(
                     ProviderStatus(
                         provider_name=provider.name,
@@ -119,9 +117,7 @@ def _deduplicate_results(results: list[SearchResult]) -> list[SearchResult]:
     return deduped
 
 
-def _interleave_rank(
-    results: list[SearchResult], provider_order: list[str]
-) -> list[SearchResult]:
+def _interleave_rank(results: list[SearchResult], provider_order: list[str]) -> list[SearchResult]:
     """Interleave results from multiple providers for balanced ranking.
 
     Within each provider, results retain their original rank order.

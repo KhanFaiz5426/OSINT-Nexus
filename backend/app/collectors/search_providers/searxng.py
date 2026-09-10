@@ -66,7 +66,7 @@ class SearXNGProvider(SearchProvider):
                     headers={
                         "Accept": "application/json",
                         "X-Forwarded-For": "127.0.0.1",
-                        "X-Real-IP": "127.0.0.1"
+                        "X-Real-IP": "127.0.0.1",
                     },
                 )
                 resp.raise_for_status()
@@ -147,9 +147,7 @@ class SearXNGProvider(SearchProvider):
             }
 
 
-def _parse_searxng_results(
-    data: dict, max_results: int = 10
-) -> list[dict[str, str]]:
+def _parse_searxng_results(data: dict, max_results: int = 10) -> list[dict[str, str]]:
     """Parse SearXNG JSON response into normalized dicts.
 
     SearXNG response format:
@@ -177,11 +175,13 @@ def _parse_searxng_results(
 
         snippet = item.get("content", "")
 
-        results.append({
-            "title": title,
-            "url": url,
-            "snippet": snippet,
-            "engine": item.get("engine", "unknown"),
-        })
+        results.append(
+            {
+                "title": title,
+                "url": url,
+                "snippet": snippet,
+                "engine": item.get("engine", "unknown"),
+            }
+        )
 
     return results

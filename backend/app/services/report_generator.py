@@ -163,9 +163,7 @@ def generate_json_report(data: dict[str, Any]) -> str:
         },
     }
 
-    output_path.write_text(
-        json.dumps(report, indent=2, default=str), encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     return str(output_path.resolve())
 
 
@@ -191,8 +189,13 @@ def generate_csv_report(data: dict[str, Any]) -> str:
     # ── Entities CSV ─────────────────────────────────────────────────────
     entities_path = reports_dir / f"{base}_entities.csv"
     entity_fields = [
-        "id", "type", "value", "confidence", "first_seen",
-        "last_seen", "source_count",
+        "id",
+        "type",
+        "value",
+        "confidence",
+        "first_seen",
+        "last_seen",
+        "source_count",
     ]
     with open(entities_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=entity_fields, extrasaction="ignore")
@@ -203,8 +206,14 @@ def generate_csv_report(data: dict[str, Any]) -> str:
     # ── Observations CSV ─────────────────────────────────────────────────
     obs_path = reports_dir / f"{base}_observations.csv"
     obs_fields = [
-        "id", "source_adapter", "collected_at", "method", "target",
-        "normalized_value", "confidence", "status",
+        "id",
+        "source_adapter",
+        "collected_at",
+        "method",
+        "target",
+        "normalized_value",
+        "confidence",
+        "status",
     ]
     with open(obs_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=obs_fields, extrasaction="ignore")

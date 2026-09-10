@@ -89,11 +89,11 @@ async def correlate_observations(
         from app.models import EntityType, TargetType
         from app.services.classifier import classify_target
         from app.services.normalizer import normalize_email
-        
+
         if classify_target(target) == TargetType.EMAIL:
             email_val = normalize_email(target)
             email_id = f"{EntityType.EMAIL.value.lower()}:{email_val}"
-            
+
             # Ensure email entity exists
             if not any(e.id == email_id for e in entities):
                 entities.append(
@@ -135,9 +135,7 @@ async def correlate_observations(
     entity_list = list(all_entities.values())
 
     # Step 2: Resolve entities (deduplicate).
-    resolved_entities, co_occurrence_rels = resolve_entities(
-        entity_list, observations=observations
-    )
+    resolved_entities, co_occurrence_rels = resolve_entities(entity_list, observations=observations)
 
     # Step 2b: Fuzzy matching for similar entities (organizations, usernames, persons).
     try:
@@ -145,6 +143,7 @@ async def correlate_observations(
             create_similarity_relationships,
             find_similar_entities,
         )
+
         similar_pairs = find_similar_entities(resolved_entities)
         if similar_pairs:
             similarity_rels = create_similarity_relationships(similar_pairs)
@@ -168,9 +167,7 @@ async def correlate_observations(
     all_relationships = _merge_relationships(all_relationships, all_observation_rels)
 
     # Step 4: Score confidence for all entities and relationships.
-    scored_entities, scored_relationships = score_all(
-        resolved_entities, all_relationships
-    )
+    scored_entities, scored_relationships = score_all(resolved_entities, all_relationships)
 
     # Step 5: Write to Neo4j.
     nodes_written = 0
@@ -185,9 +182,7 @@ async def correlate_observations(
                 driver=driver,
             )
         except Exception:
-            logger.exception(
-                "Failed to write graph for investigation %s", investigation_id
-            )
+            logger.exception("Failed to write graph for investigation %s", investigation_id)
 
     # Step 6: Write entities to PostgreSQL entities table.
     try:
@@ -233,17 +228,11 @@ def _extract_from_observation(
 ) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
     """Dispatch extraction based on collector type."""
     if collector == "dns":
-        return extract_from_dns(
-            target, raw_response, observation_id=observation_id
-        )
+        return extract_from_dns(target, raw_response, observation_id=observation_id)
     elif collector == "whois":
-        return extract_from_whois(
-            target, raw_response, observation_id=observation_id
-        )
+        return extract_from_whois(target, raw_response, observation_id=observation_id)
     elif collector == "certificate_transparency":
-        return extract_from_ct(
-            target, raw_response, observation_id=observation_id
-        )
+        return extract_from_ct(target, raw_response, observation_id=observation_id)
     elif collector == "http":
         return _extract_from_http(target, raw_response, observation_id=observation_id)
     elif collector == "github":
@@ -290,9 +279,7 @@ def _extract_from_http(
     # Extract entities from page title and content.
     title = raw_response.get("title", "")
     if title:
-        text_entities = extract_entities_from_text(
-            title, source=source, evidence_id=observation_id
-        )
+        text_entities = extract_entities_from_text(title, source=source, evidence_id=observation_id)
         entities.extend(text_entities)
 
     return entities, []
@@ -370,6 +357,7 @@ def _extract_from_github(
             )
             # Extract domain from the blog URL.
             from urllib.parse import urlparse
+
             parsed = urlparse(norm_blog)
             domain = (parsed.hostname or "").lower().removeprefix("www.")
             if "." in domain:
@@ -770,9 +758,7 @@ def _extract_generic(
 
     # Flatten the response to text for regex extraction.
     text = json.dumps(raw_response, default=str)
-    return extract_entities_from_text(
-        text, source="generic", evidence_id=observation_id
-    )
+    return extract_entities_from_text(text, source="generic", evidence_id=observation_id)
 
 
 def _extract_from_reddit(
@@ -1115,9 +1101,7 @@ async def _write_entities_to_postgres(
                     _json.dumps(entity.properties or {}),
                 )
             except Exception as exc:
-                logger.debug(
-                    "Entity insert failed for %s: %s", entity.id, exc
-                )
+                logger.debug("Entity insert failed for %s: %s", entity.id, exc)
 
 
 async def _write_entity_provenance(

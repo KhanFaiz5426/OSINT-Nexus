@@ -163,9 +163,7 @@ class TestObservationsEndpoint:
     @pytest.mark.anyio
     async def test_observations_empty(self, client: AsyncClient):
         inv_id = await _create_investigation(client)
-        response = await client.get(
-            f"/api/v1/investigations/{inv_id}/observations"
-        )
+        response = await client.get(f"/api/v1/investigations/{inv_id}/observations")
         assert response.status_code == 200
         data = response.json()
         assert data["items"] == []
@@ -175,9 +173,7 @@ class TestObservationsEndpoint:
         inv_id = await _create_investigation(client)
         obs_id = await _insert_observation(inv_id, "example.com", "dns")
 
-        response = await client.get(
-            f"/api/v1/investigations/{inv_id}/observations"
-        )
+        response = await client.get(f"/api/v1/investigations/{inv_id}/observations")
         assert response.status_code == 200
         items = response.json()["items"]
         assert len(items) == 1

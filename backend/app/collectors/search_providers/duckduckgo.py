@@ -106,9 +106,7 @@ class DuckDuckGoProvider(SearchProvider):
         """Quick connectivity check."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.head(
-                    DDG_HTML_URL, headers={"User-Agent": USER_AGENT}
-                )
+                resp = await client.head(DDG_HTML_URL, headers={"User-Agent": USER_AGENT})
                 return {
                     "provider": self.name,
                     "available": resp.status_code < 400,
@@ -121,9 +119,7 @@ class DuckDuckGoProvider(SearchProvider):
 # ── Endpoint helpers (extracted from original search_collector.py) ────────────
 
 
-async def _try_ddg_html(
-    client: httpx.AsyncClient, query: str
-) -> list[dict[str, str]]:
+async def _try_ddg_html(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
     """Attempt DDG HTML endpoint."""
     try:
         response = await client.post(
@@ -143,9 +139,7 @@ async def _try_ddg_html(
     return []
 
 
-async def _try_ddg_lite(
-    client: httpx.AsyncClient, query: str
-) -> list[dict[str, str]]:
+async def _try_ddg_lite(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
     """Attempt DDG Lite endpoint (simpler format, less bot detection)."""
     try:
         response = await client.post(
@@ -163,9 +157,7 @@ async def _try_ddg_lite(
     return []
 
 
-async def _try_ddg_api(
-    client: httpx.AsyncClient, query: str
-) -> list[dict[str, str]]:
+async def _try_ddg_api(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
     """Attempt DDG Instant Answer API (JSON, no scraping needed)."""
     try:
         response = await client.get(
@@ -215,11 +207,13 @@ def _parse_ddg_html(html: str) -> list[dict[str, str]]:
                 if match:
                     url = unquote(match.group(1))
 
-            results.append({
-                "title": title,
-                "url": url,
-                "snippet": snippet,
-            })
+            results.append(
+                {
+                    "title": title,
+                    "url": url,
+                    "snippet": snippet,
+                }
+            )
 
     except Exception as exc:
         logger.debug("Failed to parse DuckDuckGo HTML: %s", exc)
@@ -250,11 +244,13 @@ def _parse_ddg_lite_html(html: str) -> list[dict[str, str]]:
                     url = unquote(match.group(1))
 
             if title:
-                results.append({
-                    "title": title,
-                    "url": url,
-                    "snippet": snippet,
-                })
+                results.append(
+                    {
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet,
+                    }
+                )
     except Exception as exc:
         logger.debug("Failed to parse DuckDuckGo Lite: %s", exc)
 
@@ -267,11 +263,13 @@ def _parse_ddg_api_json(data: dict) -> list[dict[str, str]]:
 
     # Abstract (main result)
     if data.get("Abstract"):
-        results.append({
-            "title": data.get("Heading", ""),
-            "url": data.get("AbstractURL", ""),
-            "snippet": data.get("Abstract", ""),
-        })
+        results.append(
+            {
+                "title": data.get("Heading", ""),
+                "url": data.get("AbstractURL", ""),
+                "snippet": data.get("Abstract", ""),
+            }
+        )
 
     # Related topics
     for topic in data.get("RelatedTopics", []):
@@ -279,25 +277,31 @@ def _parse_ddg_api_json(data: dict) -> list[dict[str, str]]:
             if "Topics" in topic:
                 for sub in topic.get("Topics", []):
                     if isinstance(sub, dict) and sub.get("Text"):
-                        results.append({
-                            "title": sub.get("Text", "")[:100],
-                            "url": sub.get("FirstURL", ""),
-                            "snippet": sub.get("Text", ""),
-                        })
+                        results.append(
+                            {
+                                "title": sub.get("Text", "")[:100],
+                                "url": sub.get("FirstURL", ""),
+                                "snippet": sub.get("Text", ""),
+                            }
+                        )
             elif topic.get("Text"):
-                results.append({
-                    "title": topic.get("Text", "")[:100],
-                    "url": topic.get("FirstURL", ""),
-                    "snippet": topic.get("Text", ""),
-                })
+                results.append(
+                    {
+                        "title": topic.get("Text", "")[:100],
+                        "url": topic.get("FirstURL", ""),
+                        "snippet": topic.get("Text", ""),
+                    }
+                )
 
     # Results section
     for res in data.get("Results", []):
         if isinstance(res, dict) and res.get("Text"):
-            results.append({
-                "title": res.get("Text", "")[:100],
-                "url": res.get("FirstURL", ""),
-                "snippet": res.get("Text", ""),
-            })
+            results.append(
+                {
+                    "title": res.get("Text", "")[:100],
+                    "url": res.get("FirstURL", ""),
+                    "snippet": res.get("Text", ""),
+                }
+            )
 
     return results[:10]

@@ -21,9 +21,7 @@ class NoteCreate(BaseModel):
     """Request model for creating a note."""
 
     content: str = Field(..., min_length=1, max_length=10000, description="Note content")
-    entity_id: str | None = Field(
-        None, description="Entity ID (None for investigation-level note)"
-    )
+    entity_id: str | None = Field(None, description="Entity ID (None for investigation-level note)")
 
 
 class NoteUpdate(BaseModel):

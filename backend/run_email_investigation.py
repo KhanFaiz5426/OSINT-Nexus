@@ -1,7 +1,9 @@
 """Run investigation for hello.khan7684@gmail.com and verify results."""
+
 import asyncio
 
 INV_ID = "9f16f268-5b94-409c-b47a-b07ec8b29d1a"
+
 
 async def main():
     # 1. Run the orchestrator directly (Celery isn't running)
@@ -19,6 +21,7 @@ async def main():
     # 2. Check PG counts
     print("\n=== PostgreSQL counts ===")
     from app.db.client import get_pool
+
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -26,11 +29,14 @@ async def main():
             INV_ID,
         )
         if row:
-            print(f"  entity_count={row['entity_count']}, relationship_count={row['relationship_count']}, observation_count={row['observation_count']}")
+            print(
+                f"  entity_count={row['entity_count']}, relationship_count={row['relationship_count']}, observation_count={row['observation_count']}"
+            )
 
     # 3. Check Neo4j graph
     print("\n=== Neo4j graph ===")
     from app.graph.reader import get_investigation_subgraph
+
     graph = await get_investigation_subgraph(INV_ID)
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
@@ -59,5 +65,6 @@ async def main():
 
     await pool.close()
     print("\n=== Done ===")
+
 
 asyncio.run(main())

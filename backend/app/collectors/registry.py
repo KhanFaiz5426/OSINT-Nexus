@@ -37,9 +37,7 @@ def get_all_collectors() -> dict[str, OSINTCollector]:
 
 def get_collectors_for_target(target_type: TargetType) -> list[OSINTCollector]:
     """Return all collectors that support the given target type."""
-    return [
-        c for c in _collectors.values() if target_type in c.supported_target_types
-    ]
+    return [c for c in _collectors.values() if target_type in c.supported_target_types]
 
 
 def get_collector_names() -> list[str]:
@@ -85,6 +83,7 @@ async def initialize_collectors(cache: CollectorCache | None = None) -> None:
     # Load enabled/disabled overrides from runtime settings.
     try:
         from app.core.settings_store import get_app_settings
+
         settings = get_app_settings()
         enabled_map = settings.collectors.enabled
     except Exception:

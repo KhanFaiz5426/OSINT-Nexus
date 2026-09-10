@@ -50,6 +50,7 @@ def tmp_settings_file(tmp_path):
     settings_file = tmp_path / "settings.json"
     with patch("app.core.settings_store.SETTINGS_FILE", settings_file):
         import app.core.settings_store as store
+
         store._settings_cache = None
         yield settings_file
         store._settings_cache = None
@@ -143,6 +144,7 @@ class TestSettingsFilePersistence:
         settings_file = tmp_path / "settings.json"
         with patch("app.core.settings_store.SETTINGS_FILE", settings_file):
             import app.core.settings_store as store
+
             store._settings_cache = None
             updated = update_app_settings({"general": {"auto_save_reports": False}})
             assert updated.general.auto_save_reports is False
@@ -155,6 +157,7 @@ class TestSettingsFilePersistence:
         settings_file = tmp_path / "settings.json"
         with patch("app.core.settings_store.SETTINGS_FILE", settings_file):
             import app.core.settings_store as store
+
             store._settings_cache = None
             # Write initial
             _save_to_file({"general": {"auto_save_reports": True}})

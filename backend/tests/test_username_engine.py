@@ -124,6 +124,7 @@ class TestProbeVariations:
     def test_probe_variations_are_subset_of_search_variations(self):
         """Probe variations should be a high-confidence subset."""
         from app.services.username_variations import generate_username_variations
+
         probe_vars = generate_probe_variations("mjkhan1400", max_variations=10)
         search_vars = generate_username_variations("mjkhan1400", max_variations=20)
         # Probe should have fewer variations
@@ -160,7 +161,9 @@ class TestUsernameProbeEngine:
         response.text = "<html><title>John Doe</title></html>"
         response.url = "https://example.com/johndoe"
 
-        result = engine._classify_response(platform, "johndoe", "johndoe", "https://example.com/johndoe", response)
+        result = engine._classify_response(
+            platform, "johndoe", "johndoe", "https://example.com/johndoe", response
+        )
         assert result.found is True
         assert result.confidence > 0.5
 
@@ -179,7 +182,9 @@ class TestUsernameProbeEngine:
         response.text = "Not Found"
         response.url = "https://example.com/nobody"
 
-        result = engine._classify_response(platform, "nobody", "nobody", "https://example.com/nobody", response)
+        result = engine._classify_response(
+            platform, "nobody", "nobody", "https://example.com/nobody", response
+        )
         assert result.found is False
 
     def test_classify_response_body_negative_term(self):
@@ -200,7 +205,9 @@ class TestUsernameProbeEngine:
         response.text = "<html>Page Not Found</html>"
         response.url = "https://example.com/johndoe"
 
-        result = engine._classify_response(platform, "johndoe", "johndoe", "https://example.com/johndoe", response)
+        result = engine._classify_response(
+            platform, "johndoe", "johndoe", "https://example.com/johndoe", response
+        )
         assert result.found is False
 
     def test_to_raw_result(self):

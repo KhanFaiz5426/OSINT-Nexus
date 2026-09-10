@@ -39,9 +39,7 @@ def collect_dns_task(
 ) -> dict[str, Any]:
     """Collect DNS records for a target."""
     return _run_async(
-        _collect_async(
-            "dns", investigation_id, target, target_type, force_refresh=force_refresh
-        )
+        _collect_async("dns", investigation_id, target, target_type, force_refresh=force_refresh)
     )
 
 
@@ -56,9 +54,7 @@ def collect_whois_task(
 ) -> dict[str, Any]:
     """Collect WHOIS data for a target."""
     return _run_async(
-        _collect_async(
-            "whois", investigation_id, target, target_type, force_refresh=force_refresh
-        )
+        _collect_async("whois", investigation_id, target, target_type, force_refresh=force_refresh)
     )
 
 
@@ -111,9 +107,7 @@ def collect_github_task(
 ) -> dict[str, Any]:
     """Collect GitHub profile and repository data for a username."""
     return _run_async(
-        _collect_async(
-            "github", investigation_id, target, target_type, force_refresh=force_refresh
-        )
+        _collect_async("github", investigation_id, target, target_type, force_refresh=force_refresh)
     )
 
 
@@ -128,9 +122,7 @@ def collect_http_task(
 ) -> dict[str, Any]:
     """Collect HTTP metadata and technology data for a target."""
     return _run_async(
-        _collect_async(
-            "http", investigation_id, target, target_type, force_refresh=force_refresh
-        )
+        _collect_async("http", investigation_id, target, target_type, force_refresh=force_refresh)
     )
 
 
@@ -192,6 +184,7 @@ async def _collect_async(
     from app.core.redis import get_redis
     from app.db.client import get_pool
     from app.models import TargetType
+
     if not get_all_collectors():
         try:
             redis_client = await get_redis()

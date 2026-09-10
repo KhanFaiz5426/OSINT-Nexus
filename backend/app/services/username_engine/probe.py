@@ -222,79 +222,98 @@ class UsernameProbeEngine:
                     platform_name = self._classify_url(url)
                     if platform_name:
                         # This is a known platform — create a finding
-                        results.append(self._make_search_result(
-                            username=username,
-                            url=url,
-                            platform_name=platform_name,
-                            title=sr.get("title", ""),
-                            snippet=sr.get("snippet", ""),
-                            query_description=description,
-                            investigation_id=investigation_id,
-                        ))
+                        results.append(
+                            self._make_search_result(
+                                username=username,
+                                url=url,
+                                platform_name=platform_name,
+                                title=sr.get("title", ""),
+                                snippet=sr.get("snippet", ""),
+                                query_description=description,
+                                investigation_id=investigation_id,
+                            )
+                        )
 
                 # Rate limit between searches
                 await asyncio.sleep(1.0)
 
         return results
 
-    def _build_search_queries(
-        self, username: str, variations: list[str]
-    ) -> list[dict[str, str]]:
+    def _build_search_queries(self, username: str, variations: list[str]) -> list[dict[str, str]]:
         """Build search queries for web discovery."""
         queries = []
 
         # 1. Direct username search across platforms
-        queries.append({
-            "query": f'"{username}" profile OR account OR portfolio OR about',
-            "description": "General profile search",
-        })
+        queries.append(
+            {
+                "query": f'"{username}" profile OR account OR portfolio OR about',
+                "description": "General profile search",
+            }
+        )
 
         # 2. Username on specific platforms
         platform_sites = [
-            "linkedin.com", "github.com", "twitter.com", "x.com",
-            "instagram.com", "medium.com", "dev.to", "stackoverflow.com",
-            "reddit.com", "youtube.com", "behance.net", "dribbble.com",
+            "linkedin.com",
+            "github.com",
+            "twitter.com",
+            "x.com",
+            "instagram.com",
+            "medium.com",
+            "dev.to",
+            "stackoverflow.com",
+            "reddit.com",
+            "youtube.com",
+            "behance.net",
+            "dribbble.com",
         ]
         for site in platform_sites:
-            queries.append({
-                "query": f'site:{site} "{username}"',
-                "description": f"{site} profile",
-            })
+            queries.append(
+                {
+                    "query": f'site:{site} "{username}"',
+                    "description": f"{site} profile",
+                }
+            )
 
         # 3. Username variations
         for var in variations[:3]:
             if var != username:
-                queries.append({
-                    "query": f'"{var}" profile OR portfolio OR about',
-                    "description": f'Variation "{var}"',
-                })
+                queries.append(
+                    {
+                        "query": f'"{var}" profile OR portfolio OR about',
+                        "description": f'Variation "{var}"',
+                    }
+                )
 
         # 4. If username has parts, search as a name
         parts = re.split(r"[._\-\s]+", username)
         if len(parts) > 1:
             name_query = " ".join(parts)
-            queries.append({
-                "query": f'"{name_query}" site:linkedin.com',
-                "description": f'LinkedIn for "{name_query}"',
-            })
-            queries.append({
-                "query": f'"{name_query}" portfolio OR website OR blog',
-                "description": f'Personal site for "{name_query}"',
-            })
+            queries.append(
+                {
+                    "query": f'"{name_query}" site:linkedin.com',
+                    "description": f'LinkedIn for "{name_query}"',
+                }
+            )
+            queries.append(
+                {
+                    "query": f'"{name_query}" portfolio OR website OR blog',
+                    "description": f'Personal site for "{name_query}"',
+                }
+            )
 
         # 5. Domain patterns
         if len(parts) > 1:
             fname, lname = parts[0], parts[-1]
-            queries.append({
-                "query": f'site:{fname}{lname}.dev OR site:{fname}.{lname}.dev OR site:{lname}{fname}.dev',
-                "description": "Personal domain patterns",
-            })
+            queries.append(
+                {
+                    "query": f"site:{fname}{lname}.dev OR site:{fname}.{lname}.dev OR site:{lname}{fname}.dev",
+                    "description": "Personal domain patterns",
+                }
+            )
 
         return queries
 
-    async def _ddg_search(
-        self, client: httpx.AsyncClient, query: str
-    ) -> list[dict[str, str]]:
+    async def _ddg_search(self, client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
         """Execute DuckDuckGo search with fallback chain."""
         # Try HTML endpoint first
         results = await self._try_ddg_html(client, query)
@@ -310,9 +329,7 @@ class UsernameProbeEngine:
         results = await self._try_ddg_api(client, query)
         return results
 
-    async def _try_ddg_html(
-        self, client: httpx.AsyncClient, query: str
-    ) -> list[dict[str, str]]:
+    async def _try_ddg_html(self, client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
         """Try DuckDuckGo HTML endpoint."""
         try:
             response = await client.post(
@@ -329,9 +346,7 @@ class UsernameProbeEngine:
             logger.debug("DDG HTML failed: %s", exc)
         return []
 
-    async def _try_ddg_lite(
-        self, client: httpx.AsyncClient, query: str
-    ) -> list[dict[str, str]]:
+    async def _try_ddg_lite(self, client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
         """Try DuckDuckGo Lite endpoint."""
         try:
             response = await client.post(
@@ -348,9 +363,7 @@ class UsernameProbeEngine:
             logger.debug("DDG Lite failed: %s", exc)
         return []
 
-    async def _try_ddg_api(
-        self, client: httpx.AsyncClient, query: str
-    ) -> list[dict[str, str]]:
+    async def _try_ddg_api(self, client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
         """Try DuckDuckGo Instant Answer API."""
         try:
             response = await client.get(
@@ -394,11 +407,13 @@ class UsernameProbeEngine:
                         url = unquote(match.group(1))
 
                 if url:
-                    results.append({
-                        "title": title,
-                        "url": url,
-                        "snippet": snippet,
-                    })
+                    results.append(
+                        {
+                            "title": title,
+                            "url": url,
+                            "snippet": snippet,
+                        }
+                    )
         except Exception as exc:
             logger.debug("Failed to parse DDG HTML: %s", exc)
         return results[:10]
@@ -425,11 +440,13 @@ class UsernameProbeEngine:
                         url = unquote(match.group(1))
 
                 if title and url:
-                    results.append({
-                        "title": title,
-                        "url": url,
-                        "snippet": snippet,
-                    })
+                    results.append(
+                        {
+                            "title": title,
+                            "url": url,
+                            "snippet": snippet,
+                        }
+                    )
         except Exception as exc:
             logger.debug("Failed to parse DDG Lite: %s", exc)
         return results[:10]
@@ -439,36 +456,44 @@ class UsernameProbeEngine:
         results = []
 
         if data.get("Abstract"):
-            results.append({
-                "title": data.get("Heading", ""),
-                "url": data.get("AbstractURL", ""),
-                "snippet": data.get("Abstract", ""),
-            })
+            results.append(
+                {
+                    "title": data.get("Heading", ""),
+                    "url": data.get("AbstractURL", ""),
+                    "snippet": data.get("Abstract", ""),
+                }
+            )
 
         for topic in data.get("RelatedTopics", []):
             if isinstance(topic, dict):
                 if "Topics" in topic:
                     for sub in topic.get("Topics", []):
                         if isinstance(sub, dict) and sub.get("Text"):
-                            results.append({
-                                "title": sub.get("Text", "")[:100],
-                                "url": sub.get("FirstURL", ""),
-                                "snippet": sub.get("Text", ""),
-                            })
+                            results.append(
+                                {
+                                    "title": sub.get("Text", "")[:100],
+                                    "url": sub.get("FirstURL", ""),
+                                    "snippet": sub.get("Text", ""),
+                                }
+                            )
                 elif topic.get("Text"):
-                    results.append({
-                        "title": topic.get("Text", "")[:100],
-                        "url": topic.get("FirstURL", ""),
-                        "snippet": topic.get("Text", ""),
-                    })
+                    results.append(
+                        {
+                            "title": topic.get("Text", "")[:100],
+                            "url": topic.get("FirstURL", ""),
+                            "snippet": topic.get("Text", ""),
+                        }
+                    )
 
         for res in data.get("Results", []):
             if isinstance(res, dict) and res.get("Text"):
-                results.append({
-                    "title": res.get("Text", "")[:100],
-                    "url": res.get("FirstURL", ""),
-                    "snippet": res.get("Text", ""),
-                })
+                results.append(
+                    {
+                        "title": res.get("Text", "")[:100],
+                        "url": res.get("FirstURL", ""),
+                        "snippet": res.get("Text", ""),
+                    }
+                )
 
         return results[:10]
 
@@ -564,9 +589,14 @@ class UsernameProbeEngine:
                         body = response.text.lower()
                         # Check it's not a parked domain or registrar page
                         parked_indicators = [
-                            "domain for sale", "buy this domain",
-                            "parked", "coming soon", "under construction",
-                            "godaddy", "namecheap", "hover.com",
+                            "domain for sale",
+                            "buy this domain",
+                            "parked",
+                            "coming soon",
+                            "under construction",
+                            "godaddy",
+                            "namecheap",
+                            "hover.com",
                         ]
                         is_parked = any(ind in body for ind in parked_indicators)
                         if not is_parked and len(body) > 500:
@@ -580,13 +610,15 @@ class UsernameProbeEngine:
                             except Exception:
                                 pass
 
-                            results.append(self._make_domain_result(
-                                username=username,
-                                url=url,
-                                domain=domain,
-                                title=title,
-                                investigation_id=investigation_id,
-                            ))
+                            results.append(
+                                self._make_domain_result(
+                                    username=username,
+                                    url=url,
+                                    domain=domain,
+                                    title=title,
+                                    investigation_id=investigation_id,
+                                )
+                            )
 
                 except (httpx.TimeoutException, httpx.RequestError):
                     pass
@@ -595,9 +627,7 @@ class UsernameProbeEngine:
 
         return results
 
-    def _generate_domain_patterns(
-        self, username: str, variations: list[str]
-    ) -> list[str]:
+    def _generate_domain_patterns(self, username: str, variations: list[str]) -> list[str]:
         """Generate personal domain patterns to try."""
         domains = []
         parts = re.split(r"[._\-\s]+", username)
@@ -722,9 +752,7 @@ class UsernameProbeEngine:
                 for variant in enabled_variations:
                     if self._requests_made >= self.budget.max_total_requests:
                         break
-                    tasks.append(
-                        self._probe_single(platform, variant, username, investigation_id)
-                    )
+                    tasks.append(self._probe_single(platform, variant, username, investigation_id))
 
             semaphore = asyncio.Semaphore(min(5, len(enabled)))
 
@@ -747,10 +775,7 @@ class UsernameProbeEngine:
 
         # ── Part B: Intelligence adapter probing for disabled platforms ──
         all_platforms = load_platforms()
-        disabled = [
-            p for p in all_platforms.values()
-            if not p.enabled
-        ]
+        disabled = [p for p in all_platforms.values() if not p.enabled]
 
         if disabled and self._requests_made < self.budget.max_total_requests:
             intelligence_variations = variations[: self.budget.max_variations]
@@ -798,9 +823,7 @@ class UsernameProbeEngine:
                 },
             ) as client:
                 response = await client.request(platform.method, url)
-                return self._classify_response(
-                    platform, username, original_username, url, response
-                )
+                return self._classify_response(platform, username, original_username, url, response)
 
         except httpx.TimeoutException:
             return ProbeResult(

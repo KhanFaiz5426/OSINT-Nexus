@@ -123,29 +123,35 @@ async def _collect_entity_context(
         from app.graph.reader import get_entity_neighbors
 
         neighbors = await get_entity_neighbors(
-            entity_id, investigation_id=investigation_id, max_depth=1,
+            entity_id,
+            investigation_id=investigation_id,
+            max_depth=1,
         )
         for edge in neighbors.get("edges", []):
             data = edge.get("data", edge)
-            relationships.append({
-                "source": data.get("source", ""),
-                "target": data.get("target", ""),
-                "type": data.get("relationship_type", ""),
-                "confidence": data.get("confidence", 0.0),
-                "method": data.get("method", ""),
-            })
+            relationships.append(
+                {
+                    "source": data.get("source", ""),
+                    "target": data.get("target", ""),
+                    "type": data.get("relationship_type", ""),
+                    "confidence": data.get("confidence", 0.0),
+                    "method": data.get("method", ""),
+                }
+            )
 
         # Gather related entity labels
         for node in neighbors.get("nodes", []):
             nd = node.get("data", node)
             if nd.get("id") != entity_id:
-                relationships.append({
-                    "_node": True,
-                    "id": nd.get("id", ""),
-                    "type": nd.get("type", ""),
-                    "label": nd.get("label", nd.get("value", "")),
-                    "confidence": nd.get("confidence", 0),
-                })
+                relationships.append(
+                    {
+                        "_node": True,
+                        "id": nd.get("id", ""),
+                        "type": nd.get("type", ""),
+                        "label": nd.get("label", nd.get("value", "")),
+                        "confidence": nd.get("confidence", 0),
+                    }
+                )
     except Exception as exc:
         logger.debug("Could not fetch entity neighbors: %s", exc)
 
@@ -189,7 +195,8 @@ async def _collect_entity_context(
         "relationships": [r for r in relationships if not r.get("_node")],
         "related_entities": [
             {"id": r["id"], "type": r["type"], "label": r["label"], "confidence": r["confidence"]}
-            for r in relationships if r.get("_node")
+            for r in relationships
+            if r.get("_node")
         ],
     }
 
@@ -290,9 +297,7 @@ def _build_entity_analysis_prompt(ctx: dict[str, Any]) -> list[dict[str, str]]:
 @router.get("/entities/{entity_id:path}/ai-analysis")
 async def get_entity_ai_analysis(
     entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> dict[str, Any]:
     """Get AI-powered analysis for a specific entity.
 
@@ -314,12 +319,14 @@ async def get_entity_ai_analysis(
     # Build confirmed facts from evidence
     confirmed_facts = []
     for ev in evidence:
-        confirmed_facts.append({
-            "fact": f"Observed via {ev['source']} ({ev['method']}) targeting {ev['target']}",
-            "source": ev["source"],
-            "confidence": ev["confidence"],
-            "collected_at": ev["collected_at"],
-        })
+        confirmed_facts.append(
+            {
+                "fact": f"Observed via {ev['source']} ({ev['method']}) targeting {ev['target']}",
+                "source": ev["source"],
+                "confidence": ev["confidence"],
+                "collected_at": ev["collected_at"],
+            }
+        )
 
     # Call LLM for AI analysis
     ai_analysis: dict[str, Any] | None = None
@@ -343,7 +350,8 @@ async def get_entity_ai_analysis(
         "entity_confidence": ent["confidence"],
         "investigation_target": inv["target"],
         "investigation_target_type": inv["target_type"],
-        "analysis": ai_analysis or {
+        "analysis": ai_analysis
+        or {
             "what_is": f"A {ent['type']} entity with value '{ent['value']}' discovered during the investigation.",
             "key_information": [
                 f"Discovered from {ent['source_count']} source(s)",
@@ -351,8 +359,8 @@ async def get_entity_ai_analysis(
             ],
             "evidence_summary": (
                 f"{len(evidence)} observation(s) support this entity."
-                if evidence else
-                "No direct evidence observations recorded for this entity."
+                if evidence
+                else "No direct evidence observations recorded for this entity."
             ),
             "confidence_assessment": (
                 f"Confidence is {ent['confidence'] * 100:.0f}% based on "
@@ -361,8 +369,8 @@ async def get_entity_ai_analysis(
             "connection_to_target": (
                 f"Connected to investigation target '{inv['target']}' through "
                 f"{len(rels)} relationship(s)."
-                if rels else
-                f"No direct connections to investigation target '{inv['target']}' found."
+                if rels
+                else f"No direct connections to investigation target '{inv['target']}' found."
             ),
             "significance": "AI analysis not available. Manual review recommended.",
             "uncertainties": [
@@ -374,8 +382,7 @@ async def get_entity_ai_analysis(
         "evidence_count": len(evidence),
         "relationship_count": len(rels),
         "related_entities": [
-            {"id": r["id"], "type": r["type"], "label": r["label"]}
-            for r in related[:10]
+            {"id": r["id"], "type": r["type"], "label": r["label"]} for r in related[:10]
         ],
         "generated_at": datetime.now(UTC).isoformat(),
     }

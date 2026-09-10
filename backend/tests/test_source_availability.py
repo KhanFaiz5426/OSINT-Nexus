@@ -111,10 +111,16 @@ class TestCheckSourceAvailability:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("app.services.source_availability._get_cached", new_callable=AsyncMock, return_value=None), \
-             patch("app.services.source_availability._set_cached", new_callable=AsyncMock), \
-             patch("app.services.source_availability._rate_limiter") as mock_limiter, \
-             patch("httpx.AsyncClient") as mock_httpx:
+        with (
+            patch(
+                "app.services.source_availability._get_cached",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("app.services.source_availability._set_cached", new_callable=AsyncMock),
+            patch("app.services.source_availability._rate_limiter") as mock_limiter,
+            patch("httpx.AsyncClient") as mock_httpx,
+        ):
             mock_limiter.acquire = AsyncMock(return_value=0.0)
             mock_httpx.return_value = mock_client
 
@@ -134,10 +140,16 @@ class TestCheckSourceAvailability:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("app.services.source_availability._get_cached", new_callable=AsyncMock, return_value=None), \
-             patch("app.services.source_availability._set_cached", new_callable=AsyncMock), \
-             patch("app.services.source_availability._rate_limiter") as mock_limiter, \
-             patch("httpx.AsyncClient") as mock_httpx:
+        with (
+            patch(
+                "app.services.source_availability._get_cached",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("app.services.source_availability._set_cached", new_callable=AsyncMock),
+            patch("app.services.source_availability._rate_limiter") as mock_limiter,
+            patch("httpx.AsyncClient") as mock_httpx,
+        ):
             mock_limiter.acquire = AsyncMock(return_value=0.0)
             mock_httpx.return_value = mock_client
 
@@ -157,10 +169,16 @@ class TestCheckSourceAvailability:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("app.services.source_availability._get_cached", new_callable=AsyncMock, return_value=None), \
-             patch("app.services.source_availability._set_cached", new_callable=AsyncMock), \
-             patch("app.services.source_availability._rate_limiter") as mock_limiter, \
-             patch("httpx.AsyncClient") as mock_httpx:
+        with (
+            patch(
+                "app.services.source_availability._get_cached",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("app.services.source_availability._set_cached", new_callable=AsyncMock),
+            patch("app.services.source_availability._rate_limiter") as mock_limiter,
+            patch("httpx.AsyncClient") as mock_httpx,
+        ):
             mock_limiter.acquire = AsyncMock(return_value=0.0)
             mock_httpx.return_value = mock_client
 
@@ -178,10 +196,16 @@ class TestCheckSourceAvailability:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("app.services.source_availability._get_cached", new_callable=AsyncMock, return_value=None), \
-             patch("app.services.source_availability._set_cached", new_callable=AsyncMock), \
-             patch("app.services.source_availability._rate_limiter") as mock_limiter, \
-             patch("httpx.AsyncClient") as mock_httpx:
+        with (
+            patch(
+                "app.services.source_availability._get_cached",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("app.services.source_availability._set_cached", new_callable=AsyncMock),
+            patch("app.services.source_availability._rate_limiter") as mock_limiter,
+            patch("httpx.AsyncClient") as mock_httpx,
+        ):
             mock_limiter.acquire = AsyncMock(return_value=0.0)
             mock_httpx.return_value = mock_client
 
@@ -201,10 +225,16 @@ class TestCheckSourceAvailability:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("app.services.source_availability._get_cached", new_callable=AsyncMock, return_value=None), \
-             patch("app.services.source_availability._set_cached", new_callable=AsyncMock), \
-             patch("app.services.source_availability._rate_limiter") as mock_limiter, \
-             patch("httpx.AsyncClient") as mock_httpx:
+        with (
+            patch(
+                "app.services.source_availability._get_cached",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("app.services.source_availability._set_cached", new_callable=AsyncMock),
+            patch("app.services.source_availability._rate_limiter") as mock_limiter,
+            patch("httpx.AsyncClient") as mock_httpx,
+        ):
             mock_limiter.acquire = AsyncMock(return_value=0.0)
             mock_httpx.return_value = mock_client
 

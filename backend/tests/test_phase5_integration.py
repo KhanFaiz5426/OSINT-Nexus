@@ -169,10 +169,7 @@ def sample_relationships() -> list[ExtractedRelationship]:
             method="dns_a_record",
         ),
         ExtractedRelationship(
-            id=(
-                "domain:example.com:uses_nameserver:"
-                "domain:ns1.example.com"
-            ),
+            id=("domain:example.com:uses_nameserver:domain:ns1.example.com"),
             source_entity_id="domain:example.com",
             target_entity_id="domain:ns1.example.com",
             rel_type=RelationshipType.USES_NAMESERVER,
@@ -182,10 +179,7 @@ def sample_relationships() -> list[ExtractedRelationship]:
             method="dns_ns_record",
         ),
         ExtractedRelationship(
-            id=(
-                "domain:example.com:registered_by:"
-                "email:admin@example.com"
-            ),
+            id=("domain:example.com:registered_by:email:admin@example.com"),
             source_entity_id="domain:example.com",
             target_entity_id="email:admin@example.com",
             rel_type=RelationshipType.REGISTERED_BY,
@@ -195,10 +189,7 @@ def sample_relationships() -> list[ExtractedRelationship]:
             method="whois_registrant_email",
         ),
         ExtractedRelationship(
-            id=(
-                "domain:example.com:registered_with:"
-                "organization:Example Registrar"
-            ),
+            id=("domain:example.com:registered_with:organization:Example Registrar"),
             source_entity_id="domain:example.com",
             target_entity_id="organization:Example Registrar",
             rel_type=RelationshipType.REGISTERED_WITH,
@@ -291,9 +282,7 @@ class TestGraphModels:
 
         host = relationship_type_to_cypher(RelationshipType.HOSTED_ON)
         assert host == "HOSTED_ON"
-        ns = relationship_type_to_cypher(
-            RelationshipType.USES_NAMESERVER
-        )
+        ns = relationship_type_to_cypher(RelationshipType.USES_NAMESERVER)
         assert ns == "USES_NAMESERVER"
 
     def test_node_properties_schema(self):
@@ -326,9 +315,7 @@ class TestGraphWriterNodes:
 
         session = _make_session_mock()
         driver = _make_driver_mock(session)
-        result = await write_nodes(
-            [], investigation_id="test-inv-1", driver=driver
-        )
+        result = await write_nodes([], investigation_id="test-inv-1", driver=driver)
         assert result == 0
 
     @pytest.mark.asyncio
@@ -360,9 +347,7 @@ class TestGraphWriterNodes:
         assert session.run.call_count >= 1
 
     @pytest.mark.asyncio
-    async def test_write_nodes_cypher_is_parameterized(
-        self, sample_entities
-    ):
+    async def test_write_nodes_cypher_is_parameterized(self, sample_entities):
         """Cypher queries use parameters, not string interpolation."""
         from app.graph.writer import write_nodes
 
@@ -394,9 +379,7 @@ class TestGraphWriterEdges:
 
         session = _make_session_mock()
         driver = _make_driver_mock(session)
-        result = await write_edges(
-            [], investigation_id="test-inv-1", driver=driver
-        )
+        result = await write_edges([], investigation_id="test-inv-1", driver=driver)
         assert result == 0
 
     @pytest.mark.asyncio
@@ -404,9 +387,7 @@ class TestGraphWriterEdges:
         """Relationships are grouped by type for batch writes."""
         from app.graph.writer import write_edges
 
-        write_result = _make_write_result(
-            relationships_created=4, properties_set=4
-        )
+        write_result = _make_write_result(relationships_created=4, properties_set=4)
         session = _make_session_mock(run_return=write_result)
         driver = _make_driver_mock(session)
 
@@ -467,14 +448,10 @@ class TestGraphReaderSubgraph:
         nodes_iter = _AsyncIterator([node_record])
         edges_iter = _AsyncIterator([edge_record])
 
-        session = _make_session_mock(
-            run_side_effect=[nodes_iter, edges_iter]
-        )
+        session = _make_session_mock(run_side_effect=[nodes_iter, edges_iter])
         driver = _make_driver_mock(session)
 
-        result = await get_investigation_subgraph(
-            "test-inv-1", driver=driver
-        )
+        result = await get_investigation_subgraph("test-inv-1", driver=driver)
 
         assert "nodes" in result
         assert "edges" in result
@@ -499,14 +476,10 @@ class TestGraphReaderSubgraph:
 
         empty_iter = _AsyncIterator([])
 
-        session = _make_session_mock(
-            run_side_effect=[empty_iter, empty_iter]
-        )
+        session = _make_session_mock(run_side_effect=[empty_iter, empty_iter])
         driver = _make_driver_mock(session)
 
-        result = await get_investigation_subgraph(
-            "empty-inv", driver=driver
-        )
+        result = await get_investigation_subgraph("empty-inv", driver=driver)
         assert result["nodes"] == []
         assert result["edges"] == []
 
@@ -535,9 +508,7 @@ class TestGraphReaderNeighbors:
         session = _make_session_mock()
         driver = _make_driver_mock(session)
         with pytest.raises(ValueError, match="ID must be a non-empty"):
-            await get_entity_neighbors(
-                "", investigation_id="inv-1", driver=driver
-            )
+            await get_entity_neighbors("", investigation_id="inv-1", driver=driver)
 
     @pytest.mark.asyncio
     async def test_get_entity_neighbors_empty_result(self):
@@ -546,9 +517,7 @@ class TestGraphReaderNeighbors:
 
         empty_iter = _AsyncIterator([])
 
-        session = _make_session_mock(
-            run_side_effect=[empty_iter, empty_iter]
-        )
+        session = _make_session_mock(run_side_effect=[empty_iter, empty_iter])
         driver = _make_driver_mock(session)
 
         result = await get_entity_neighbors(
@@ -576,7 +545,8 @@ class TestGraphReaderPaths:
         driver = _make_driver_mock(session)
         with pytest.raises(ValueError, match="ID must be a non-empty"):
             await get_multi_hop_paths(
-                "", "target:1",
+                "",
+                "target:1",
                 investigation_id="inv-1",
                 driver=driver,
             )
@@ -609,9 +579,7 @@ class TestCorrelationEngine:
     """Task 5.7: Orchestrate normalize → extract → resolve → detect → write."""
 
     @pytest.mark.asyncio
-    async def test_correlate_observations_full_pipeline(
-        self, sample_observations
-    ):
+    async def test_correlate_observations_full_pipeline(self, sample_observations):
         """Full pipeline: obs → entities → relationships → graph write."""
         from app.services.correlator import correlate_observations
 
@@ -639,9 +607,7 @@ class TestCorrelationEngine:
         assert result["relationships_detected"] > 0
 
     @pytest.mark.asyncio
-    async def test_correlate_observations_no_graph_write(
-        self, sample_observations
-    ):
+    async def test_correlate_observations_no_graph_write(self, sample_observations):
         """Pipeline works without graph write when disabled."""
         from app.services.correlator import correlate_observations
 
@@ -660,18 +626,14 @@ class TestCorrelationEngine:
         """Empty observations produce zero results."""
         from app.services.correlator import correlate_observations
 
-        result = await correlate_observations(
-            "test-inv-1", [], write_to_graph=False
-        )
+        result = await correlate_observations("test-inv-1", [], write_to_graph=False)
 
         assert result["observations_processed"] == 0
         assert result["entities_extracted"] == 0
         assert result["relationships_detected"] == 0
 
     @pytest.mark.asyncio
-    async def test_correlate_observations_handles_graph_failure(
-        self, sample_observations
-    ):
+    async def test_correlate_observations_handles_graph_failure(self, sample_observations):
         """Graph write failure does not crash the pipeline."""
         from app.services.correlator import correlate_observations
 
@@ -702,16 +664,12 @@ class TestCorrelationEngine:
                 "raw_response": {
                     "A": [{"data": "1.2.3.4"}],
                     "NS": ["ns1.test.com"],
-                    "MX": [
-                        {"exchange": "mail.test.com", "priority": 10}
-                    ],
+                    "MX": [{"exchange": "mail.test.com", "priority": 10}],
                 },
             }
         ]
 
-        result = await correlate_observations(
-            "test-inv-dns", observations, write_to_graph=False
-        )
+        result = await correlate_observations("test-inv-dns", observations, write_to_graph=False)
 
         # Should extract domain, IP, nameserver, MX entities.
         assert result["entities_extracted"] >= 3
@@ -736,9 +694,7 @@ class TestCorrelationEngine:
             }
         ]
 
-        result = await correlate_observations(
-            "test-inv-whois", observations, write_to_graph=False
-        )
+        result = await correlate_observations("test-inv-whois", observations, write_to_graph=False)
 
         assert result["entities_extracted"] >= 3
         assert result["relationships_detected"] >= 2
@@ -761,9 +717,7 @@ class TestEntityAPI:
             transport=ASGITransport(app=app),
             base_url="http://test",
         ) as client:
-            response = await client.get(
-                "/api/v1/entities/domain:example.com"
-            )
+            response = await client.get("/api/v1/entities/domain:example.com")
             # Missing required query param → 422.
             assert response.status_code == 422
 
@@ -789,9 +743,7 @@ class TestPhase5EndToEnd:
                     "AAAA": [],
                     "MX": [
                         {
-                            "exchange": (
-                                "mail.malicious-example.com"
-                            ),
+                            "exchange": ("mail.malicious-example.com"),
                             "priority": 10,
                         }
                     ],
@@ -799,9 +751,7 @@ class TestPhase5EndToEnd:
                         "ns1.shadyhost.net",
                         "ns2.shadyhost.net",
                     ],
-                    "TXT": [
-                        "v=spf1 include:_spf.google.com ~all"
-                    ],
+                    "TXT": ["v=spf1 include:_spf.google.com ~all"],
                 },
             },
             {
@@ -810,16 +760,12 @@ class TestPhase5EndToEnd:
                 "target": "malicious-example.com",
                 "raw_response": {
                     "registrar": "PrivacyGuard",
-                    "registrant_email": (
-                        "contact@privacyguard.org"
-                    ),
+                    "registrant_email": ("contact@privacyguard.org"),
                     "nameservers": [
                         "ns1.shadyhost.net",
                         "ns2.shadyhost.net",
                     ],
-                    "creation_date": (
-                        "2026-08-28T00:00:00Z"
-                    ),
+                    "creation_date": ("2026-08-28T00:00:00Z"),
                     "domain_status": "clientTransferProhibited",
                 },
             },
@@ -831,9 +777,7 @@ class TestPhase5EndToEnd:
                     "certificates": [
                         {
                             "id": "cert_abc123",
-                            "issuer_name": (
-                                "CN=R3, O=Let's Encrypt"
-                            ),
+                            "issuer_name": ("CN=R3, O=Let's Encrypt"),
                             "name_value": (
                                 "malicious-example.com\n"
                                 "www.malicious-example.com\n"
@@ -846,7 +790,8 @@ class TestPhase5EndToEnd:
         ]
 
         write_result = _make_write_result(
-            nodes_created=10, properties_set=20,
+            nodes_created=10,
+            properties_set=20,
             relationships_created=8,
         )
         session = _make_session_mock(run_return=write_result)

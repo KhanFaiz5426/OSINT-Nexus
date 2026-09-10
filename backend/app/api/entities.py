@@ -25,14 +25,10 @@ from app.models import (
 router = APIRouter()
 
 
-
-
 @router.get("/entities/{entity_id:path}/evidence", response_model=list[dict])
 async def get_entity_evidence(
     entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> list[dict]:
     """Get all observations (evidence) for a specific entity.
 
@@ -61,14 +57,10 @@ async def get_entity_evidence(
     return [_observation_to_dict(row) for row in rows]
 
 
-@router.get(
-    "/entities/{entity_id:path}/relationships", response_model=list[RelationshipResponse]
-)
+@router.get("/entities/{entity_id:path}/relationships", response_model=list[RelationshipResponse])
 async def get_entity_relationships(
     entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> list[RelationshipResponse]:
     """Get all relationships for an entity from the Neo4j graph."""
     await _validate_investigation(investigation_id)
@@ -102,9 +94,7 @@ async def get_entity_relationships(
 @router.get("/entities/{entity_id:path}/provenance", response_model=list[dict])
 async def get_entity_provenance(
     entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> list[dict]:
     """Get the provenance trail for an entity.
 
@@ -154,9 +144,7 @@ class ConfidenceOverrideRequest(BaseModel):
 @router.post("/entities", response_model=EntityResponse, status_code=201)
 async def create_entity(
     body: EntityCreate,
-    investigation_id: str = Query(
-        ..., description="Investigation ID to add this entity to"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID to add this entity to"),
 ) -> EntityResponse:
     """Create a manual entity in the investigation.
 
@@ -232,9 +220,7 @@ async def create_entity(
 async def override_confidence(
     entity_id: str,
     body: ConfidenceOverrideRequest,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> dict:
     """Override the confidence score for an entity.
 
@@ -277,9 +263,7 @@ async def override_confidence(
 )
 async def create_relationship(
     body: RelationshipCreate,
-    investigation_id: str = Query(
-        ..., description="Investigation ID to add this relationship to"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID to add this relationship to"),
 ) -> RelationshipResponse:
     """Create a manual relationship between two entities.
 
@@ -344,9 +328,7 @@ async def create_relationship(
 )
 async def get_source_availability(
     entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> SourceAvailabilityResponse:
     """Check source URL availability for an entity.
 
@@ -392,9 +374,7 @@ async def get_source_availability(
 @router.get("/entities/{entity_id:path}", response_model=EntityResponse)
 async def get_entity(
     entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
+    investigation_id: str = Query(..., description="Investigation ID that owns this entity"),
 ) -> EntityResponse:
     """Get entity details including properties and basic metadata.
 
@@ -403,18 +383,14 @@ async def get_entity(
     """
     await _validate_investigation(investigation_id)
 
-    detail = await get_entity_detail(
-        entity_id, investigation_id=investigation_id
-    )
+    detail = await get_entity_detail(entity_id, investigation_id=investigation_id)
     if detail is None:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     return _detail_to_response(detail, investigation_id)
 
 
-def _resolve_source_url(
-    entity_type: str, value: str, properties: dict
-) -> str | None:
+def _resolve_source_url(entity_type: str, value: str, properties: dict) -> str | None:
     """Resolve the source URL for an entity from evidence/properties.
 
     Prefers properties.profile_url (set during extraction from real API responses).
@@ -446,9 +422,7 @@ async def _validate_investigation(investigation_id: str) -> None:
         raise HTTPException(status_code=404, detail="Investigation not found")
 
 
-def _detail_to_response(
-    detail: dict, investigation_id: str
-) -> EntityResponse:
+def _detail_to_response(detail: dict, investigation_id: str) -> EntityResponse:
     """Convert a Neo4j entity detail dict to an EntityResponse."""
     from app.models import EntityType
 

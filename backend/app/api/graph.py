@@ -109,9 +109,7 @@ async def get_graph_paths(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail="Failed to query graph paths"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Failed to query graph paths") from exc
 
     return GraphResponse(nodes=result["nodes"], edges=result["edges"])
 

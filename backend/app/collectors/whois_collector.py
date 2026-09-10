@@ -57,9 +57,7 @@ class WhoisCollector(OSINTCollector):
             # python-whois is synchronous; run in executor to avoid blocking
             import asyncio
 
-            w = await asyncio.get_event_loop().run_in_executor(
-                None, whois.whois, target
-            )
+            w = await asyncio.get_event_loop().run_in_executor(None, whois.whois, target)
 
             if w is None:
                 return RawResult(
@@ -77,9 +75,7 @@ class WhoisCollector(OSINTCollector):
             registrant_name = _extract_field(w.name)
             registrant_org = _extract_field(w.org)
             registrant_email = (
-                _extract_field(w.emails)
-                if hasattr(w, "emails")
-                else _extract_field(w.email)
+                _extract_field(w.emails) if hasattr(w, "emails") else _extract_field(w.email)
             )
             creation_date = _extract_field(w.creation_date)
             expiry_date = _extract_field(w.expiration_date)

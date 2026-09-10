@@ -95,9 +95,7 @@ async def write_nodes(
             summary = await result.consume()
             total += summary.counters.nodes_created or summary.counters.properties_set
 
-    logger.info(
-        "Wrote %d nodes for investigation %s", len(entities), investigation_id
-    )
+    logger.info("Wrote %d nodes for investigation %s", len(entities), investigation_id)
     return len(entities)
 
 
@@ -142,9 +140,7 @@ async def write_edges(
             summary = await result.consume()
             total += summary.counters.relationships_created or summary.counters.properties_set
 
-    logger.info(
-        "Wrote %d edges for investigation %s", len(relationships), investigation_id
-    )
+    logger.info("Wrote %d edges for investigation %s", len(relationships), investigation_id)
     return len(relationships)
 
 

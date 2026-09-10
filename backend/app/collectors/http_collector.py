@@ -112,10 +112,7 @@ class HTTPCollector(OSINTCollector):
                 headers_dict = dict(response.headers)
                 title = self._extract_title(response.text)
                 technologies = self._detect_technologies(headers_dict, response.cookies)
-                redirects = [
-                    {"url": str(r.url), "status": r.status_code}
-                    for r in response.history
-                ]
+                redirects = [{"url": str(r.url), "status": r.status_code} for r in response.history]
                 cookies = [
                     {
                         "name": c.name,
@@ -197,9 +194,7 @@ class HTTPCollector(OSINTCollector):
             pass
         return ""
 
-    def _detect_technologies(
-        self, headers: dict[str, Any], cookies: Any
-    ) -> list[dict[str, str]]:
+    def _detect_technologies(self, headers: dict[str, Any], cookies: Any) -> list[dict[str, str]]:
         """Detect technologies from response headers and cookies."""
         detected: list[dict[str, str]] = []
 
@@ -209,22 +204,26 @@ class HTTPCollector(OSINTCollector):
             if header_value:
                 for pattern, tech_name in patterns.items():
                     if pattern in header_value:
-                        detected.append({
-                            "name": tech_name,
-                            "source": f"header:{header_name}",
-                            "version": self._extract_version(header_value),
-                        })
+                        detected.append(
+                            {
+                                "name": tech_name,
+                                "source": f"header:{header_name}",
+                                "version": self._extract_version(header_value),
+                            }
+                        )
 
         # Check cookies
         for cookie in cookies:
             cookie_name = getattr(cookie, "name", str(cookie))
             for pattern, tech_name in COOKIE_PATTERNS.items():
                 if cookie_name == pattern:
-                    detected.append({
-                        "name": tech_name,
-                        "source": "cookie",
-                        "version": "",
-                    })
+                    detected.append(
+                        {
+                            "name": tech_name,
+                            "source": "cookie",
+                            "version": "",
+                        }
+                    )
 
         return detected
 

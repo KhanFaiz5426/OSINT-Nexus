@@ -83,9 +83,7 @@ class DirectHTTPAdapter(PlatformAdapter):
                 },
             ) as client:
                 response = await client.request(platform.method, url)
-                return self._classify_response(
-                    platform, username, url, response
-                )
+                return self._classify_response(platform, username, url, response)
 
         except httpx.TimeoutException:
             return AdapterResult(

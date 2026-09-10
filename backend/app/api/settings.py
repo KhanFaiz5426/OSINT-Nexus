@@ -107,7 +107,8 @@ async def put_settings(request: SettingsUpdateRequest) -> SettingsUpdateResponse
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
     return SettingsUpdateResponse(
-        message="Settings updated" + (" (restart required for some changes)" if restart_needed else ""),
+        message="Settings updated"
+        + (" (restart required for some changes)" if restart_needed else ""),
         settings=updated,
         restart_required=restart_needed,
     )

@@ -9,11 +9,13 @@ from app.main import app
 def anyio_backend():
     return "asyncio"
 
+
 @pytest.fixture(autouse=True)
 async def _reset_db():
     reset_pool()
     yield
     await close_pool()
+
 
 @pytest.fixture
 async def client():
@@ -21,15 +23,17 @@ async def client():
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
+
 @pytest.mark.anyio
 async def test_get_entity_evidence_case_insensitive_fallback(client: AsyncClient):
     """Test that getting entity evidence correctly falls back to case-insensitive matching.
-    
+
     This prevents the '0 evidence' bug where an entity was merged and normalized to
     lowercase (e.g. 'username:jeff geerling'), but its raw observation had a capitalized
     normalized_value ('Jeff Geerling').
     """
     import uuid
+
     test_investigation_id = str(uuid.uuid4())
     # 1. Insert a raw observation with a capitalized normalized_value
     pool = await get_pool()
@@ -37,7 +41,7 @@ async def test_get_entity_evidence_case_insensitive_fallback(client: AsyncClient
         # First ensure investigation exists due to foreign keys
         await conn.execute(
             "INSERT INTO investigations (id, name, target, target_type, status, depth) VALUES ($1, 'Test', 'target', 'domain', 'completed', 'standard')",
-            test_investigation_id
+            test_investigation_id,
         )
 
         obs_id = await conn.fetchval(
@@ -58,21 +62,21 @@ async def test_get_entity_evidence_case_insensitive_fallback(client: AsyncClient
             '{"name": "Jeff Geerling"}',
             "Jeff Geerling",  # Capitalized!
             0.9,
-            "success"
+            "success",
         )
-        
+
         # Note: We intentionally do NOT insert an entity_provenance row,
         # to force the fallback logic.
 
     # 2. Query the evidence endpoint using the lowercase (normalized) entity ID
     response = await client.get(
         "/api/v1/entities/username:jeff geerling/evidence",
-        params={"investigation_id": test_investigation_id}
+        params={"investigation_id": test_investigation_id},
     )
-    
+
     assert response.status_code == 200
     evidence = response.json()
-    
+
     # 3. Verify the fallback logic matched it via ILIKE
     assert len(evidence) == 1
     assert evidence[0]["id"] == str(obs_id)

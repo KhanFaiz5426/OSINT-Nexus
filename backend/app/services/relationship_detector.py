@@ -94,50 +94,37 @@ def detect_relationships(
         obs_id = result.get("observation_id", "")
 
         if collector == "dns":
-            _process_dns_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_dns_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
         elif collector == "whois":
-            _process_whois_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_whois_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
         elif collector == "certificate_transparency":
-            _process_ct_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_ct_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
         elif collector == "ip_to_asn":
-            _process_ip_asn_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_ip_asn_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
         elif collector == "http":
-            _process_http_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_http_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
         elif collector == "threat_intel":
-            _process_threat_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_threat_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
         elif collector == "github":
-            _process_github_relationships(
-                target, raw_response, _find_entity, _add_rel, obs_id
-            )
+            _process_github_relationships(target, raw_response, _find_entity, _add_rel, obs_id)
 
         # Fix for email targets: ensure relationship between Email and its Domain
         from app.models import EntityType, RelationshipType, TargetType
         from app.services.classifier import classify_target
-        
+
         if classify_target(target) == TargetType.EMAIL:
             from app.services.normalizer import normalize_domain, normalize_email
+
             email_val = normalize_email(target)
             domain_val = normalize_domain(target.split("@")[-1])
-            
+
             email_entity = _find_entity(EntityType.EMAIL, email_val)
             domain_entity = _find_entity(EntityType.DOMAIN, domain_val)
-            
+
             if email_entity and domain_entity:
                 _add_rel(
                     email_entity.id,
-                    RelationshipType.ASSOCIATED_WITH_EMAIL, # Or maybe a new type? Let's use ASSOCIATED_WITH_EMAIL but reversed, or just use it.
+                    RelationshipType.ASSOCIATED_WITH_EMAIL,  # Or maybe a new type? Let's use ASSOCIATED_WITH_EMAIL but reversed, or just use it.
                     domain_entity.id,
                     "target_email_domain",
                     1.0,
@@ -235,7 +222,9 @@ def _process_whois_relationships(
     # Registrant email → registered_by
     registrant_email = raw.get("registrant_email", "")
     if registrant_email and registrant_email.lower() not in (
-        "redacted", "privacy", "whoisguard",
+        "redacted",
+        "privacy",
+        "whoisguard",
     ):
         email_entity = find_entity(EntityType.EMAIL, registrant_email)
         if email_entity:
@@ -469,9 +458,7 @@ def _process_threat_relationships(
     # AbuseIPDB score
     abuse_score = raw.get("abuse_score", 0)
     if abuse_score and abuse_score > 50:
-        threat_entity = find_entity(
-            EntityType.THREAT_INDICATOR, f"abuse_score_{abuse_score}"
-        )
+        threat_entity = find_entity(EntityType.THREAT_INDICATOR, f"abuse_score_{abuse_score}")
         if not threat_entity:
             # Create inline
             threat_entity = ExtractedEntity(
@@ -495,9 +482,7 @@ def _process_threat_relationships(
     urlhaus = raw.get("urlhaus", {})
     if isinstance(urlhaus, dict) and urlhaus.get("threat"):
         threat_val = urlhaus["threat"]
-        threat_entity = find_entity(
-            EntityType.THREAT_INDICATOR, f"urlhaus_{threat_val}"
-        )
+        threat_entity = find_entity(EntityType.THREAT_INDICATOR, f"urlhaus_{threat_val}")
         if not threat_entity:
             threat_entity = ExtractedEntity(
                 id=f"{EntityType.THREAT_INDICATOR.value.lower()}:urlhaus_{threat_val}",

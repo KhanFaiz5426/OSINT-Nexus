@@ -44,6 +44,7 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     if depth == InvestigationDepth.STANDARD:
         try:
             from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
             if SETTINGS_FILE.exists():
                 settings = get_app_settings()
                 depth = InvestigationDepth(settings.general.default_depth)
@@ -53,6 +54,7 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     # Apply default API budget from settings store.
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         api_budget = get_app_settings().investigation.api_budget if SETTINGS_FILE.exists() else 100
     except Exception:
         api_budget = 100
@@ -254,9 +256,7 @@ async def delete_investigation(investigation_id: str) -> bool:
                 investigation_id,
             )
             if deleted == "DELETE 0":
-                raise RuntimeError(
-                    f"PostgreSQL deletion returned 0 rows for {investigation_id}"
-                )
+                raise RuntimeError(f"PostgreSQL deletion returned 0 rows for {investigation_id}")
     except Exception as exc:
         raise RuntimeError(f"Failed to delete investigation from database: {exc}") from exc
 
@@ -337,6 +337,7 @@ async def export_investigation(investigation_id: str) -> dict | None:
     graph_data = {"nodes": [], "edges": []}
     try:
         from app.graph.reader import get_investigation_subgraph
+
         graph_data = await get_investigation_subgraph(investigation_id)
     except Exception:
         pass
@@ -368,7 +369,9 @@ async def export_investigation(investigation_id: str) -> dict | None:
                 "collected_at": row["collected_at"].isoformat() if row["collected_at"] else "",
                 "method": row["method"],
                 "target": row["target"],
-                "raw_response": json.loads(row["raw_response"]) if isinstance(row["raw_response"], str) else row["raw_response"],
+                "raw_response": json.loads(row["raw_response"])
+                if isinstance(row["raw_response"], str)
+                else row["raw_response"],
                 "normalized_value": row["normalized_value"],
                 "confidence": row["confidence"],
                 "status": row["status"],
@@ -384,14 +387,18 @@ async def export_investigation(investigation_id: str) -> dict | None:
                 "first_seen": row["first_seen"].isoformat() if row["first_seen"] else None,
                 "last_seen": row["last_seen"].isoformat() if row["last_seen"] else None,
                 "source_count": row["source_count"],
-                "properties": json.loads(row["properties"]) if isinstance(row["properties"], str) else row["properties"],
+                "properties": json.loads(row["properties"])
+                if isinstance(row["properties"], str)
+                else row["properties"],
             }
             for row in entity_rows
         ],
         "activity_log": [
             {
                 "event_type": row["event_type"],
-                "details": json.loads(row["details"]) if isinstance(row["details"], str) else row["details"],
+                "details": json.loads(row["details"])
+                if isinstance(row["details"], str)
+                else row["details"],
                 "created_at": row["created_at"].isoformat() if row["created_at"] else "",
             }
             for row in activity_rows
@@ -541,30 +548,42 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                 except ValueError:
                     entity_type = EntityType.DOMAIN
 
-                entities.append(ExtractedEntity(
-                    id=entity_id,
-                    entity_type=entity_type,
-                    value=value,
-                    confidence=data_node.get("confidence", 0.5),
-                    first_seen=datetime.fromisoformat(data_node["first_seen"]) if data_node.get("first_seen") else now,
-                    last_seen=datetime.fromisoformat(data_node["last_seen"]) if data_node.get("last_seen") else now,
-                    source_count=data_node.get("source_count", 1),
-                ))
+                entities.append(
+                    ExtractedEntity(
+                        id=entity_id,
+                        entity_type=entity_type,
+                        value=value,
+                        confidence=data_node.get("confidence", 0.5),
+                        first_seen=datetime.fromisoformat(data_node["first_seen"])
+                        if data_node.get("first_seen")
+                        else now,
+                        last_seen=datetime.fromisoformat(data_node["last_seen"])
+                        if data_node.get("last_seen")
+                        else now,
+                        source_count=data_node.get("source_count", 1),
+                    )
+                )
 
             # Convert graph edges back to ExtractedRelationship objects
             relationships = []
             for edge in graph_data.get("edges", []):
                 data_edge = edge.get("data", edge)
-                relationships.append(ExtractedRelationship(
-                    id=data_edge.get("id", str(uuid4())),
-                    source_entity_id=data_edge.get("source", ""),
-                    target_entity_id=data_edge.get("target", ""),
-                    rel_type=RelationshipType(data_edge.get("relationship_type", "co_occurs_with")),
-                    confidence=data_edge.get("confidence", 0.5),
-                    evidence_ids=data_edge.get("evidence", []),
-                    discovered_at=datetime.fromisoformat(data_edge["discovered_at"]) if data_edge.get("discovered_at") else now,
-                    method=data_edge.get("method", "import"),
-                ))
+                relationships.append(
+                    ExtractedRelationship(
+                        id=data_edge.get("id", str(uuid4())),
+                        source_entity_id=data_edge.get("source", ""),
+                        target_entity_id=data_edge.get("target", ""),
+                        rel_type=RelationshipType(
+                            data_edge.get("relationship_type", "co_occurs_with")
+                        ),
+                        confidence=data_edge.get("confidence", 0.5),
+                        evidence_ids=data_edge.get("evidence", []),
+                        discovered_at=datetime.fromisoformat(data_edge["discovered_at"])
+                        if data_edge.get("discovered_at")
+                        else now,
+                        method=data_edge.get("method", "import"),
+                    )
+                )
 
             driver = await get_driver()
             await write_graph(

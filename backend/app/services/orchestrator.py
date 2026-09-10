@@ -52,6 +52,7 @@ def _get_default_budget() -> int:
     Only applies when a settings file exists on disk."""
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         if SETTINGS_FILE.exists():
             return get_app_settings().investigation.api_budget
     except Exception:
@@ -104,9 +105,7 @@ class InvestigationState:
 
     def record_dispatch(self, action: PivotAction, target: str) -> None:
         self.dispatched_targets.add(target.strip().lower())
-        self.recent_action_counts[action.value] = (
-            self.recent_action_counts.get(action.value, 0) + 1
-        )
+        self.recent_action_counts[action.value] = self.recent_action_counts.get(action.value, 0) + 1
         self.total_pivots_dispatched += 1
 
     def next_round(self) -> None:
@@ -246,23 +245,27 @@ async def get_graph_summary(investigation_id: str) -> dict[str, Any]:
     entity_summary = []
     for node in nodes:
         data = node.get("data", {})
-        entity_summary.append({
-            "type": data.get("type", "Unknown"),
-            "value": data.get("label", ""),
-            "confidence": data.get("confidence", 0.0),
-            "source_count": data.get("source_count", 0),
-            "id": data.get("id", ""),
-        })
+        entity_summary.append(
+            {
+                "type": data.get("type", "Unknown"),
+                "value": data.get("label", ""),
+                "confidence": data.get("confidence", 0.0),
+                "source_count": data.get("source_count", 0),
+                "id": data.get("id", ""),
+            }
+        )
 
     relationship_summary = []
     for edge in edges:
         data = edge.get("data", {})
-        relationship_summary.append({
-            "source": data.get("source", ""),
-            "target": data.get("target", ""),
-            "type": data.get("relationship_type", ""),
-            "confidence": data.get("confidence", 0.0),
-        })
+        relationship_summary.append(
+            {
+                "source": data.get("source", ""),
+                "target": data.get("target", ""),
+                "type": data.get("relationship_type", ""),
+                "confidence": data.get("confidence", 0.0),
+            }
+        )
 
     return {
         "entity_count": len(entity_summary),
@@ -426,30 +429,37 @@ async def run_investigation_loop(
 
     # Set status to running.
     await update_investigation_status(investigation_id, InvestigationStatus.RUNNING)
-    await log_activity(investigation_id, "investigation_started", {
-        "target": state.target,
-        "target_type": state.target_type.value,
-        "depth": state.depth.value,
-        "budget": state.budget_remaining,
-    })
+    await log_activity(
+        investigation_id,
+        "investigation_started",
+        {
+            "target": state.target,
+            "target_type": state.target_type.value,
+            "depth": state.depth.value,
+            "budget": state.budget_remaining,
+        },
+    )
 
     # Publish SSE event
     try:
         from app.api.sse import publish_investigation_event
-        await publish_investigation_event(investigation_id, "investigation_started", {
-            "target": state.target,
-            "target_type": state.target_type.value,
-            "status": "running",
-        })
+
+        await publish_investigation_event(
+            investigation_id,
+            "investigation_started",
+            {
+                "target": state.target,
+                "target_type": state.target_type.value,
+                "status": "running",
+            },
+        )
     except Exception:
         pass
 
     try:
         # Phase 1: Initial collection based on target type.
         initial_actions = select_initial_actions(state.target_type)
-        initial_observations = await _dispatch_initial_collectors(
-            state, initial_actions
-        )
+        initial_observations = await _dispatch_initial_collectors(state, initial_actions)
 
         # Phase 1b: Correlate initial observations.
         if initial_observations:
@@ -468,14 +478,16 @@ async def run_investigation_loop(
             try:
                 username_result = correlate_username_accounts(initial_observations)
                 if username_result["entities"] or username_result["relationships"]:
-                    await _write_username_correlation(
-                        investigation_id, username_result
+                    await _write_username_correlation(investigation_id, username_result)
+                    await log_activity(
+                        investigation_id,
+                        "username_correlation",
+                        {
+                            "accounts_found": len(username_result["accounts"]),
+                            "correlations": len(username_result["correlations"]),
+                            "entities_created": len(username_result["entities"]),
+                        },
                     )
-                    await log_activity(investigation_id, "username_correlation", {
-                        "accounts_found": len(username_result["accounts"]),
-                        "correlations": len(username_result["correlations"]),
-                        "entities_created": len(username_result["entities"]),
-                    })
             except Exception as exc:
                 logger.warning("Username correlation failed (Phase 1c): %s", exc)
 
@@ -499,17 +511,13 @@ async def run_investigation_loop(
                 try:
                     username_result = correlate_username_accounts(expansion_obs)
                     if username_result["entities"] or username_result["relationships"]:
-                        await _write_username_correlation(
-                            investigation_id, username_result
-                        )
+                        await _write_username_correlation(investigation_id, username_result)
                 except Exception as exc:
                     logger.warning("Username correlation failed (Phase 1d): %s", exc)
 
         # Phase 1e: Username probe engine — direct platform probing.
         if state.target_type == TargetType.USERNAME:
-            probe_obs = await _run_username_probe_engine(
-                state, investigation_id
-            )
+            probe_obs = await _run_username_probe_engine(state, investigation_id)
             if probe_obs:
                 initial_observations.extend(probe_obs)
                 # Correlate probe observations.
@@ -542,10 +550,7 @@ async def run_investigation_loop(
             graph_summary = await get_graph_summary(investigation_id)
 
             # If no new entities discovered in this round, stop.
-            if (
-                state.current_round > 0
-                and graph_summary.get("entity_count", 0) == 0
-            ):
+            if state.current_round > 0 and graph_summary.get("entity_count", 0) == 0:
                 state.stopped = True
                 state.stop_reason = "no_new_entities"
                 logger.info("Investigation %s stopping: no new entities", investigation_id)
@@ -571,9 +576,13 @@ async def run_investigation_loop(
             if planner_output.stop_recommended:
                 state.stopped = True
                 state.stop_reason = planner_output.stop_reason or "ai_recommended_stop"
-                await log_activity(investigation_id, "ai_recommended_stop", {
-                    "reason": planner_output.stop_reason,
-                })
+                await log_activity(
+                    investigation_id,
+                    "ai_recommended_stop",
+                    {
+                        "reason": planner_output.stop_reason,
+                    },
+                )
                 break
 
             # Deterministic pivot selection (filtered by constraints).
@@ -612,32 +621,39 @@ async def run_investigation_loop(
                     try:
                         username_result = correlate_username_accounts(round_observations)
                         if username_result["entities"] or username_result["relationships"]:
-                            await _write_username_correlation(
-                                investigation_id, username_result
-                            )
+                            await _write_username_correlation(investigation_id, username_result)
                     except Exception as exc:
                         logger.warning("Username correlation failed (pivot round): %s", exc)
 
             # Move to next round.
             state.next_round()
 
-            await log_activity(investigation_id, "pivot_round_completed", {
-                "round": state.current_round,
-                "pivots_dispatched": len(pivots),
-                "observations_collected": len(round_observations),
-                "budget_remaining": state.budget_remaining,
-                "entity_count": graph_summary.get("entity_count", 0),
-            })
+            await log_activity(
+                investigation_id,
+                "pivot_round_completed",
+                {
+                    "round": state.current_round,
+                    "pivots_dispatched": len(pivots),
+                    "observations_collected": len(round_observations),
+                    "budget_remaining": state.budget_remaining,
+                    "entity_count": graph_summary.get("entity_count", 0),
+                },
+            )
 
             # Publish SSE event
             try:
                 from app.api.sse import publish_investigation_event
-                await publish_investigation_event(investigation_id, "pivot_round_completed", {
-                    "round": state.current_round,
-                    "observations": len(round_observations),
-                    "budget_remaining": state.budget_remaining,
-                    "entity_count": graph_summary.get("entity_count", 0),
-                })
+
+                await publish_investigation_event(
+                    investigation_id,
+                    "pivot_round_completed",
+                    {
+                        "round": state.current_round,
+                        "observations": len(round_observations),
+                        "budget_remaining": state.budget_remaining,
+                        "entity_count": graph_summary.get("entity_count", 0),
+                    },
+                )
             except Exception:
                 pass
 
@@ -664,22 +680,31 @@ async def run_investigation_loop(
             extra_fields={"api_calls_used": state.initial_budget - state.budget_remaining},
         )
 
-        await log_activity(investigation_id, "investigation_completed", {
-            "status": final_status.value,
-            "stop_reason": state.stop_reason,
-            "total_rounds": state.current_round,
-            "total_pivots_dispatched": state.total_pivots_dispatched,
-            "budget_remaining": state.budget_remaining,
-        })
+        await log_activity(
+            investigation_id,
+            "investigation_completed",
+            {
+                "status": final_status.value,
+                "stop_reason": state.stop_reason,
+                "total_rounds": state.current_round,
+                "total_pivots_dispatched": state.total_pivots_dispatched,
+                "budget_remaining": state.budget_remaining,
+            },
+        )
 
         # Publish SSE event
         try:
             from app.api.sse import publish_investigation_event
-            await publish_investigation_event(investigation_id, "investigation_completed", {
-                "status": final_status.value,
-                "stop_reason": state.stop_reason,
-                "total_rounds": state.current_round,
-            })
+
+            await publish_investigation_event(
+                investigation_id,
+                "investigation_completed",
+                {
+                    "status": final_status.value,
+                    "stop_reason": state.stop_reason,
+                    "total_rounds": state.current_round,
+                },
+            )
         except Exception:
             pass
 
@@ -699,17 +724,20 @@ async def run_investigation_loop(
 
     except Exception as exc:
         logger.exception("Investigation %s failed: %s", investigation_id, exc)
-        await update_investigation_status(
-            investigation_id, InvestigationStatus.ERROR
-        )
+        await update_investigation_status(investigation_id, InvestigationStatus.ERROR)
         await log_activity(investigation_id, "investigation_error", {"error": str(exc)})
         # Publish SSE event for error
         try:
             from app.api.sse import publish_investigation_event
-            await publish_investigation_event(investigation_id, "investigation_error", {
-                "error": str(exc),
-                "status": "error",
-            })
+
+            await publish_investigation_event(
+                investigation_id,
+                "investigation_error",
+                {
+                    "error": str(exc),
+                    "status": "error",
+                },
+            )
         except Exception:
             pass
         return {"error": str(exc), "investigation_id": investigation_id}
@@ -864,6 +892,7 @@ async def _write_username_correlation(
     if entities:
         try:
             from app.services.correlator import _write_entities_to_postgres
+
             await _write_entities_to_postgres(investigation_id, entities)
         except Exception as exc:
             logger.warning("Failed to write username entities to PostgreSQL: %s", exc)
@@ -907,9 +936,7 @@ async def _expand_username_searches(
         if state.budget_exhausted:
             break
         # Skip if we already have an observation from this collector
-        already_collected = any(
-            obs.get("source_adapter") == collector_name for obs in observations
-        )
+        already_collected = any(obs.get("source_adapter") == collector_name for obs in observations)
         if already_collected:
             continue
 
@@ -925,7 +952,8 @@ async def _expand_username_searches(
                 state.record_dispatch(action, platform_target)
                 logger.info(
                     "Username platform check: %s found for %s",
-                    collector_name, platform_target,
+                    collector_name,
+                    platform_target,
                 )
             await asyncio.sleep(0.3)
         except Exception as exc:
@@ -945,12 +973,17 @@ async def _expand_username_searches(
 
     if discovered_names:
         logger.info("Discovered real names: %s", discovered_names)
-        await log_activity(investigation_id, "username_names_discovered", {
-            "names": discovered_names,
-        })
+        await log_activity(
+            investigation_id,
+            "username_names_discovered",
+            {
+                "names": discovered_names,
+            },
+        )
 
     # ── Step 3: Search for real names across the web ──────────────────────
     from app.collectors.registry import get_collector as _get_collector
+
     search_collector = _get_collector("search")
 
     # Also treat the target itself as a name if it contains spaces (person name)
@@ -969,9 +1002,7 @@ async def _expand_username_searches(
                 if name_obs is not None:
                     extra_observations.append(name_obs)
                     state.consume_budget()
-                    state.record_dispatch(
-                        PivotAction.COLLECT_SEARCH, f"real_name:{name}"
-                    )
+                    state.record_dispatch(PivotAction.COLLECT_SEARCH, f"real_name:{name}")
                 await asyncio.sleep(1.0)
             except Exception as exc:
                 logger.debug("Real name search failed: %s", exc)
@@ -989,9 +1020,7 @@ async def _expand_username_searches(
                 if var_obs is not None:
                     extra_observations.append(var_obs)
                     state.consume_budget()
-                    state.record_dispatch(
-                        PivotAction.COLLECT_SEARCH, f"variation:{var}"
-                    )
+                    state.record_dispatch(PivotAction.COLLECT_SEARCH, f"variation:{var}")
                 await asyncio.sleep(1.0)
             except Exception as exc:
                 logger.debug("Variation search failed: %s", exc)
@@ -1003,10 +1032,14 @@ async def _expand_username_searches(
             len([o for o in extra_observations if o.get("source_adapter") != "search"]),
             discovered_names,
         )
-        await log_activity(investigation_id, "username_expansion_complete", {
-            "extra_observations": len(extra_observations),
-            "names_discovered": discovered_names,
-        })
+        await log_activity(
+            investigation_id,
+            "username_expansion_complete",
+            {
+                "extra_observations": len(extra_observations),
+                "names_discovered": discovered_names,
+            },
+        )
 
     return extra_observations
 
@@ -1030,6 +1063,7 @@ async def _run_username_probe_engine(
     # Only applies when a settings file exists on disk.
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         if SETTINGS_FILE.exists():
             _app = get_app_settings()
             max_variations = _app.investigation.probe.max_variations
@@ -1093,13 +1127,15 @@ async def _run_username_probe_engine(
                     result.status.value,
                 )
                 if row:
-                    extra_observations.append({
-                        "id": row["id"],
-                        "source_adapter": result.collector_name,
-                        "target": result.target,
-                        "raw_response": result.raw_response,
-                        "status": result.status.value,
-                    })
+                    extra_observations.append(
+                        {
+                            "id": row["id"],
+                            "source_adapter": result.collector_name,
+                            "target": result.target,
+                            "raw_response": result.raw_response,
+                            "status": result.status.value,
+                        }
+                    )
                     state.consume_budget()
         except Exception as exc:
             logger.warning("Failed to store probe observation: %s", exc)
@@ -1110,11 +1146,14 @@ async def _run_username_probe_engine(
             len(extra_observations),
             engine._requests_made,
         )
-        await log_activity(investigation_id, "username_probe_complete", {
-            "positive_findings": len(extra_observations),
-            "total_attempts": engine._requests_made,
-            "platforms_checked": len(engine._platforms),
-        })
+        await log_activity(
+            investigation_id,
+            "username_probe_complete",
+            {
+                "positive_findings": len(extra_observations),
+                "total_attempts": engine._requests_made,
+                "platforms_checked": len(engine._platforms),
+            },
+        )
 
     return extra_observations
-

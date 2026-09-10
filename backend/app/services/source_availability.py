@@ -73,6 +73,7 @@ async def _get_cached(url: str) -> dict[str, Any] | None:
         raw = await redis_client.get(_cache_key(url))
         if raw is not None:
             import json
+
             return json.loads(raw)
     except Exception:
         logger.debug("Cache get failed for source check: %s", url, exc_info=True)
@@ -83,6 +84,7 @@ async def _set_cached(url: str, result: dict[str, Any]) -> None:
     """Store availability result in cache."""
     try:
         import json
+
         redis_client = await get_redis()
         await redis_client.set(_cache_key(url), json.dumps(result), ex=CACHE_TTL)
     except Exception:
@@ -155,17 +157,11 @@ async def check_source_availability(url: str) -> dict[str, Any]:
                         f"Redirected — the source redirects to {result['final_url']}."
                     )
                 elif status == "access_denied":
-                    result["detail"] = (
-                        "Access restricted — the source returned HTTP 403."
-                    )
+                    result["detail"] = "Access restricted — the source returned HTTP 403."
                 elif status == "auth_required":
-                    result["detail"] = (
-                        "Authentication required — the source requires login."
-                    )
+                    result["detail"] = "Authentication required — the source requires login."
                 elif status == "rate_limited":
-                    result["detail"] = (
-                        "Rate limited — the source returned HTTP 429."
-                    )
+                    result["detail"] = "Rate limited — the source returned HTTP 429."
                 elif status == "temporarily_unavailable":
                     result["detail"] = (
                         "Temporarily unavailable — the source returned a server error."
@@ -177,20 +173,14 @@ async def check_source_availability(url: str) -> dict[str, Any]:
 
         except httpx.TimeoutException:
             result["status"] = "unknown"
-            result["detail"] = (
-                "Unable to verify — the request timed out."
-            )
+            result["detail"] = "Unable to verify — the request timed out."
         except httpx.ConnectError:
             result["status"] = "unknown"
-            result["detail"] = (
-                "Unable to verify — could not connect to the source."
-            )
+            result["detail"] = "Unable to verify — could not connect to the source."
         except Exception as exc:
             logger.debug("Source availability check failed for %s: %s", url, exc)
             result["status"] = "unknown"
-            result["detail"] = (
-                "Unable to verify — an unexpected error occurred during checking."
-            )
+            result["detail"] = "Unable to verify — an unexpected error occurred during checking."
 
     # Cache the result
     await _set_cached(url, result)

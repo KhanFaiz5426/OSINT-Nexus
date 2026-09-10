@@ -153,9 +153,7 @@ class TestRetryLogic:
                 raise ConnectionError("connection reset")
             return "ok"
 
-        result = await retry_with_backoff(
-            fail_then_succeed, max_attempts=3, base_delay=0.01
-        )
+        result = await retry_with_backoff(fail_then_succeed, max_attempts=3, base_delay=0.01)
         assert result == "ok"
         assert call_count == 3
 
@@ -199,6 +197,7 @@ class TestCollectorRegistry:
     def setup_method(self):
         """Clear registry before each test."""
         from app.collectors.registry import _collectors
+
         _collectors.clear()
 
     def test_register_and_get_collector(self):

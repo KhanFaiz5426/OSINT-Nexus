@@ -77,7 +77,9 @@ class GitLabCollector(OSINTCollector):
                 # Fetch user's projects
                 projects_url = f"{GITLAB_API_BASE}/users/{user['id']}/projects"
                 projects_response = await client.get(
-                    projects_url, headers=headers, params={"per_page": 20, "order_by": "last_activity_at"}
+                    projects_url,
+                    headers=headers,
+                    params={"per_page": 20, "order_by": "last_activity_at"},
                 )
                 projects = projects_response.json() if projects_response.status_code == 200 else []
 

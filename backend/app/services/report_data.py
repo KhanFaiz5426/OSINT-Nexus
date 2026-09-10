@@ -81,16 +81,18 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                     props = json.loads(props)
                 except (json.JSONDecodeError, TypeError):
                     props = {}
-            entities.append({
-                "id": row["id"],
-                "type": row["type"],
-                "value": row["value"],
-                "confidence": row["confidence"],
-                "first_seen": row["first_seen"].isoformat() if row["first_seen"] else None,
-                "last_seen": row["last_seen"].isoformat() if row["last_seen"] else None,
-                "source_count": row["source_count"],
-                "properties": props,
-            })
+            entities.append(
+                {
+                    "id": row["id"],
+                    "type": row["type"],
+                    "value": row["value"],
+                    "confidence": row["confidence"],
+                    "first_seen": row["first_seen"].isoformat() if row["first_seen"] else None,
+                    "last_seen": row["last_seen"].isoformat() if row["last_seen"] else None,
+                    "source_count": row["source_count"],
+                    "properties": props,
+                }
+            )
 
         # ── Observations (evidence) ──────────────────────────────────────
         obs_rows = await conn.fetch(
@@ -112,18 +114,20 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                     raw = json.loads(raw)
                 except (json.JSONDecodeError, TypeError):
                     raw = {}
-            observations.append({
-                "id": str(row["id"]),
-                "source_adapter": row["source_adapter"],
-                "source_version": row["source_version"],
-                "collected_at": row["collected_at"].isoformat(),
-                "method": row["method"],
-                "target": row["target"],
-                "raw_response": raw,
-                "normalized_value": row["normalized_value"],
-                "confidence": row["confidence"],
-                "status": row["status"],
-            })
+            observations.append(
+                {
+                    "id": str(row["id"]),
+                    "source_adapter": row["source_adapter"],
+                    "source_version": row["source_version"],
+                    "collected_at": row["collected_at"].isoformat(),
+                    "method": row["method"],
+                    "target": row["target"],
+                    "raw_response": raw,
+                    "normalized_value": row["normalized_value"],
+                    "confidence": row["confidence"],
+                    "status": row["status"],
+                }
+            )
 
         # ── Activity log ─────────────────────────────────────────────────
         activity_rows = await conn.fetch(
@@ -143,12 +147,14 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                     details = json.loads(details)
                 except (json.JSONDecodeError, TypeError):
                     details = {}
-            activity_log.append({
-                "id": row["id"],
-                "event_type": row["event_type"],
-                "details": details,
-                "created_at": row["created_at"].isoformat(),
-            })
+            activity_log.append(
+                {
+                    "id": row["id"],
+                    "event_type": row["event_type"],
+                    "details": details,
+                    "created_at": row["created_at"].isoformat(),
+                }
+            )
 
     # ── Graph relationships ──────────────────────────────────────────────
     try:
@@ -160,16 +166,18 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
     relationships = []
     for edge in graph.get("edges", []):
         data = edge.get("data", {})
-        relationships.append({
-            "id": data.get("id", ""),
-            "source": data.get("source", ""),
-            "target": data.get("target", ""),
-            "type": data.get("relationship_type", ""),
-            "confidence": data.get("confidence", 0.0),
-            "evidence": data.get("evidence", []),
-            "discovered_at": data.get("discovered_at"),
-            "method": data.get("method", ""),
-        })
+        relationships.append(
+            {
+                "id": data.get("id", ""),
+                "source": data.get("source", ""),
+                "target": data.get("target", ""),
+                "type": data.get("relationship_type", ""),
+                "confidence": data.get("confidence", 0.0),
+                "evidence": data.get("evidence", []),
+                "discovered_at": data.get("discovered_at"),
+                "method": data.get("method", ""),
+            }
+        )
 
     # ── AI analysis (best-effort, non-blocking) ──────────────────────────
     ai_analysis: dict[str, Any] | None = None
@@ -194,6 +202,7 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                 pivot_rounds = round_row["cnt"]
 
         from app.ai.client import get_llm_call_fn
+
         llm_fn = get_llm_call_fn()
 
         analyzer_output = await analyze_investigation(

@@ -35,6 +35,7 @@ def _get_youtube_api_key() -> str:
     """Load YouTube API key from settings."""
     try:
         from app.core.config import get_settings
+
         settings = get_settings()
         return getattr(settings, "YOUTUBE_API_KEY", "")
     except Exception:
@@ -120,22 +121,14 @@ class YouTubeAPIAdapter(PlatformAdapter):
             evidence={"api_method": "channels.list", "query_type": "not_found"},
         )
 
-    async def _try_handle(
-        self, api_key: str, username: str, url: str
-    ) -> AdapterResult | None:
+    async def _try_handle(self, api_key: str, username: str, url: str) -> AdapterResult | None:
         """Try channels.list with forHandle (@username)."""
         handle = username if username.startswith("@") else f"@{username}"
-        return await self._query_channels(
-            api_key, username, url, {"forHandle": handle}
-        )
+        return await self._query_channels(api_key, username, url, {"forHandle": handle})
 
-    async def _try_username(
-        self, api_key: str, username: str, url: str
-    ) -> AdapterResult | None:
+    async def _try_username(self, api_key: str, username: str, url: str) -> AdapterResult | None:
         """Try channels.list with forUsername (legacy)."""
-        return await self._query_channels(
-            api_key, username, url, {"forUsername": username}
-        )
+        return await self._query_channels(api_key, username, url, {"forUsername": username})
 
     async def _query_channels(
         self,
@@ -183,9 +176,7 @@ class YouTubeAPIAdapter(PlatformAdapter):
                     "description": snippet.get("description", "")[:500],
                     "custom_url": snippet.get("customUrl", ""),
                     "published_at": snippet.get("publishedAt", ""),
-                    "thumbnail": snippet.get("thumbnails", {})
-                    .get("default", {})
-                    .get("url", ""),
+                    "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
                     "country": snippet.get("country", ""),
                     "view_count": statistics.get("viewCount", "0"),
                     "subscriber_count": statistics.get("subscriberCount", "0"),

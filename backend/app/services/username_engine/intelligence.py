@@ -126,9 +126,7 @@ class PlatformIntelligenceOrchestrator:
                 kwargs["platform"] = platform_def
 
             try:
-                result = await adapter.probe(
-                    platform_key, username, investigation_id, **kwargs
-                )
+                result = await adapter.probe(platform_key, username, investigation_id, **kwargs)
                 if result is not None:
                     if result.found:
                         logger.info(
@@ -224,9 +222,7 @@ class PlatformIntelligenceOrchestrator:
         budget: ProbeBudget,
     ) -> AdapterResult | None:
         """Probe a single platform with adapter chain, respecting budget."""
-        return await self.probe_platform(
-            platform_key, username, investigation_id, budget
-        )
+        return await self.probe_platform(platform_key, username, investigation_id, budget)
 
     def get_adapter_status(self) -> dict[str, Any]:
         """Return status of all registered adapters."""

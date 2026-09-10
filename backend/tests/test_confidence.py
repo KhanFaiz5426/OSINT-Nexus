@@ -96,9 +96,7 @@ class TestScoreEntity:
     def test_custom_source_overrides(self):
         entity = _make_entity(sources=["custom_source"])
         base_score = score_entity(entity)
-        override = score_entity(
-            entity, source_overrides={"custom_source": 0.95}
-        )
+        override = score_entity(entity, source_overrides={"custom_source": 0.95})
         assert override > base_score
 
 
@@ -136,9 +134,7 @@ class TestScoreRelationship:
 
     def test_recency_decay(self):
         fresh = _make_relationship(discovered_at=datetime.now(UTC))
-        old = _make_relationship(
-            discovered_at=datetime.now(UTC) - timedelta(days=200)
-        )
+        old = _make_relationship(discovered_at=datetime.now(UTC) - timedelta(days=200))
         assert score_relationship(fresh) > score_relationship(old)
 
     def test_score_range(self):

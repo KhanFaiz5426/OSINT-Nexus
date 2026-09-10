@@ -176,8 +176,7 @@ def select_pivots(
     pivots = filter_by_budget(pivots, budget_remaining)
 
     logger.info(
-        "Pivot selection: %d candidates → %d after filtering "
-        "(budget=%d, dispatched=%d)",
+        "Pivot selection: %d candidates → %d after filtering (budget=%d, dispatched=%d)",
         len(planner_output.pivots),
         len(pivots),
         budget_remaining,

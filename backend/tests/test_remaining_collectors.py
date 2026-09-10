@@ -94,9 +94,16 @@ class TestGitHubCollector:
         repos_response = MagicMock()
         repos_response.status_code = 200
         repos_response.json.return_value = [
-            {"name": "Hello-World", "description": "First repo", "language": "Ruby",
-             "stargazers_count": 100, "forks_count": 50, "created_at": "2011-01-25T18:44:36Z",
-             "updated_at": "2024-01-01T00:00:00Z", "html_url": "https://github.com/octocat/Hello-World"},
+            {
+                "name": "Hello-World",
+                "description": "First repo",
+                "language": "Ruby",
+                "stargazers_count": 100,
+                "forks_count": 50,
+                "created_at": "2011-01-25T18:44:36Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+                "html_url": "https://github.com/octocat/Hello-World",
+            },
         ]
 
         orgs_response = MagicMock()
@@ -192,8 +199,10 @@ class TestThreatIntelCollector:
     @pytest.mark.anyio
     async def test_threat_intel_no_data(self):
         """When no sources return data, should return empty success."""
-        with patch.object(self.collector, "_query_abuseipdb", return_value=None), \
-             patch.object(self.collector, "_query_urlhaus", return_value=None):
+        with (
+            patch.object(self.collector, "_query_abuseipdb", return_value=None),
+            patch.object(self.collector, "_query_urlhaus", return_value=None),
+        ):
             result = await self.collector._collect("safe.example.com", TargetType.DOMAIN)
 
         assert result.status == ObservationStatus.SUCCESS

@@ -66,18 +66,14 @@ def validate_url_not_internal(url: str) -> str:
 
     # Check blocked hostname patterns
     if _BLOCKED_HOSTNAMES.match(hostname):
-        raise SSRFBlockedError(
-            f"SSRF blocked: hostname '{hostname}' targets internal network"
-        )
+        raise SSRFBlockedError(f"SSRF blocked: hostname '{hostname}' targets internal network")
 
     # Try to parse as IP address
     try:
         ip = ipaddress.ip_address(hostname)
         for network in _BLOCKED_NETWORKS:
             if ip in network:
-                raise SSRFBlockedError(
-                    f"SSRF blocked: IP {hostname} is in blocked range {network}"
-                )
+                raise SSRFBlockedError(f"SSRF blocked: IP {hostname} is in blocked range {network}")
     except ValueError:
         # Not an IP address, that's fine — it's a hostname
         pass

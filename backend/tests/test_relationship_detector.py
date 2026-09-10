@@ -1,6 +1,5 @@
 """Tests for relationship detector (Task 4.12)."""
 
-
 from app.models import EntityType, RelationshipType
 from app.models.processing import ExtractedEntity
 from app.services.relationship_detector import detect_relationships
@@ -155,9 +154,7 @@ class TestDetectRelationships:
             {
                 "collector_name": "certificate_transparency",
                 "target": "example.com",
-                "raw_response": {
-                    "certificates": [{"id": "cert123"}]
-                },
+                "raw_response": {"certificates": [{"id": "cert123"}]},
                 "observation_id": "obs_1",
             },
         ]

@@ -113,9 +113,7 @@ class PlatformAdapter(abc.ABC):
         """Convert an AdapterResult to a RawResult for the pipeline."""
         from app.models import ObservationStatus
 
-        status = (
-            ObservationStatus.SUCCESS if result.found else ObservationStatus.SUCCESS
-        )
+        status = ObservationStatus.SUCCESS if result.found else ObservationStatus.SUCCESS
 
         return RawResult(
             collector_name="username_probe",

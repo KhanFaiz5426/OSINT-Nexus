@@ -338,8 +338,9 @@ class TestInterleavedRanking:
 class _MockProvider(SearchProvider):
     """Test double for SearchProvider."""
 
-    def __init__(self, provider_name: str, results: list[SearchResult] | None = None,
-                 fail: bool = False):
+    def __init__(
+        self, provider_name: str, results: list[SearchResult] | None = None, fail: bool = False
+    ):
         self._name = provider_name
         self._results = results or []
         self._fail = fail
@@ -353,11 +354,11 @@ class _MockProvider(SearchProvider):
             raise ConnectionError(f"{self._name} failed")
         return SearchProviderResponse(
             provider_name=self._name,
-            results=self._results[:request.max_results],
+            results=self._results[: request.max_results],
             status=ProviderStatus(
                 provider_name=self._name,
                 status=ProviderStatusCode.SUCCESS,
-                result_count=len(self._results[:request.max_results]),
+                result_count=len(self._results[: request.max_results]),
             ),
         )
 
@@ -508,7 +509,9 @@ class TestNonUsernameInvestigations:
         assert "company" in q.lower() or "organization" in q.lower()
 
     def test_url_query(self):
-        assert _build_query("https://example.com/path", TargetType.URL) == '"https://example.com/path"'
+        assert (
+            _build_query("https://example.com/path", TargetType.URL) == '"https://example.com/path"'
+        )
 
     @pytest.mark.asyncio
     async def test_search_collector_domain_uses_orchestrator(self):
@@ -619,9 +622,7 @@ class TestEntityExtraction:
         assert any("example.com" in u for u in entities["urls"])
 
     def test_excludes_file_extensions(self):
-        results = [
-            {"title": "T", "url": "https://x.com", "snippet": "load style.css image.png"}
-        ]
+        results = [{"title": "T", "url": "https://x.com", "snippet": "load style.css image.png"}]
         entities = _extract_entities(results)
         assert "style.css" not in entities["domains"]
         assert "image.png" not in entities["domains"]

@@ -153,11 +153,13 @@ class SearchDiscoveryAdapter(PlatformAdapter):
 
         try:
             from app.core.config import get_settings
+
             settings = get_settings()
             searxng_url = getattr(settings, "SEARXNG_BASE_URL", "")
             searxng_enabled = getattr(settings, "SEARXNG_ENABLED", True)
             if searxng_url and searxng_enabled:
                 from app.collectors.search_providers.searxng import SearXNGProvider
+
                 providers.append(SearXNGProvider(base_url=searxng_url))
         except Exception:
             pass
@@ -192,11 +194,13 @@ class SearchDiscoveryAdapter(PlatformAdapter):
             try:
                 orch_result = await self._orchestrator.search(request)
                 for sr in orch_result.results:
-                    all_results.append({
-                        "title": sr.title,
-                        "url": sr.url,
-                        "snippet": sr.snippet,
-                    })
+                    all_results.append(
+                        {
+                            "title": sr.title,
+                            "url": sr.url,
+                            "snippet": sr.snippet,
+                        }
+                    )
             except Exception as exc:
                 logger.debug("Search failed for '%s': %s", query, exc)
 
@@ -245,9 +249,7 @@ class SearchDiscoveryAdapter(PlatformAdapter):
                     # Additional check: URL should contain the username
                     parsed = urlparse(result_url)
                     path_parts = [p for p in parsed.path.split("/") if p]
-                    if username.lower() in [
-                        p.lower().lstrip("@") for p in path_parts
-                    ]:
+                    if username.lower() in [p.lower().lstrip("@") for p in path_parts]:
                         matching_urls.append(result)
                         break
 

@@ -124,6 +124,7 @@ def _deep_merge(base: dict, override: dict) -> None:
 def get_masked_api_keys() -> dict[str, bool]:
     """Check which API keys are configured (never return actual values)."""
     from app.core.config import get_settings
+
     settings = get_settings()
     return {
         "github": bool(settings.GITHUB_TOKEN),
@@ -140,6 +141,7 @@ def get_masked_api_keys() -> dict[str, bool]:
 def get_service_health() -> dict[str, Any]:
     """Check health of all backend services."""
     from app.core.config import get_settings
+
     settings = get_settings()
     return {
         "database": {

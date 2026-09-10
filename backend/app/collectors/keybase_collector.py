@@ -85,19 +85,23 @@ class KeybaseCollector(OSINTCollector):
 
                 social_proofs = []
                 for proof in proofs:
-                    social_proofs.append({
-                        "service": proof.get("service", ""),
-                        "username": proof.get("username", ""),
-                        "proof_url": proof.get("proof_url", ""),
-                        "proof_type": proof.get("proof_type", ""),
-                    })
+                    social_proofs.append(
+                        {
+                            "service": proof.get("service", ""),
+                            "username": proof.get("username", ""),
+                            "proof_url": proof.get("proof_url", ""),
+                            "proof_type": proof.get("proof_type", ""),
+                        }
+                    )
 
                 crypto_addresses = []
                 for coin in crypto:
-                    crypto_addresses.append({
-                        "address": coin.get("address", ""),
-                        "coin_symbol": coin.get("coin_symbol", ""),
-                    })
+                    crypto_addresses.append(
+                        {
+                            "address": coin.get("address", ""),
+                            "coin_symbol": coin.get("coin_symbol", ""),
+                        }
+                    )
 
                 profile_data = {
                     "username": basics.get("username", ""),

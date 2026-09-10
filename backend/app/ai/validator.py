@@ -38,6 +38,7 @@ async def validate_observation_ids(
 
     # Filter out empty strings and ensure valid UUID format.
     import uuid
+
     valid_uuid_ids = []
     for oid in observation_ids:
         oid = oid.strip()
@@ -48,7 +49,7 @@ async def validate_observation_ids(
             valid_uuid_ids.append(oid)
         except ValueError:
             logger.warning("AI hallucinated non-UUID observation ID: %s", oid)
-            
+
     if not valid_uuid_ids:
         return []
 
@@ -200,9 +201,7 @@ def sanitize_pivot_evidence_ids(
     sanitized = []
     for pivot in pivots:
         pivot_copy = pivot.model_copy(
-            update={
-                "evidence_ids": [eid for eid in pivot.evidence_ids if eid in valid_obs_ids]
-            }
+            update={"evidence_ids": [eid for eid in pivot.evidence_ids if eid in valid_obs_ids]}
         )
         sanitized.append(pivot_copy)
     return sanitized

@@ -115,9 +115,7 @@ class TestEntityExtraction:
     def test_extract_from_dns(self):
         from app.services.extractor import extract_from_dns
 
-        entities, relationships = extract_from_dns(
-            "example.com", MOCK_DNS_RESULT
-        )
+        entities, relationships = extract_from_dns("example.com", MOCK_DNS_RESULT)
         entity_values = [(e.entity_type, e.value) for e in entities]
 
         # Should extract IPs, MX domain, NS domains
@@ -128,9 +126,7 @@ class TestEntityExtraction:
     def test_extract_from_whois(self):
         from app.services.extractor import extract_from_whois
 
-        entities, relationships = extract_from_whois(
-            "example.com", MOCK_WHOIS_RESULT
-        )
+        entities, relationships = extract_from_whois("example.com", MOCK_WHOIS_RESULT)
         entity_values = [(e.entity_type, e.value) for e in entities]
 
         # Should extract email and nameserver domains
@@ -139,9 +135,7 @@ class TestEntityExtraction:
     def test_extract_from_ct(self):
         from app.services.extractor import extract_from_ct
 
-        entities, relationships = extract_from_ct(
-            "example.com", MOCK_CT_RESULT
-        )
+        entities, relationships = extract_from_ct("example.com", MOCK_CT_RESULT)
         entity_values = [(e.entity_type, e.value) for e in entities]
         print("CT entities:", entity_values)
 

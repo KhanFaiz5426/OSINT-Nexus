@@ -62,7 +62,11 @@ async def _call_nvidia(
             async with httpx.AsyncClient(timeout=60.0) as client:
                 logger.debug(
                     "LLM Request: POST %s (model=%s, max_tokens=%s, attempt=%d/%d)",
-                    url, model, max_tokens, attempt + 1, max_retries,
+                    url,
+                    model,
+                    max_tokens,
+                    attempt + 1,
+                    max_retries,
                 )
                 resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
@@ -72,21 +76,27 @@ async def _call_nvidia(
                     return content
                 # Retry on transient errors
                 if resp.status_code in (429, 500, 502, 503):
-                    wait = 2 ** attempt * 3  # 3s, 6s, 12s
+                    wait = 2**attempt * 3  # 3s, 6s, 12s
                     logger.warning(
                         "LLM transient error %s (attempt %d/%d), retrying in %ds. Body: %.200s",
-                        resp.status_code, attempt + 1, max_retries, wait,
+                        resp.status_code,
+                        attempt + 1,
+                        max_retries,
+                        wait,
                         resp.text,
                     )
                     await asyncio.sleep(wait)
                     last_exc = httpx.HTTPStatusError(
-                        f"HTTP {resp.status_code}", request=resp.request, response=resp,
+                        f"HTTP {resp.status_code}",
+                        request=resp.request,
+                        response=resp,
                     )
                     continue
                 # Non-retryable error — log and raise immediately
                 logger.error(
                     "LLM Error Response: %s - %.500s",
-                    resp.status_code, resp.text,
+                    resp.status_code,
+                    resp.text,
                 )
                 resp.raise_for_status()
         except httpx.HTTPStatusError:
@@ -94,10 +104,14 @@ async def _call_nvidia(
         except Exception as exc:
             last_exc = exc
             if attempt < max_retries - 1:
-                wait = 2 ** attempt * 3
+                wait = 2**attempt * 3
                 logger.warning(
                     "LLM request error (attempt %d/%d): %s: %s, retrying in %ds",
-                    attempt + 1, max_retries, type(exc).__name__, exc, wait,
+                    attempt + 1,
+                    max_retries,
+                    type(exc).__name__,
+                    exc,
+                    wait,
                 )
                 await asyncio.sleep(wait)
             else:
@@ -135,13 +149,22 @@ async def _call_openai(
     max_retries = 3
     for attempt in range(max_retries):
         async with httpx.AsyncClient(timeout=60.0) as client:
-            logger.debug("LLM Request (OpenAI): POST %s (payload: %s)", url, {k: v for k, v in payload.items() if k != "messages"})
+            logger.debug(
+                "LLM Request (OpenAI): POST %s (payload: %s)",
+                url,
+                {k: v for k, v in payload.items() if k != "messages"},
+            )
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code != 200 and resp.status_code != 429:
                 logger.error("LLM Error Response (OpenAI): %s - %s", resp.status_code, resp.text)
             if resp.status_code == 429:
-                wait = 2 ** attempt * 5  # 5s, 10s, 20s
-                logger.warning("Rate limited (429), retrying in %ds (attempt %d/%d)", wait, attempt + 1, max_retries)
+                wait = 2**attempt * 5  # 5s, 10s, 20s
+                logger.warning(
+                    "Rate limited (429), retrying in %ds (attempt %d/%d)",
+                    wait,
+                    attempt + 1,
+                    max_retries,
+                )
                 await asyncio.sleep(wait)
                 continue
             resp.raise_for_status()
@@ -150,7 +173,9 @@ async def _call_openai(
             logger.debug("LLM Response (OpenAI) (%d chars)", len(content_str))
             return content_str
 
-    raise httpx.HTTPStatusError("Rate limit exceeded after retries", request=resp.request, response=resp)
+    raise httpx.HTTPStatusError(
+        "Rate limit exceeded after retries", request=resp.request, response=resp
+    )
 
 
 async def _call_anthropic(
@@ -189,7 +214,11 @@ async def _call_anthropic(
         payload["system"] = system_msg
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        logger.debug("LLM Request (Anthropic): POST %s (payload: %s)", url, {k: v for k, v in payload.items() if k != "messages" and k != "system"})
+        logger.debug(
+            "LLM Request (Anthropic): POST %s (payload: %s)",
+            url,
+            {k: v for k, v in payload.items() if k != "messages" and k != "system"},
+        )
         resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code != 200:
             logger.error("LLM Error Response (Anthropic): %s - %s", resp.status_code, resp.text)
@@ -220,7 +249,11 @@ async def _call_ollama(
     }
 
     async with httpx.AsyncClient(timeout=120.0) as client:
-        logger.debug("LLM Request (Ollama): POST %s (payload: %s)", url, {k: v for k, v in payload.items() if k != "messages"})
+        logger.debug(
+            "LLM Request (Ollama): POST %s (payload: %s)",
+            url,
+            {k: v for k, v in payload.items() if k != "messages"},
+        )
         resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code != 200:
             logger.error("LLM Error Response (Ollama): %s - %s", resp.status_code, resp.text)
@@ -273,7 +306,8 @@ def _mask_key(key: str) -> str:
 
 
 def _build_provider_config(
-    provider: str, settings: Any,
+    provider: str,
+    settings: Any,
     runtime_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """Build config dict for a provider, or None if not configured.
@@ -337,6 +371,7 @@ def _overlay_runtime_llm_settings(
     """
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         if not SETTINGS_FILE.exists():
             return (
                 env_settings.LLM_PROVIDER.lower().strip(),
@@ -346,7 +381,9 @@ def _overlay_runtime_llm_settings(
         app = get_app_settings()
         provider = app.llm.active_provider or env_settings.LLM_PROVIDER
         max_tokens = app.llm.max_tokens or env_settings.LLM_MAX_TOKENS
-        temperature = app.llm.temperature if app.llm.temperature != 0.3 else env_settings.LLM_TEMPERATURE
+        temperature = (
+            app.llm.temperature if app.llm.temperature != 0.3 else env_settings.LLM_TEMPERATURE
+        )
         return provider.lower().strip(), max_tokens, temperature
     except Exception:
         return (
@@ -381,6 +418,7 @@ def get_llm_call_fn() -> Any:
     runtime_overrides: dict[str, str] = {}
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         if SETTINGS_FILE.exists():
             app = get_app_settings()
             if app.llm.model:

@@ -211,61 +211,79 @@ def generate_search_queries(
 
     # 1. Exact username on each platform
     for domain, platform in _PROFILE_PLATFORMS[:8]:
-        queries.append({
-            "query": f"site:{domain} \"{username}\"",
-            "description": f"{platform} profile",
-        })
+        queries.append(
+            {
+                "query": f'site:{domain} "{username}"',
+                "description": f"{platform} profile",
+            }
+        )
 
     # 2. Username variations on key platforms
     variations = generate_username_variations(username, max_variations=5)
     for var in variations[1:4]:  # Skip original, take top 3
-        queries.append({
-            "query": f'"{var}" profile OR account OR user',
-            "description": f'Profile for "{var}"',
-        })
+        queries.append(
+            {
+                "query": f'"{var}" profile OR account OR user',
+                "description": f'Profile for "{var}"',
+            }
+        )
 
     # 3. Username without separators on social platforms
     no_sep = re.sub(r"[._\-\s]", "", username)
     if no_sep != username.lower():
-        queries.append({
-            "query": f'"{no_sep}" site:twitter.com OR site:instagram.com OR site:reddit.com',
-            "description": f'Social media (no separators: {no_sep})',
-        })
+        queries.append(
+            {
+                "query": f'"{no_sep}" site:twitter.com OR site:instagram.com OR site:reddit.com',
+                "description": f"Social media (no separators: {no_sep})",
+            }
+        )
 
     # 4. General username search
-    queries.append({
-        "query": f'"{username}" about OR bio OR profile OR portfolio',
-        "description": "General profile search",
-    })
+    queries.append(
+        {
+            "query": f'"{username}" about OR bio OR profile OR portfolio',
+            "description": "General profile search",
+        }
+    )
 
     # 5. If we found a real name, search for it
     if real_name:
-        queries.append({
-            "query": f'"{real_name}" site:linkedin.com',
-            "description": f'LinkedIn for "{real_name}"',
-        })
-        queries.append({
-            "query": f'"{real_name}" site:twitter.com OR site:x.com',
-            "description": f'Twitter/X for "{real_name}"',
-        })
-        queries.append({
-            "query": f'"{real_name}" site:github.com',
-            "description": f'GitHub for "{real_name}"',
-        })
+        queries.append(
+            {
+                "query": f'"{real_name}" site:linkedin.com',
+                "description": f'LinkedIn for "{real_name}"',
+            }
+        )
+        queries.append(
+            {
+                "query": f'"{real_name}" site:twitter.com OR site:x.com',
+                "description": f'Twitter/X for "{real_name}"',
+            }
+        )
+        queries.append(
+            {
+                "query": f'"{real_name}" site:github.com',
+                "description": f'GitHub for "{real_name}"',
+            }
+        )
         # Search for the name + username together
-        queries.append({
-            "query": f'"{real_name}" "{username}"',
-            "description": 'Name + username correlation',
-        })
+        queries.append(
+            {
+                "query": f'"{real_name}" "{username}"',
+                "description": "Name + username correlation",
+            }
+        )
 
     # 6. Reverse lookup: search for common patterns
     parts = _split_username_parts(username)
     if len(parts) > 1:
         # Try "firstname lastname" style
-        queries.append({
-            "query": " ".join(parts),
-            "description": f'Search as name: {" ".join(parts)}',
-        })
+        queries.append(
+            {
+                "query": " ".join(parts),
+                "description": f"Search as name: {' '.join(parts)}",
+            }
+        )
 
     return queries[:max_queries]
 

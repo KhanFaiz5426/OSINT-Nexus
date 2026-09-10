@@ -76,11 +76,13 @@ class DNSCollector(OSINTCollector):
                 answers = resolver.resolve(domain, rtype)
                 record_list = []
                 for rdata in answers:
-                    record_list.append({
-                        "type": rtype,
-                        "value": str(rdata),
-                        "ttl": answers.rrset.ttl,
-                    })
+                    record_list.append(
+                        {
+                            "type": rtype,
+                            "value": str(rdata),
+                            "ttl": answers.rrset.ttl,
+                        }
+                    )
                 if record_list:
                     records[rtype] = record_list
             except dns.resolver.NoAnswer:

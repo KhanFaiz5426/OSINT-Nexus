@@ -117,8 +117,7 @@ SAMPLE_DATA = {
     ],
     "ai_analysis": {
         "summary": (
-            "This domain is hosted on a shared hosting provider with moderate"
-            " threat indicators."
+            "This domain is hosted on a shared hosting provider with moderate threat indicators."
         ),
         "risk_level": "medium",
         "risk_reasoning": "Shared hosting with limited reputation data.",
@@ -183,10 +182,13 @@ class TestGenerateHtmlReport:
         assert "A record lookup" in content
 
     def test_html_escapes_special_chars(self):
-        data = {**SAMPLE_DATA, "investigation": {
-            **SAMPLE_DATA["investigation"],
-            "name": 'Test <script>alert("xss")</script>',
-        }}
+        data = {
+            **SAMPLE_DATA,
+            "investigation": {
+                **SAMPLE_DATA["investigation"],
+                "name": 'Test <script>alert("xss")</script>',
+            },
+        }
         path = generate_html_report(data)
         content = Path(path).read_text(encoding="utf-8")
         assert "<script>" not in content

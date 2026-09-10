@@ -44,9 +44,7 @@ class PivotRecommendation(BaseModel):
         max_length=2000,
         description="LLM reasoning for this recommendation",
     )
-    priority: int = Field(
-        default=5, ge=1, le=10, description="Priority (1=highest, 10=lowest)"
-    )
+    priority: int = Field(default=5, ge=1, le=10, description="Priority (1=highest, 10=lowest)")
     evidence_ids: list[str] = Field(
         default_factory=list,
         description="Observation IDs the AI based this recommendation on",
@@ -108,9 +106,7 @@ class KeyFinding(BaseModel):
     """A single key finding from the AI analyzer."""
 
     title: str = Field(..., max_length=200, description="Brief title of the finding")
-    description: str = Field(
-        ..., max_length=2000, description="Detailed description"
-    )
+    description: str = Field(..., max_length=2000, description="Detailed description")
     entity_ids: list[str] = Field(
         default_factory=list,
         description="Entity IDs relevant to this finding",
@@ -126,12 +122,8 @@ class AIAnalyzerOutput(BaseModel):
     Validated strictly before storage. Never treated as source evidence.
     """
 
-    summary: str = Field(
-        default="", max_length=5000, description="Executive summary of findings"
-    )
-    risk_level: RiskLevel = Field(
-        default=RiskLevel.LOW, description="Overall risk assessment"
-    )
+    summary: str = Field(default="", max_length=5000, description="Executive summary of findings")
+    risk_level: RiskLevel = Field(default=RiskLevel.LOW, description="Overall risk assessment")
     risk_reasoning: str = Field(
         default="", max_length=3000, description="Reasoning for risk assessment"
     )

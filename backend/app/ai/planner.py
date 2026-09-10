@@ -119,7 +119,7 @@ def build_planner_prompt(
         "    {\n"
         '      "target": "<string: target to investigate>",\n'
         '      "action": "<one of: collect_dns, collect_whois, collect_ct, '
-        "collect_ip_asn, collect_github, collect_http, collect_threat_intel>\",\n"
+        'collect_ip_asn, collect_github, collect_http, collect_threat_intel>",\n'
         '      "reasoning": "<string: why this pivot is valuable>",\n'
         '      "priority": <int 1-10, 1=highest>,\n'
         '      "evidence_ids": [<list of observation IDs this is based on>]\n'
@@ -279,8 +279,11 @@ async def plan_pivots_with_ai(
     except Exception as exc:
         logger.error(
             "LLM call failed during planning: %s: %s (investigation=%s, round=%d/%d)",
-            type(exc).__name__, str(exc)[:300],
-            investigation_id, current_round + 1, max_rounds,
+            type(exc).__name__,
+            str(exc)[:300],
+            investigation_id,
+            current_round + 1,
+            max_rounds,
         )
         # Don't recommend stop — let the deterministic pipeline decide
         # based on budget/depth. Returning empty pivots means this round
@@ -305,14 +308,10 @@ async def plan_pivots_with_ai(
         all_evidence_ids.update(pivot.evidence_ids)
 
     if all_evidence_ids:
-        valid_ids = await validate_observation_ids(
-            list(all_evidence_ids), investigation_id
-        )
+        valid_ids = await validate_observation_ids(list(all_evidence_ids), investigation_id)
         valid_set = set(valid_ids)
         for pivot in output.pivots:
-            pivot.evidence_ids = [
-                eid for eid in pivot.evidence_ids if eid in valid_set
-            ]
+            pivot.evidence_ids = [eid for eid in pivot.evidence_ids if eid in valid_set]
 
     # Limit to top 5 pivots.
     output.pivots = output.pivots[:5]

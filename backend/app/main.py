@@ -29,9 +29,7 @@ async def _init_neo4j_schema() -> None:
             for cypher in INVESTIGATION_INDEX_CYPHER:
                 await session.run(cypher)
     except Exception:
-        logger.warning(
-            "Could not initialize Neo4j schema (Neo4j may be unavailable)"
-        )
+        logger.warning("Could not initialize Neo4j schema (Neo4j may be unavailable)")
 
 
 @asynccontextmanager
@@ -84,9 +82,7 @@ def create_app() -> FastAPI:
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         if not settings.DEBUG:
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
     # Request timing middleware (audit logging)

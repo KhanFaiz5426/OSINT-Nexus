@@ -148,9 +148,7 @@ def ip_version(ip_str: str) -> int | None:
 # ── Email normalization (Task 4.3) ───────────────────────────────────────────
 
 
-_EMAIL_RE = re.compile(
-    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-)
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def normalize_email(email: str) -> str:

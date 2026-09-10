@@ -49,9 +49,7 @@ _DOMAIN_RE = re.compile(
     r"+[a-zA-Z]{2,}\b"
 )
 
-_EMAIL_RE = re.compile(
-    r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b"
-)
+_EMAIL_RE = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b")
 
 _ASN_RE = re.compile(r"\bAS(\d{1,6})\b", re.IGNORECASE)
 
@@ -287,14 +285,12 @@ def extract_from_dns(
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)
-    
+
     is_email = classify_target(target) == TargetType.EMAIL
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(
-        etype: EntityType, value: str, confidence: float = 0.9
-    ) -> ExtractedEntity:
+    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity:
         norm = _normalize_entity_value(etype, value)
         if not norm:
             raise ValueError("empty entity value")
@@ -336,11 +332,17 @@ def extract_from_dns(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
-    
+
     if is_email:
         email_val = normalize_email(target)
         email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
-        _add_rel(domain_entity.id, RelationshipType.ASSOCIATED_WITH_EMAIL, email_entity.id, "email_domain", confidence=1.0)
+        _add_rel(
+            domain_entity.id,
+            RelationshipType.ASSOCIATED_WITH_EMAIL,
+            email_entity.id,
+            "email_domain",
+            confidence=1.0,
+        )
 
     # A records → IP entities + hosted_on relationship
     for record in raw_response.get("A", []):
@@ -462,14 +464,12 @@ def extract_from_whois(
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)
-    
+
     is_email = classify_target(target) == TargetType.EMAIL
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(
-        etype: EntityType, value: str, confidence: float = 0.9
-    ) -> ExtractedEntity:
+    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity:
         norm = _normalize_entity_value(etype, value)
         if not norm:
             raise ValueError("empty entity value")
@@ -511,11 +511,17 @@ def extract_from_whois(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.9)
-    
+
     if is_email:
         email_val = normalize_email(target)
         email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
-        _add_rel(domain_entity.id, RelationshipType.ASSOCIATED_WITH_EMAIL, email_entity.id, "email_domain", confidence=1.0)
+        _add_rel(
+            domain_entity.id,
+            RelationshipType.ASSOCIATED_WITH_EMAIL,
+            email_entity.id,
+            "email_domain",
+            confidence=1.0,
+        )
 
     # Registrar → Organization
     registrar = raw_response.get("registrar", "")
@@ -616,14 +622,12 @@ def extract_from_ct(
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)
-    
+
     is_email = classify_target(target) == TargetType.EMAIL
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(
-        etype: EntityType, value: str, confidence: float = 0.9
-    ) -> ExtractedEntity:
+    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity:
         norm = _normalize_entity_value(etype, value)
         if not norm:
             raise ValueError("empty entity value")
@@ -665,11 +669,17 @@ def extract_from_ct(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
-    
+
     if is_email:
         email_val = normalize_email(target)
         email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
-        _add_rel(domain_entity.id, RelationshipType.ASSOCIATED_WITH_EMAIL, email_entity.id, "email_domain", confidence=1.0)
+        _add_rel(
+            domain_entity.id,
+            RelationshipType.ASSOCIATED_WITH_EMAIL,
+            email_entity.id,
+            "email_domain",
+            confidence=1.0,
+        )
 
     # Certificates
     certificates = raw_response.get("certificates", [])
@@ -747,12 +757,12 @@ def _extract_issuer_org(issuer_name: str) -> str | None:
         if upper.startswith("O=") or upper.startswith("O ="):
             # Find the value after '=' or '='
             idx = part.index("=")
-            return part[idx + 1:].strip()
+            return part[idx + 1 :].strip()
     # Fallback: use CN
     for part in issuer_name.split(","):
         part = part.strip()
         upper = part.upper()
         if upper.startswith("CN=") or upper.startswith("CN ="):
             idx = part.index("=")
-            return part[idx + 1:].strip()
+            return part[idx + 1 :].strip()
     return None

@@ -30,8 +30,10 @@ def _make_mock_pool(mock_conn: AsyncMock) -> MagicMock:
 
 def _mock_get_pool(pool):
     """Return a patchable async function that returns the given pool."""
+
     async def _get_pool():
         return pool
+
     return _get_pool
 
 
@@ -80,10 +82,12 @@ class TestDeleteInvestigation:
 
         mock_conn = AsyncMock()
         mock_conn.fetchrow = fetchrow_side_effect
-        mock_conn.fetch = AsyncMock(return_value=[
-            {"file_path": "/path/to/report1.html"},
-            {"file_path": "/path/to/report2.pdf"},
-        ])
+        mock_conn.fetch = AsyncMock(
+            return_value=[
+                {"file_path": "/path/to/report1.html"},
+                {"file_path": "/path/to/report2.pdf"},
+            ]
+        )
         mock_conn.execute = AsyncMock(return_value="DELETE 1")
         mock_pool = _make_mock_pool(mock_conn)
 
@@ -98,13 +102,16 @@ class TestDeleteInvestigation:
     @pytest.mark.asyncio
     async def test_delete_neo4j_before_postgresql(self):
         from app.services.investigation import delete_investigation
+
         call_order = []
 
         mock_conn = AsyncMock()
-        mock_conn.fetchrow = AsyncMock(return_value={
-            "id": "test-id",
-            "status": InvestigationStatus.CREATED.value,
-        })
+        mock_conn.fetchrow = AsyncMock(
+            return_value={
+                "id": "test-id",
+                "status": InvestigationStatus.CREATED.value,
+            }
+        )
         mock_conn.fetch = AsyncMock(return_value=[])
         mock_conn.execute = AsyncMock(return_value="DELETE 1")
         mock_pool = _make_mock_pool(mock_conn)
@@ -114,7 +121,9 @@ class TestDeleteInvestigation:
             return 5
 
         with patch("app.services.investigation.get_pool", _mock_get_pool(mock_pool)):
-            with patch("app.graph.writer.delete_investigation_graph", side_effect=mock_delete_graph):
+            with patch(
+                "app.graph.writer.delete_investigation_graph", side_effect=mock_delete_graph
+            ):
                 await delete_investigation("test-id")
 
         assert call_order == ["neo4j"]
@@ -124,10 +133,12 @@ class TestDeleteInvestigation:
         from app.services.investigation import delete_investigation
 
         mock_conn = AsyncMock()
-        mock_conn.fetchrow = AsyncMock(return_value={
-            "id": "test-id",
-            "status": InvestigationStatus.CREATED.value,
-        })
+        mock_conn.fetchrow = AsyncMock(
+            return_value={
+                "id": "test-id",
+                "status": InvestigationStatus.CREATED.value,
+            }
+        )
         mock_conn.fetch = AsyncMock(return_value=[])
         mock_conn.execute = AsyncMock(return_value="DELETE 1")
         mock_pool = _make_mock_pool(mock_conn)
@@ -136,7 +147,9 @@ class TestDeleteInvestigation:
             raise Exception("Neo4j connection failed")
 
         with patch("app.services.investigation.get_pool", _mock_get_pool(mock_pool)):
-            with patch("app.graph.writer.delete_investigation_graph", side_effect=failing_delete_graph):
+            with patch(
+                "app.graph.writer.delete_investigation_graph", side_effect=failing_delete_graph
+            ):
                 result = await delete_investigation("test-id")
                 assert result is True
 
@@ -145,10 +158,12 @@ class TestDeleteInvestigation:
         from app.services.investigation import delete_investigation
 
         mock_conn = AsyncMock()
-        mock_conn.fetchrow = AsyncMock(return_value={
-            "id": "test-id",
-            "status": InvestigationStatus.CREATED.value,
-        })
+        mock_conn.fetchrow = AsyncMock(
+            return_value={
+                "id": "test-id",
+                "status": InvestigationStatus.CREATED.value,
+            }
+        )
         mock_conn.fetch = AsyncMock(return_value=[])
         mock_conn.execute = AsyncMock(return_value="DELETE 0")
         mock_pool = _make_mock_pool(mock_conn)

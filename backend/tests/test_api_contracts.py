@@ -82,16 +82,12 @@ class TestInvestigationsContract:
 
     @pytest.mark.anyio
     async def test_get_investigation_not_found(self, client: AsyncClient):
-        resp = await client.get(
-            "/api/v1/investigations/00000000-0000-0000-0000-000000000000"
-        )
+        resp = await client.get("/api/v1/investigations/00000000-0000-0000-0000-000000000000")
         assert resp.status_code == 404
 
     @pytest.mark.anyio
     async def test_stop_investigation_not_found(self, client: AsyncClient):
-        resp = await client.post(
-            "/api/v1/investigations/00000000-0000-0000-0000-000000000000/stop"
-        )
+        resp = await client.post("/api/v1/investigations/00000000-0000-0000-0000-000000000000/stop")
         assert resp.status_code in (404, 400)
 
     @pytest.mark.anyio
@@ -136,9 +132,7 @@ class TestEntitiesContract:
 class TestGraphContract:
     @pytest.mark.anyio
     async def test_graph_empty_investigation(self, client: AsyncClient):
-        resp = await client.get(
-            "/api/v1/investigations/00000000-0000-0000-0000-000000000000/graph"
-        )
+        resp = await client.get("/api/v1/investigations/00000000-0000-0000-0000-000000000000/graph")
         # Graph may return empty or 404 depending on implementation
         assert resp.status_code in (200, 404)
 

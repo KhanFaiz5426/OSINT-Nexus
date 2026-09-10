@@ -23,15 +23,33 @@ class TestCTCollector:
 
     def test_process_certs(self):
         data = [
-            {"id": 123, "common_name": "example.com", "name_value": "*.example.com",
-             "issuer_name": "Let's Encrypt", "not_before": "2024-01-01",
-             "not_after": "2024-04-01", "serial_number": "abc123"},
-            {"id": 123, "common_name": "example.com", "name_value": "www.example.com",
-             "issuer_name": "Let's Encrypt", "not_before": "2024-01-01",
-             "not_after": "2024-04-01", "serial_number": "abc123"},
-            {"id": 456, "common_name": "example.com", "name_value": "mail.example.com",
-             "issuer_name": "DigiCert", "not_before": "2024-02-01",
-             "not_after": "2024-05-01", "serial_number": "def456"},
+            {
+                "id": 123,
+                "common_name": "example.com",
+                "name_value": "*.example.com",
+                "issuer_name": "Let's Encrypt",
+                "not_before": "2024-01-01",
+                "not_after": "2024-04-01",
+                "serial_number": "abc123",
+            },
+            {
+                "id": 123,
+                "common_name": "example.com",
+                "name_value": "www.example.com",
+                "issuer_name": "Let's Encrypt",
+                "not_before": "2024-01-01",
+                "not_after": "2024-04-01",
+                "serial_number": "abc123",
+            },
+            {
+                "id": 456,
+                "common_name": "example.com",
+                "name_value": "mail.example.com",
+                "issuer_name": "DigiCert",
+                "not_before": "2024-02-01",
+                "not_after": "2024-05-01",
+                "serial_number": "def456",
+            },
         ]
         certs = self.collector._process_certs(data)
         assert len(certs) == 2  # Two unique cert IDs
@@ -56,12 +74,24 @@ class TestCTCollector:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = [
-            {"id": 100, "common_name": "example.com", "name_value": "example.com",
-             "issuer_name": "Let's Encrypt", "not_before": "2024-01-01",
-             "not_after": "2024-04-01", "serial_number": "abc"},
-            {"id": 100, "common_name": "example.com", "name_value": "www.example.com",
-             "issuer_name": "Let's Encrypt", "not_before": "2024-01-01",
-             "not_after": "2024-04-01", "serial_number": "abc"},
+            {
+                "id": 100,
+                "common_name": "example.com",
+                "name_value": "example.com",
+                "issuer_name": "Let's Encrypt",
+                "not_before": "2024-01-01",
+                "not_after": "2024-04-01",
+                "serial_number": "abc",
+            },
+            {
+                "id": 100,
+                "common_name": "example.com",
+                "name_value": "www.example.com",
+                "issuer_name": "Let's Encrypt",
+                "not_before": "2024-01-01",
+                "not_after": "2024-04-01",
+                "serial_number": "abc",
+            },
         ]
 
         mock_client = AsyncMock()

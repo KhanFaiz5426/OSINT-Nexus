@@ -28,16 +28,14 @@ class TestGitHubBlogExtraction:
         types_values = [(e.entity_type, e.value) for e in entities]
 
         # Should have URL entity
-        assert any(
-            t == EntityType.URL and "mysite.com" in v
-            for t, v in types_values
-        ), f"Missing URL entity in {types_values}"
+        assert any(t == EntityType.URL and "mysite.com" in v for t, v in types_values), (
+            f"Missing URL entity in {types_values}"
+        )
 
         # Should have Domain entity (www stripped)
-        assert any(
-            t == EntityType.DOMAIN and v == "mysite.com"
-            for t, v in types_values
-        ), f"Missing Domain entity in {types_values}"
+        assert any(t == EntityType.DOMAIN and v == "mysite.com" for t, v in types_values), (
+            f"Missing Domain entity in {types_values}"
+        )
 
     def test_blog_without_scheme(self):
         """Blog field without https:// should still work."""
@@ -52,10 +50,9 @@ class TestGitHubBlogExtraction:
         entities, _ = _extract_from_github("testuser", raw_response)
         types_values = [(e.entity_type, e.value) for e in entities]
 
-        assert any(
-            t == EntityType.DOMAIN and v == "mysite.com"
-            for t, v in types_values
-        ), f"Missing Domain entity in {types_values}"
+        assert any(t == EntityType.DOMAIN and v == "mysite.com" for t, v in types_values), (
+            f"Missing Domain entity in {types_values}"
+        )
 
     def test_blog_with_www_prefix(self):
         """Blog with www. should strip www from domain."""
@@ -124,9 +121,7 @@ class TestGitHubBlogExtraction:
             "repositories": [],
         }
 
-        entities, _ = _extract_from_github(
-            "testuser", raw_response, observation_id="obs-123"
-        )
+        entities, _ = _extract_from_github("testuser", raw_response, observation_id="obs-123")
         for entity in entities:
             assert "obs-123" in entity.evidence_ids
 

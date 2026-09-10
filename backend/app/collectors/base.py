@@ -31,6 +31,7 @@ def _resolve_cache_ttl(collector_name: str, class_default: int) -> int:
     """
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()
@@ -48,6 +49,7 @@ def _resolve_rate_limit_rpm(collector_name: str, class_default: int) -> int:
     """
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()
@@ -191,9 +193,7 @@ class OSINTCollector(abc.ABC):
             "name": self.name,
             "version": self.version,
             "available": True,
-            "api_key_configured": (
-                not self.requires_api_key or self._is_api_key_available()
-            ),
+            "api_key_configured": (not self.requires_api_key or self._is_api_key_available()),
             "rate_limit_rpm": self.rate_limit_rpm,
             "cache_ttl_seconds": self.cache_ttl,
         }

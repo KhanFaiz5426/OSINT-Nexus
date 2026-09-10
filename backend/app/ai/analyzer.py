@@ -89,14 +89,11 @@ def build_analyzer_prompt(
     user_parts.append(f"\nRelationships ({relationship_count}):")
     for rel in relationship_summary[:25]:
         user_parts.append(
-            f"  - {rel.get('source', '?')} --[{rel.get('type', '?')}]--> "
-            f"{rel.get('target', '?')}"
+            f"  - {rel.get('source', '?')} --[{rel.get('type', '?')}]--> {rel.get('target', '?')}"
         )
 
     # Include threat indicators if present.
-    threats = [
-        e for e in entity_summary if e.get("type") == "ThreatIndicator"
-    ]
+    threats = [e for e in entity_summary if e.get("type") == "ThreatIndicator"]
     if threats:
         user_parts.append(f"\nThreat indicators found ({len(threats)}):")
         for t in threats:
@@ -176,7 +173,9 @@ async def analyze_investigation(
     except Exception as exc:
         logger.error(
             "LLM call failed during analysis: %s: %s (investigation=%s)",
-            type(exc).__name__, str(exc)[:300], investigation_id,
+            type(exc).__name__,
+            str(exc)[:300],
+            investigation_id,
         )
         entity_count = graph_summary.get("entity_count", 0)
         rel_count = graph_summary.get("relationship_count", 0)

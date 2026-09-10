@@ -49,14 +49,16 @@ async def test_search_collector_success_domain():
     """Search collector returns results for a domain target."""
     collector = SearchCollector()
 
-    orch_result = _make_orch_result([
-        SearchResult(
-            title="Example Domain - Test Page",
-            url="https://example.com/page",
-            snippet="This is an example domain.",
-            provider="duckduckgo",
-        ),
-    ])
+    orch_result = _make_orch_result(
+        [
+            SearchResult(
+                title="Example Domain - Test Page",
+                url="https://example.com/page",
+                snippet="This is an example domain.",
+                provider="duckduckgo",
+            ),
+        ]
+    )
 
     with patch.object(collector._orchestrator, "search", return_value=orch_result):
         result = await collector.collect("example.com", TargetType.DOMAIN)
@@ -140,14 +142,16 @@ async def test_search_collector_provider_metadata_in_result():
     """Search results include provider metadata."""
     collector = SearchCollector()
 
-    orch_result = _make_orch_result([
-        SearchResult(
-            title="Test",
-            url="https://test.com",
-            snippet="Test",
-            provider="duckduckgo",
-        ),
-    ])
+    orch_result = _make_orch_result(
+        [
+            SearchResult(
+                title="Test",
+                url="https://test.com",
+                snippet="Test",
+                provider="duckduckgo",
+            ),
+        ]
+    )
 
     with patch.object(collector._orchestrator, "search", return_value=orch_result):
         result = await collector.collect("test.com", TargetType.DOMAIN)

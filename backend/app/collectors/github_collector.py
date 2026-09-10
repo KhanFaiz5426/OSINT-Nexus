@@ -113,8 +113,7 @@ class GitHubCollector(OSINTCollector):
                 raw_response = {
                     "email": target,
                     "search_results": [
-                        {"login": u.get("login", ""), "id": u.get("id", 0)}
-                        for u in users
+                        {"login": u.get("login", ""), "id": u.get("id", 0)} for u in users
                     ],
                     "profile": {
                         "login": profile.get("login", ""),
@@ -268,9 +267,7 @@ class GitHubCollector(OSINTCollector):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.get(
-                    url, headers=self._get_headers(), params=params
-                )
+                response = await client.get(url, headers=self._get_headers(), params=params)
 
                 if response.status_code != 200:
                     return []

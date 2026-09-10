@@ -134,7 +134,9 @@ class TestDirectHTTPAdapter:
         mock_response.url = "https://example.com/johndoe"
         mock_response.headers = {"content-type": "text/html"}
 
-        with patch("app.services.username_engine.adapters.http_adapter.httpx.AsyncClient") as mock_client:
+        with patch(
+            "app.services.username_engine.adapters.http_adapter.httpx.AsyncClient"
+        ) as mock_client:
             mock_instance = AsyncMock()
             mock_instance.request = AsyncMock(return_value=mock_response)
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -165,7 +167,9 @@ class TestDirectHTTPAdapter:
         mock_response.text = "Not Found"
         mock_response.url = "https://example.com/nobody"
 
-        with patch("app.services.username_engine.adapters.http_adapter.httpx.AsyncClient") as mock_client:
+        with patch(
+            "app.services.username_engine.adapters.http_adapter.httpx.AsyncClient"
+        ) as mock_client:
             mock_instance = AsyncMock()
             mock_instance.request = AsyncMock(return_value=mock_response)
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -181,6 +185,7 @@ class TestDirectHTTPAdapter:
     @pytest.mark.asyncio
     async def test_probe_timeout(self):
         import httpx
+
         adapter = DirectHTTPAdapter()
         platform = PlatformDefinition(
             key="test",
@@ -189,7 +194,9 @@ class TestDirectHTTPAdapter:
             timeout=0.1,
         )
 
-        with patch("app.services.username_engine.adapters.http_adapter.httpx.AsyncClient") as mock_client:
+        with patch(
+            "app.services.username_engine.adapters.http_adapter.httpx.AsyncClient"
+        ) as mock_client:
             mock_instance = AsyncMock()
             mock_instance.request = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -238,13 +245,17 @@ class TestYouTubeAPIAdapter:
 
     def test_is_available_with_key(self):
         adapter = YouTubeAPIAdapter()
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = "test-key-123"
             assert adapter.is_available is True
 
     def test_is_available_without_key(self):
         adapter = YouTubeAPIAdapter()
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = ""
             assert adapter.is_available is False
 
@@ -257,7 +268,9 @@ class TestYouTubeAPIAdapter:
     @pytest.mark.asyncio
     async def test_probe_no_api_key(self):
         adapter = YouTubeAPIAdapter()
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = ""
             result = await adapter.probe("youtube", "geerlingguy", "inv-id")
 
@@ -270,31 +283,37 @@ class TestYouTubeAPIAdapter:
     async def test_probe_success_via_handle(self):
         adapter = YouTubeAPIAdapter()
         api_response = {
-            "items": [{
-                "id": "UC45GcuMCV",
-                "snippet": {
-                    "title": "Jeff Geerling",
-                    "description": "Raspberry Pi, Linux, Ansible",
-                    "customUrl": "@geerlingguy",
-                    "publishedAt": "2010-01-01T00:00:00Z",
-                    "country": "US",
-                    "thumbnails": {"default": {"url": "https://yt3.ggpht.com/thumb.jpg"}},
-                },
-                "statistics": {
-                    "viewCount": "100000000",
-                    "subscriberCount": "1500000",
-                    "videoCount": "1000",
-                },
-            }]
+            "items": [
+                {
+                    "id": "UC45GcuMCV",
+                    "snippet": {
+                        "title": "Jeff Geerling",
+                        "description": "Raspberry Pi, Linux, Ansible",
+                        "customUrl": "@geerlingguy",
+                        "publishedAt": "2010-01-01T00:00:00Z",
+                        "country": "US",
+                        "thumbnails": {"default": {"url": "https://yt3.ggpht.com/thumb.jpg"}},
+                    },
+                    "statistics": {
+                        "viewCount": "100000000",
+                        "subscriberCount": "1500000",
+                        "videoCount": "1000",
+                    },
+                }
+            ]
         }
 
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = api_response
 
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = "test-key"
-            with patch("app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient") as mock_client:
+            with patch(
+                "app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient"
+            ) as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get = AsyncMock(return_value=mock_response)
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -320,9 +339,13 @@ class TestYouTubeAPIAdapter:
         mock_response.status_code = 200
         mock_response.json.return_value = api_response
 
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = "test-key"
-            with patch("app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient") as mock_client:
+            with patch(
+                "app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient"
+            ) as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get = AsyncMock(return_value=mock_response)
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -343,9 +366,13 @@ class TestYouTubeAPIAdapter:
         mock_response.status_code = 403
         mock_response.text = "quota exceeded"
 
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = "test-key"
-            with patch("app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient") as mock_client:
+            with patch(
+                "app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient"
+            ) as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get = AsyncMock(return_value=mock_response)
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -361,11 +388,16 @@ class TestYouTubeAPIAdapter:
     @pytest.mark.asyncio
     async def test_probe_timeout(self):
         import httpx
+
         adapter = YouTubeAPIAdapter()
 
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = "test-key"
-            with patch("app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient") as mock_client:
+            with patch(
+                "app.services.username_engine.adapters.youtube_api_adapter.httpx.AsyncClient"
+            ) as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -531,7 +563,9 @@ class TestPlatformIntelligenceOrchestrator:
     def test_adapter_chain_youtube_override(self):
         orch = PlatformIntelligenceOrchestrator()
         # Mock YouTube adapter as available by patching the API key check
-        with patch("app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key") as mock_key:
+        with patch(
+            "app.services.username_engine.adapters.youtube_api_adapter._get_youtube_api_key"
+        ) as mock_key:
             mock_key.return_value = "test-key"
             # Re-create the adapter to pick up the mocked key
             orch._adapters["youtube_api"] = YouTubeAPIAdapter()
@@ -640,7 +674,9 @@ class TestGracefulFallback:
         orch = PlatformIntelligenceOrchestrator()
 
         # Mock YouTube adapter to return None (error)
-        with patch.object(orch._adapters["youtube_api"], "probe", new_callable=AsyncMock) as mock_yt:
+        with patch.object(
+            orch._adapters["youtube_api"], "probe", new_callable=AsyncMock
+        ) as mock_yt:
             mock_yt.return_value = None
 
             # Mock search discovery to return found
@@ -654,12 +690,18 @@ class TestGracefulFallback:
                 confidence=0.55,
                 evidence_confidence=EvidenceConfidence.LOW,
             )
-            with patch.object(orch._adapters["search_discovery"], "probe", new_callable=AsyncMock) as mock_search:
+            with patch.object(
+                orch._adapters["search_discovery"], "probe", new_callable=AsyncMock
+            ) as mock_search:
                 mock_search.return_value = mock_result
 
                 result = await orch.probe_platform(
-                    "youtube", "geerlingguy", "inv-id",
-                    __import__('app.services.username_engine.models', fromlist=['ProbeBudget']).ProbeBudget(),
+                    "youtube",
+                    "geerlingguy",
+                    "inv-id",
+                    __import__(
+                        "app.services.username_engine.models", fromlist=["ProbeBudget"]
+                    ).ProbeBudget(),
                 )
 
                 assert result is not None
@@ -669,11 +711,16 @@ class TestGracefulFallback:
     @pytest.mark.asyncio
     async def test_orchestrator_returns_none_all_adapters_fail(self):
         from app.services.username_engine.models import ProbeBudget
+
         orch = PlatformIntelligenceOrchestrator()
 
-        with patch.object(orch._adapters["youtube_api"], "probe", new_callable=AsyncMock) as mock_yt:
+        with patch.object(
+            orch._adapters["youtube_api"], "probe", new_callable=AsyncMock
+        ) as mock_yt:
             mock_yt.return_value = None
-            with patch.object(orch._adapters["search_discovery"], "probe", new_callable=AsyncMock) as mock_search:
+            with patch.object(
+                orch._adapters["search_discovery"], "probe", new_callable=AsyncMock
+            ) as mock_search:
                 mock_search.return_value = None
 
                 result = await orch.probe_platform(

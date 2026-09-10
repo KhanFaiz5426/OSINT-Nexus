@@ -1,6 +1,5 @@
 """Tests for entity resolver (Tasks 4.9–4.11)."""
 
-
 from app.models import EntityType, RelationshipType
 from app.models.processing import ExtractedEntity
 from app.services.resolver import (
@@ -90,12 +89,16 @@ class TestResolveNormalized:
 
     def test_merge_across_different_sources(self):
         e1 = _make_entity(
-            EntityType.DOMAIN, "example.com",
-            sources=["dns"], evidence_ids=["obs_1"],
+            EntityType.DOMAIN,
+            "example.com",
+            sources=["dns"],
+            evidence_ids=["obs_1"],
         )
         e2 = _make_entity(
-            EntityType.DOMAIN, "example.com",
-            sources=["whois"], evidence_ids=["obs_2"],
+            EntityType.DOMAIN,
+            "example.com",
+            sources=["whois"],
+            evidence_ids=["obs_2"],
         )
 
         resolved = resolve_normalized([e1, e2])

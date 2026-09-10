@@ -32,8 +32,7 @@ CONSTRAINTS_CYPHER: list[str] = [
 
 # Investigation_id index for filtering subgraphs.
 INVESTIGATION_INDEX_CYPHER: list[str] = [
-    f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.investigation_id)"
-    for label in NODE_LABELS
+    f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.investigation_id)" for label in NODE_LABELS
 ]
 
 # ── Node property keys (canonical schema) ─────────────────────────────────────

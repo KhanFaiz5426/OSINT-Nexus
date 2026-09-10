@@ -54,33 +54,41 @@ class TestMalformedPlannerOutput:
     def test_pivot_with_invalid_action(self):
         """Pivot with non-existent action should fail."""
         with pytest.raises(ValidationError):
-            PivotRecommendation.model_validate({
-                "target": "example.com",
-                "action": "collect_nonexistent",
-            })
+            PivotRecommendation.model_validate(
+                {
+                    "target": "example.com",
+                    "action": "collect_nonexistent",
+                }
+            )
 
     def test_pivot_target_empty_string(self):
         """Pivot with empty target should fail (min_length=1)."""
         with pytest.raises(ValidationError):
-            PivotRecommendation.model_validate({
-                "target": "",
-                "action": "collect_dns",
-            })
+            PivotRecommendation.model_validate(
+                {
+                    "target": "",
+                    "action": "collect_dns",
+                }
+            )
 
     def test_pivot_priority_out_of_range(self):
         """Pivot with priority outside 1-10 should fail."""
         with pytest.raises(ValidationError):
-            PivotRecommendation.model_validate({
-                "target": "example.com",
-                "action": "collect_dns",
-                "priority": 11,
-            })
+            PivotRecommendation.model_validate(
+                {
+                    "target": "example.com",
+                    "action": "collect_dns",
+                    "priority": 11,
+                }
+            )
         with pytest.raises(ValidationError):
-            PivotRecommendation.model_validate({
-                "target": "example.com",
-                "action": "collect_dns",
-                "priority": 0,
-            })
+            PivotRecommendation.model_validate(
+                {
+                    "target": "example.com",
+                    "action": "collect_dns",
+                    "priority": 0,
+                }
+            )
 
     def test_truncated_json(self):
         """Truncated JSON should fail parsing."""
@@ -100,11 +108,9 @@ class TestMalformedPlannerOutput:
     def test_deeply_nested_garbage(self):
         """Deeply nested invalid structure should fail."""
         with pytest.raises(ValidationError):
-            AIPlannerOutput.model_validate({
-                "pivots": [
-                    {"target": {"nested": "object"}, "action": "collect_dns"}
-                ]
-            })
+            AIPlannerOutput.model_validate(
+                {"pivots": [{"target": {"nested": "object"}, "action": "collect_dns"}]}
+            )
 
 
 class TestMalformedAnalyzerOutput:
@@ -130,20 +136,22 @@ class TestMalformedAnalyzerOutput:
     def test_finding_missing_title(self):
         """Finding without title should fail."""
         with pytest.raises(ValidationError):
-            AIAnalyzerOutput.model_validate({
-                "key_findings": [{"description": "missing title"}]
-            })
+            AIAnalyzerOutput.model_validate({"key_findings": [{"description": "missing title"}]})
 
     def test_finding_confidence_out_of_range(self):
         """Finding with confidence outside 0-1 should fail."""
         with pytest.raises(ValidationError):
-            AIAnalyzerOutput.model_validate({
-                "key_findings": [{
-                    "title": "test",
-                    "description": "test",
-                    "confidence": 1.5,
-                }]
-            })
+            AIAnalyzerOutput.model_validate(
+                {
+                    "key_findings": [
+                        {
+                            "title": "test",
+                            "description": "test",
+                            "confidence": 1.5,
+                        }
+                    ]
+                }
+            )
 
 
 # ── Unsafe pivot tests ──────────────────────────────────────────────────────
@@ -256,9 +264,7 @@ class TestBudgetDepthEdgeCases:
             PivotRecommendation(target="a.com", action=PivotAction.COLLECT_DNS),
             PivotRecommendation(target="b.com", action=PivotAction.COLLECT_DNS),
         ]
-        result = filter_by_duplicates(
-            pivots, dispatched_targets={"a.com", "b.com"}
-        )
+        result = filter_by_duplicates(pivots, dispatched_targets={"a.com", "b.com"})
         assert result == []
 
     def test_rate_limit_allows_under_threshold(self):
@@ -327,10 +333,18 @@ class TestDeterministicFallback:
     def test_pivot_action_enum_complete(self):
         """PivotAction enum should have all expected values."""
         expected = {
-            "collect_dns", "collect_whois", "collect_ct", "collect_ip_asn",
-            "collect_github", "collect_http", "collect_threat_intel",
-            "collect_reddit", "collect_keybase", "collect_hackernews",
-            "collect_gitlab", "collect_search",
+            "collect_dns",
+            "collect_whois",
+            "collect_ct",
+            "collect_ip_asn",
+            "collect_github",
+            "collect_http",
+            "collect_threat_intel",
+            "collect_reddit",
+            "collect_keybase",
+            "collect_hackernews",
+            "collect_gitlab",
+            "collect_search",
         }
         actual = {action.value for action in PivotAction}
         assert expected == actual

@@ -39,10 +39,10 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          python -m pytest tests/ -v --tb=short -x
-          --ignore=tests/test_investigations_api.py
-          --ignore=tests/test_activity_api.py
-          -k "not test_phase5 and not test_phase6"
+          python -m pytest tests/ -v --tb=short -x \
+            --ignore=tests/test_investigations_api.py \
+            --ignore=tests/test_activity_api.py \
+            -k "not test_phase5 and not test_phase6"
         env:
           POSTGRES_HOST: localhost
           NEO4J_URI: bolt://localhost:7687

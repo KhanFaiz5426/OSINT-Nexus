@@ -396,9 +396,7 @@ async def get_entity_detail(
     """
 
     async with driver.session() as session:
-        result = await session.run(
-            query, entity_id=entity_id, investigation_id=investigation_id
-        )
+        result = await session.run(query, entity_id=entity_id, investigation_id=investigation_id)
         record = await result.single()
 
     if record is None:

@@ -86,18 +86,24 @@ def sample_graph_summary():
         "relationship_count": 3,
         "entity_summary": [
             {
-                "type": "Domain", "value": "example.com",
-                "confidence": 0.9, "source_count": 3,
+                "type": "Domain",
+                "value": "example.com",
+                "confidence": 0.9,
+                "source_count": 3,
                 "id": "domain:example.com",
             },
             {
-                "type": "IP", "value": "93.184.216.34",
-                "confidence": 0.85, "source_count": 2,
+                "type": "IP",
+                "value": "93.184.216.34",
+                "confidence": 0.85,
+                "source_count": 2,
                 "id": "ip:93.184.216.34",
             },
             {
-                "type": "Subdomain", "value": "www.example.com",
-                "confidence": 0.8, "source_count": 1,
+                "type": "Subdomain",
+                "value": "www.example.com",
+                "confidence": 0.8,
+                "source_count": 1,
                 "id": "subdomain:www.example.com",
             },
         ],
@@ -184,12 +190,14 @@ class TestAIModelValidation:
     def test_planner_output_empty_pivots(self):
         from app.models.ai import AIPlannerOutput
 
-        output = AIPlannerOutput.model_validate({
-            "pivots": [],
-            "summary": "Nothing to do",
-            "stop_recommended": True,
-            "stop_reason": "Investigation complete",
-        })
+        output = AIPlannerOutput.model_validate(
+            {
+                "pivots": [],
+                "summary": "Nothing to do",
+                "stop_recommended": True,
+                "stop_reason": "Investigation complete",
+            }
+        )
         assert len(output.pivots) == 0
         assert output.stop_recommended is True
 
@@ -199,20 +207,22 @@ class TestAIModelValidation:
         from app.models.ai import AIPlannerOutput
 
         with pytest.raises(ValidationError):
-            AIPlannerOutput.model_validate({
-                "pivots": [
-                    {
-                        "target": "evil.com",
-                        "action": "collect_nmap",  # Invalid action
-                        "reasoning": "Scan ports",
-                        "priority": 1,
-                        "evidence_ids": [],
-                    }
-                ],
-                "summary": "Test",
-                "stop_recommended": False,
-                "stop_reason": "",
-            })
+            AIPlannerOutput.model_validate(
+                {
+                    "pivots": [
+                        {
+                            "target": "evil.com",
+                            "action": "collect_nmap",  # Invalid action
+                            "reasoning": "Scan ports",
+                            "priority": 1,
+                            "evidence_ids": [],
+                        }
+                    ],
+                    "summary": "Test",
+                    "stop_recommended": False,
+                    "stop_reason": "",
+                }
+            )
 
     def test_planner_output_priority_bounds(self):
         from pydantic import ValidationError
@@ -220,20 +230,22 @@ class TestAIModelValidation:
         from app.models.ai import AIPlannerOutput
 
         with pytest.raises(ValidationError):
-            AIPlannerOutput.model_validate({
-                "pivots": [
-                    {
-                        "target": "evil.com",
-                        "action": "collect_dns",
-                        "reasoning": "Test",
-                        "priority": 0,  # Out of range (1-10)
-                        "evidence_ids": [],
-                    }
-                ],
-                "summary": "Test",
-                "stop_recommended": False,
-                "stop_reason": "",
-            })
+            AIPlannerOutput.model_validate(
+                {
+                    "pivots": [
+                        {
+                            "target": "evil.com",
+                            "action": "collect_dns",
+                            "reasoning": "Test",
+                            "priority": 0,  # Out of range (1-10)
+                            "evidence_ids": [],
+                        }
+                    ],
+                    "summary": "Test",
+                    "stop_recommended": False,
+                    "stop_reason": "",
+                }
+            )
 
     def test_analyzer_output_valid(self, sample_analyzer_response):
         from app.models.ai import AIAnalyzerOutput
@@ -249,22 +261,32 @@ class TestAIModelValidation:
         from app.models.ai import AIAnalyzerOutput
 
         with pytest.raises(ValidationError):
-            AIAnalyzerOutput.model_validate({
-                "summary": "Test",
-                "risk_level": "extreme",  # Invalid
-                "risk_reasoning": "Test",
-                "key_findings": [],
-                "recommendations": [],
-            })
+            AIAnalyzerOutput.model_validate(
+                {
+                    "summary": "Test",
+                    "risk_level": "extreme",  # Invalid
+                    "risk_reasoning": "Test",
+                    "key_findings": [],
+                    "recommendations": [],
+                }
+            )
 
     def test_pivot_action_all_values(self):
         from app.models.ai import PivotAction
 
         expected = {
-            "collect_dns", "collect_whois", "collect_ct",
-            "collect_ip_asn", "collect_github", "collect_http",
-            "collect_threat_intel", "collect_reddit", "collect_keybase",
-            "collect_hackernews", "collect_gitlab", "collect_search",
+            "collect_dns",
+            "collect_whois",
+            "collect_ct",
+            "collect_ip_asn",
+            "collect_github",
+            "collect_http",
+            "collect_threat_intel",
+            "collect_reddit",
+            "collect_keybase",
+            "collect_hackernews",
+            "collect_gitlab",
+            "collect_search",
         }
         actual = {action.value for action in PivotAction}
         assert actual == expected
@@ -454,7 +476,12 @@ class TestAIValidator:
 
         with patch("app.ai.validator.get_pool", new_callable=AsyncMock, return_value=pool):
             result = await validate_observation_ids(
-                ["123e4567-e89b-12d3-a456-426614174001", "123e4567-e89b-12d3-a456-426614174002", "123e4567-e89b-12d3-a456-426614174999"], "inv-001"
+                [
+                    "123e4567-e89b-12d3-a456-426614174001",
+                    "123e4567-e89b-12d3-a456-426614174002",
+                    "123e4567-e89b-12d3-a456-426614174999",
+                ],
+                "inv-001",
             )
 
         assert "123e4567-e89b-12d3-a456-426614174001" in result
@@ -471,9 +498,7 @@ class TestAIValidator:
         conn.fetch.return_value = []
 
         with patch("app.ai.validator.get_pool", new_callable=AsyncMock, return_value=pool):
-            result = await validate_observation_ids(
-                ["fake-1", "fake-2"], "inv-001"
-            )
+            result = await validate_observation_ids(["fake-1", "fake-2"], "inv-001")
 
         assert result == []
 
@@ -566,16 +591,22 @@ class TestPivotSelector:
 
         pivots = [
             PivotRecommendation(
-                target="a.com", action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=1,
+                target="a.com",
+                action=PivotAction.COLLECT_DNS,
+                reasoning="",
+                priority=1,
             ),
             PivotRecommendation(
-                target="b.com", action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=2,
+                target="b.com",
+                action=PivotAction.COLLECT_DNS,
+                reasoning="",
+                priority=2,
             ),
             PivotRecommendation(
-                target="c.com", action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=3,
+                target="c.com",
+                action=PivotAction.COLLECT_DNS,
+                reasoning="",
+                priority=3,
             ),
         ]
 
@@ -593,18 +624,22 @@ class TestPivotSelector:
 
         pivots = [
             PivotRecommendation(
-                target="a.com", action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=1,
+                target="a.com",
+                action=PivotAction.COLLECT_DNS,
+                reasoning="",
+                priority=1,
             ),
             PivotRecommendation(
                 target="b.com",
                 action=PivotAction.COLLECT_GITHUB,
-                reasoning="", priority=2,
+                reasoning="",
+                priority=2,
             ),
             PivotRecommendation(
                 target="c.com",
                 action=PivotAction.COLLECT_HTTP,
-                reasoning="", priority=3,
+                reasoning="",
+                priority=3,
             ),
         ]
 
@@ -621,7 +656,8 @@ class TestPivotSelector:
             PivotRecommendation(
                 target="a.com",
                 action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=1,
+                reasoning="",
+                priority=1,
             ),
         ]
 
@@ -636,17 +672,20 @@ class TestPivotSelector:
             PivotRecommendation(
                 target="example.com",
                 action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=1,
+                reasoning="",
+                priority=1,
             ),
             PivotRecommendation(
                 target="Example.COM",
                 action=PivotAction.COLLECT_WHOIS,
-                reasoning="", priority=2,
+                reasoning="",
+                priority=2,
             ),
             PivotRecommendation(
                 target="new.com",
                 action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=3,
+                reasoning="",
+                priority=3,
             ),
         ]
 
@@ -663,12 +702,14 @@ class TestPivotSelector:
             PivotRecommendation(
                 target="a.com",
                 action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=1,
+                reasoning="",
+                priority=1,
             ),
             PivotRecommendation(
                 target="b.com",
                 action=PivotAction.COLLECT_DNS,
-                reasoning="", priority=2,
+                reasoning="",
+                priority=2,
             ),
         ]
 
@@ -691,17 +732,20 @@ class TestPivotSelector:
                 PivotRecommendation(
                     target="a.com",
                     action=PivotAction.COLLECT_DNS,
-                    reasoning="", priority=1,
+                    reasoning="",
+                    priority=1,
                 ),
                 PivotRecommendation(
                     target="example.com",
                     action=PivotAction.COLLECT_WHOIS,
-                    reasoning="", priority=2,
+                    reasoning="",
+                    priority=2,
                 ),
                 PivotRecommendation(
                     target="b.com",
                     action=PivotAction.COLLECT_HTTP,
-                    reasoning="", priority=3,
+                    reasoning="",
+                    priority=3,
                 ),
             ],
             summary="Test",
@@ -912,54 +956,52 @@ class TestOrchestratorIntegration:
         # Mock activity log insert.
         mock_conn.execute = AsyncMock()
 
-        with patch(
-            "app.services.orchestrator.get_pool",
-            new_callable=AsyncMock, return_value=mock_pool,
-        ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".update_investigation_status",
-                 new_callable=AsyncMock,
-             ), \
-             patch(
-                 "app.services.orchestrator.log_activity",
-                 new_callable=AsyncMock,
-             ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".increment_api_calls",
-                 new_callable=AsyncMock,
-             ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".correlate_observations",
-                 new_callable=AsyncMock,
-                 return_value={
-                     "entities": [],
-                     "relationships": [],
-                 },
-             ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".get_graph_summary",
-                 new_callable=AsyncMock,
-                 return_value={
-                     "entity_count": 0,
-                     "relationship_count": 0,
-                     "entity_summary": [],
-                     "relationship_summary": [],
-                 },
-             ), \
-             patch(
-                 "app.collectors.registry._collectors", {},
-             ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".collect_and_store",
-                 new_callable=AsyncMock,
-                 return_value=None,
-             ):
-
+        with (
+            patch(
+                "app.services.orchestrator.get_pool",
+                new_callable=AsyncMock,
+                return_value=mock_pool,
+            ),
+            patch(
+                "app.services.orchestrator.update_investigation_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.orchestrator.log_activity",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.orchestrator.increment_api_calls",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.orchestrator.correlate_observations",
+                new_callable=AsyncMock,
+                return_value={
+                    "entities": [],
+                    "relationships": [],
+                },
+            ),
+            patch(
+                "app.services.orchestrator.get_graph_summary",
+                new_callable=AsyncMock,
+                return_value={
+                    "entity_count": 0,
+                    "relationship_count": 0,
+                    "entity_summary": [],
+                    "relationship_summary": [],
+                },
+            ),
+            patch(
+                "app.collectors.registry._collectors",
+                {},
+            ),
+            patch(
+                "app.services.orchestrator.collect_and_store",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+        ):
             result = await run_investigation_loop("test-inv-uuid-001")
 
         assert "investigation_id" in result
@@ -999,41 +1041,40 @@ class TestOrchestratorIntegration:
         mock_conn.fetchrow.return_value = sample_investigation_row
         mock_conn.execute = AsyncMock()
 
-        with patch(
-            "app.services.orchestrator.get_pool",
-            new_callable=AsyncMock,
-            return_value=mock_pool,
-        ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".update_investigation_status",
-                 new_callable=AsyncMock,
-             ), \
-             patch(
-                 "app.services.orchestrator.log_activity",
-                 new_callable=AsyncMock,
-             ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".get_graph_summary",
-                 new_callable=AsyncMock,
-                 return_value={
-                     "entity_count": 0,
-                     "relationship_count": 0,
-                     "entity_summary": [],
-                     "relationship_summary": [],
-                 },
-             ), \
-             patch(
-                 "app.collectors.registry._collectors", {},
-             ), \
-             patch(
-                 "app.services.orchestrator"
-                 ".collect_and_store",
-                 new_callable=AsyncMock,
-                 return_value=None,
-             ):
-
+        with (
+            patch(
+                "app.services.orchestrator.get_pool",
+                new_callable=AsyncMock,
+                return_value=mock_pool,
+            ),
+            patch(
+                "app.services.orchestrator.update_investigation_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.orchestrator.log_activity",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.services.orchestrator.get_graph_summary",
+                new_callable=AsyncMock,
+                return_value={
+                    "entity_count": 0,
+                    "relationship_count": 0,
+                    "entity_summary": [],
+                    "relationship_summary": [],
+                },
+            ),
+            patch(
+                "app.collectors.registry._collectors",
+                {},
+            ),
+            patch(
+                "app.services.orchestrator.collect_and_store",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+        ):
             result = await run_investigation_loop("test-inv-uuid-001")
 
         # Should complete with budget exhaustion as stop reason.
@@ -1188,10 +1229,7 @@ class TestPlannerAsync:
         )
 
         assert output.stop_recommended is True
-        assert (
-            "unavailable" in output.stop_reason.lower()
-            or "failed" in output.summary.lower()
-        )
+        assert "unavailable" in output.stop_reason.lower() or "failed" in output.summary.lower()
 
 
 # ── Test: AI analyzer async integration ──────────────────────────────────────
@@ -1276,9 +1314,7 @@ class TestHallucinationEdgeCases:
 
         # Should not crash on invalid UUID format.
         with patch("app.ai.validator.get_pool", new_callable=AsyncMock, return_value=pool):
-            result = await validate_observation_ids(
-                ["not-a-uuid", "also-not-a-uuid"], "inv-001"
-            )
+            result = await validate_observation_ids(["not-a-uuid", "also-not-a-uuid"], "inv-001")
 
         assert result == []
 
@@ -1295,20 +1331,24 @@ class TestHallucinationEdgeCases:
         # Create 8 pivots.
         pivots = []
         for i in range(8):
-            pivots.append({
-                "target": f"target{i}.com",
-                "action": "collect_dns",
-                "reasoning": f"Pivot {i}",
-                "priority": i + 1,
-                "evidence_ids": [],
-            })
+            pivots.append(
+                {
+                    "target": f"target{i}.com",
+                    "action": "collect_dns",
+                    "reasoning": f"Pivot {i}",
+                    "priority": i + 1,
+                    "evidence_ids": [],
+                }
+            )
 
-        output = AIPlannerOutput.model_validate({
-            "pivots": pivots,
-            "summary": "Many pivots",
-            "stop_recommended": False,
-            "stop_reason": "",
-        })
+        output = AIPlannerOutput.model_validate(
+            {
+                "pivots": pivots,
+                "summary": "Many pivots",
+                "stop_recommended": False,
+                "stop_reason": "",
+            }
+        )
 
         # The model allows it, but the planner truncates to 5.
         assert len(output.pivots) == 8  # Model allows it

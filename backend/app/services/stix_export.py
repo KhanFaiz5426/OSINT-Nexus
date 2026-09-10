@@ -82,7 +82,12 @@ def entity_to_stix(entity: dict[str, Any], investigation_id: str) -> dict[str, A
     }
 
     # Type-specific fields
-    if stix_type == "domain-name" or stix_type == "ipv4-addr" or stix_type == "email-addr" or stix_type == "url":
+    if (
+        stix_type == "domain-name"
+        or stix_type == "ipv4-addr"
+        or stix_type == "email-addr"
+        or stix_type == "url"
+    ):
         sdo["value"] = value
 
     elif stix_type == "identity":

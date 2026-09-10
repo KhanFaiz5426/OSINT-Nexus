@@ -233,7 +233,10 @@ class TestNormalizeTargetBackwardCompatibility:
         assert normalize_target("User@Host.COM", TargetType.EMAIL) == "user@host.com"
 
     def test_url(self):
-        assert normalize_target("HTTPS://Example.COM/path/", TargetType.URL) == "https://example.com/path"
+        assert (
+            normalize_target("HTTPS://Example.COM/path/", TargetType.URL)
+            == "https://example.com/path"
+        )
 
     def test_username(self):
         assert normalize_target("  UserName  ", TargetType.USERNAME) == "username"

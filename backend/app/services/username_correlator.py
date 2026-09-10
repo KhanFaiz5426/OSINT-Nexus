@@ -64,13 +64,11 @@ def _extract_bio_keywords(bio: str) -> set[str]:
     if not bio:
         return set()
     # Simple keyword extraction: split on whitespace, filter short words.
-    words = {w.strip('.,;:!?()"\'-').lower() for w in bio.split()}
+    words = {w.strip(".,;:!?()\"'-").lower() for w in bio.split()}
     return {w for w in words if len(w) > 3}
 
 
-def _compute_shared_attributes(
-    a: PlatformAccount, b: PlatformAccount
-) -> dict[str, bool]:
+def _compute_shared_attributes(a: PlatformAccount, b: PlatformAccount) -> dict[str, bool]:
     """Determine which attributes are shared between two accounts."""
     shared: dict[str, bool] = {}
 
@@ -164,20 +162,14 @@ def _extract_accounts_from_observations(
             username=profile.get("name", "")
             or profile.get("username", "")
             or obs.get("target", ""),
-            full_name=profile.get("full_name", "")
-            or profile.get("name", "")
-            or "",
-            email=profile.get("email", "")
-            or profile.get("public_email", "")
-            or "",
+            full_name=profile.get("full_name", "") or profile.get("name", "") or "",
+            email=profile.get("email", "") or profile.get("public_email", "") or "",
             bio=profile.get("description", "")
             or profile.get("bio", "")
             or profile.get("about", "")
             or "",
             organization=profile.get("organization", "") or "",
-            website=profile.get("website_url", "")
-            or profile.get("website", "")
-            or "",
+            website=profile.get("website_url", "") or profile.get("website", "") or "",
             location=profile.get("location", "") or "",
             profile_url=profile.get("profile_url", "") or "",
             observation_id=obs_id,
@@ -243,9 +235,7 @@ def correlate_username_accounts(
                         first_seen=now,
                         last_seen=now,
                         sources=[account.platform],
-                        evidence_ids=[account.observation_id]
-                        if account.observation_id
-                        else [],
+                        evidence_ids=[account.observation_id] if account.observation_id else [],
                     )
                 )
             continue
@@ -253,9 +243,7 @@ def correlate_username_accounts(
         # Create USERNAME entity for the username itself.
         entity_id = f"{EntityType.USERNAME.value.lower()}:{username}"
         all_platforms = list({a.platform for a in group})
-        all_evidence = [
-            a.observation_id for a in group if a.observation_id
-        ]
+        all_evidence = [a.observation_id for a in group if a.observation_id]
         max_confidence = max(a.confidence for a in group)
 
         entities.append(
@@ -274,7 +262,9 @@ def correlate_username_accounts(
         # Create PERSON entity if we have a real name.
         for account in group:
             if account.full_name:
-                person_id = f"{EntityType.PERSON.value.lower()}:{_normalize_text(account.full_name)}"
+                person_id = (
+                    f"{EntityType.PERSON.value.lower()}:{_normalize_text(account.full_name)}"
+                )
                 entities.append(
                     ExtractedEntity(
                         id=person_id,
@@ -284,9 +274,7 @@ def correlate_username_accounts(
                         first_seen=now,
                         last_seen=now,
                         sources=[account.platform],
-                        evidence_ids=[account.observation_id]
-                        if account.observation_id
-                        else [],
+                        evidence_ids=[account.observation_id] if account.observation_id else [],
                     )
                 )
                 # Link username → person.
@@ -299,9 +287,7 @@ def correlate_username_accounts(
                         rel_type=RelationshipType.SAME_PERSON,
                         confidence=0.8,
                         discovered_at=now,
-                        evidence_ids=[account.observation_id]
-                        if account.observation_id
-                        else [],
+                        evidence_ids=[account.observation_id] if account.observation_id else [],
                     )
                 )
 
@@ -319,9 +305,7 @@ def correlate_username_accounts(
                         first_seen=now,
                         last_seen=now,
                         sources=[account.platform],
-                        evidence_ids=[account.observation_id]
-                        if account.observation_id
-                        else [],
+                        evidence_ids=[account.observation_id] if account.observation_id else [],
                     )
                 )
                 # Link username → email.
@@ -334,9 +318,7 @@ def correlate_username_accounts(
                         rel_type=RelationshipType.HAS_EMAIL,
                         confidence=0.85,
                         discovered_at=now,
-                        evidence_ids=[account.observation_id]
-                        if account.observation_id
-                        else [],
+                        evidence_ids=[account.observation_id] if account.observation_id else [],
                     )
                 )
 
@@ -353,9 +335,7 @@ def correlate_username_accounts(
                         first_seen=now,
                         last_seen=now,
                         sources=[account.platform],
-                        evidence_ids=[account.observation_id]
-                        if account.observation_id
-                        else [],
+                        evidence_ids=[account.observation_id] if account.observation_id else [],
                     )
                 )
 
@@ -371,9 +351,7 @@ def correlate_username_accounts(
                     confidence = 0.4
                     shared_summary = ["same_username"]
                 else:
-                    confidence = _compute_correlation_confidence(
-                        shared, len(group), len(group)
-                    )
+                    confidence = _compute_correlation_confidence(shared, len(group), len(group))
                     shared_summary = [k for k, v in shared.items() if v]
 
                 if confidence >= MIN_CORRELATION_CONFIDENCE:
@@ -398,9 +376,7 @@ def correlate_username_accounts(
                             confidence=confidence,
                             discovered_at=now,
                             evidence_ids=[
-                                eid
-                                for eid in [a.observation_id, b.observation_id]
-                                if eid
+                                eid for eid in [a.observation_id, b.observation_id] if eid
                             ],
                         )
                     )
@@ -418,9 +394,7 @@ def correlate_username_accounts(
     )
 
     return {
-        "accounts": [
-            {"platform": a.platform, "username": a.username} for a in accounts
-        ],
+        "accounts": [{"platform": a.platform, "username": a.username} for a in accounts],
         "correlations": correlations,
         "entities": entities,
         "relationships": relationships,

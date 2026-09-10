@@ -39,9 +39,14 @@ def test_bench_classifier():
     from app.services.classifier import classify_target
 
     targets = [
-        "example.com", "93.184.216.34", "admin@example.com",
-        "https://example.com/path", "cyberresearcher42",
-        "sub.domain.co.uk", "192.168.1.1", "user+tag@gmail.com",
+        "example.com",
+        "93.184.216.34",
+        "admin@example.com",
+        "https://example.com/path",
+        "cyberresearcher42",
+        "sub.domain.co.uk",
+        "192.168.1.1",
+        "user+tag@gmail.com",
     ]
 
     results = {}
@@ -120,16 +125,18 @@ def test_bench_resolver():
         for i in range(50)
     ]
     # Add duplicates
-    entities.extend([
-        ExtractedEntity(
-            id=f"domain:example{i}.com",
-            entity_type=EntityType.DOMAIN,
-            value=f"example{i}.com",
-            confidence=0.8,
-            sources=["whois"],
-        )
-        for i in range(25)
-    ])
+    entities.extend(
+        [
+            ExtractedEntity(
+                id=f"domain:example{i}.com",
+                entity_type=EntityType.DOMAIN,
+                value=f"example{i}.com",
+                confidence=0.8,
+                sources=["whois"],
+            )
+            for i in range(25)
+        ]
+    )
 
     stats = _bench(resolve_entities, entities, iterations=100)
     assert stats["mean_us"] < 5000, f"Resolver too slow: {stats['mean_us']}us"
@@ -140,8 +147,11 @@ def test_bench_batch_classification():
     from app.services.classifier import classify_target
 
     targets = [
-        "example.com", "93.184.216.34", "admin@example.com",
-        "https://example.com/path", "test_user",
+        "example.com",
+        "93.184.216.34",
+        "admin@example.com",
+        "https://example.com/path",
+        "test_user",
     ] * 20  # 100 targets
 
     stats = _bench(lambda: [classify_target(t) for t in targets], iterations=100)
@@ -199,8 +209,8 @@ if __name__ == "__main__":
             result = test_fn()
             benchmarks[name] = result
             if isinstance(result, dict) and "mean_us" in result:
-                mean = result['mean_us']
-                p95 = result['p95_us']
+                mean = result["mean_us"]
+                p95 = result["p95_us"]
                 print(f"  {name:30s} {mean:>10.1f} us/op  (p95: {p95:.1f} us)")
             else:
                 print(f"  {name:30s} {json.dumps(result, indent=2)[:80]}")
