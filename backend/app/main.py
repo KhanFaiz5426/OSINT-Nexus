@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import activity, config, entities, entity_ai, graph, investigations, notes, reports, sse
+from app.api import activity, entities, entity_ai, graph, investigations, notes, reports, sse
 from app.api import settings as settings_api
 from app.core.config import get_settings
 
@@ -111,7 +111,6 @@ def create_app() -> FastAPI:
     app.include_router(graph.router, prefix="/api/v1", tags=["graph"])
     app.include_router(activity.router, prefix="/api/v1", tags=["activity"])
     app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
-    app.include_router(config.router, prefix="/api/v1", tags=["config"])
     app.include_router(sse.router, prefix="/api/v1", tags=["sse"])
     app.include_router(notes.router, prefix="/api/v1", tags=["notes"])
     app.include_router(settings_api.router, prefix="/api/v1", tags=["settings"])

@@ -728,6 +728,12 @@ To start the full stack (PostgreSQL, Neo4j, Redis, Backend, Celery, and Frontend
 docker compose up --build -d
 ```
 
+To also start the optional SearXNG search provider, use the `searxng` profile:
+
+```bash
+docker compose --profile searxng up --build -d
+```
+
 Once running, access the application at:
 - **Frontend UI:** [http://localhost:3000](http://localhost:3000)
 - **Backend API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
