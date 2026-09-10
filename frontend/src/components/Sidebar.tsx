@@ -1,4 +1,4 @@
-import { LayoutDashboard, Search, Plus, Crosshair, Settings } from "lucide-react";
+import { LayoutDashboard, Search, Plus, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "../lib/utils";
 
@@ -38,7 +38,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Logo mark */}
         <div className="flex h-14 items-center justify-center border-b border-[var(--nx-border)]">
           <Link to="/" className="flex items-center justify-center" title="OSINT Nexus">
-            <Crosshair className="h-5 w-5 text-[var(--nx-accent)]" />
+            <img src="/osint-nexus-logo.svg" alt="OSINT Nexus" className="h-8 w-8" />
             <span className="sr-only">OSINT Nexus</span>
           </Link>
         </div>
