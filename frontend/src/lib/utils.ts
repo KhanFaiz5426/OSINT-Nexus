@@ -59,6 +59,10 @@ export function detectTargetType(input: string): TargetType {
   // Domain: contains dots but isn't IP, no spaces
   if (/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$/.test(v)) return "domain";
 
+  // Organization: multi-word names with common suffixes or capitalized words
+  if (/\b(Inc|LLC|Corp|Corporation|Company|Group|Foundation|Ltd|GmbH|S\.?A\.?|AG|Co\.?)\b/i.test(v)
+    || (/\s/.test(v) && /^[A-Z]/.test(v))) return "organization";
+
   // Username: alphanumeric with possible special chars (including multi-word names like "john doe")
   if (/^[a-zA-Z0-9._ -]+$/.test(v) && v.length >= 2) return "username";
 

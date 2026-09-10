@@ -193,13 +193,16 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
             if round_row:
                 pivot_rounds = round_row["cnt"]
 
+        from app.ai.client import get_llm_call_fn
+        llm_fn = get_llm_call_fn()
+
         analyzer_output = await analyze_investigation(
             investigation_id=investigation_id,
             target=investigation["target"],
             target_type=investigation["target_type"],
             graph_summary=graph_summary,
             pivot_rounds_completed=pivot_rounds,
-            llm_call_fn=None,
+            llm_call_fn=llm_fn,
         )
         if analyzer_output:
             ai_analysis = analyzer_output.model_dump()

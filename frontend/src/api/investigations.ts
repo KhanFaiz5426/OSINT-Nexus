@@ -70,6 +70,25 @@ export type RelationshipType =
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
+export type SourceAvailabilityStatus =
+  | "available"
+  | "not_found"
+  | "redirected"
+  | "access_denied"
+  | "auth_required"
+  | "rate_limited"
+  | "temporarily_unavailable"
+  | "blocked"
+  | "unknown";
+
+export interface SourceAvailability {
+  url: string;
+  status: SourceAvailabilityStatus;
+  checked_at: string;
+  detail: string;
+  final_url: string;
+}
+
 // ── Investigation ───────────────────────────────────────────────────────────
 
 export interface Investigation {
@@ -123,6 +142,7 @@ export interface Entity {
   first_seen: string | null;
   last_seen: string | null;
   source_count: number;
+  sources?: string[];
   properties: Record<string, unknown>;
 }
 
@@ -311,6 +331,8 @@ export const investigationsApi = {
     }),
   stop: (id: string) =>
     http<Investigation>(`/investigations/${id}/stop`, { method: "POST" }),
+  delete: (id: string) =>
+    http<{ message: string }>(`/investigations/${id}`, { method: "DELETE" }),
   status: (id: string) =>
     http<InvestigationStatusDetail>(`/investigations/${id}/status`),
   start: (id: string) =>
@@ -336,6 +358,41 @@ export const graphApi = {
     }),
 };
 
+// ── Entity AI Analysis ───────────────────────────────────────────────────────
+
+export interface EntityAIAnalysis {
+  entity_id: string;
+  entity_type: string;
+  entity_value: string;
+  entity_confidence: number;
+  investigation_target: string;
+  investigation_target_type: string;
+  analysis: {
+    what_is: string;
+    key_information: string[];
+    evidence_summary: string;
+    confidence_assessment: string;
+    connection_to_target: string;
+    significance: string;
+    uncertainties: string[];
+    ai_inferences: string[];
+  };
+  confirmed_facts: Array<{
+    fact: string;
+    source: string;
+    confidence: number;
+    collected_at: string;
+  }>;
+  evidence_count: number;
+  relationship_count: number;
+  related_entities: Array<{
+    id: string;
+    type: string;
+    label: string;
+  }>;
+  generated_at: string;
+}
+
 // ── Entities ─────────────────────────────────────────────────────────────────
 
 export const entitiesApi = {
@@ -349,6 +406,14 @@ export const entitiesApi = {
     }),
   relationships: (id: string, investigationId: string) =>
     http<Relationship[]>(`/entities/${encodeURIComponent(id)}/relationships`, {
+      params: { investigation_id: investigationId },
+    }),
+  aiAnalysis: (id: string, investigationId: string) =>
+    http<EntityAIAnalysis>(`/entities/${encodeURIComponent(id)}/ai-analysis`, {
+      params: { investigation_id: investigationId },
+    }),
+  sourceAvailability: (id: string, investigationId: string) =>
+    http<SourceAvailability>(`/entities/${encodeURIComponent(id)}/source-availability`, {
       params: { investigation_id: investigationId },
     }),
 };

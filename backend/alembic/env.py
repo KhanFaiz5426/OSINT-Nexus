@@ -27,7 +27,10 @@ if config.config_file_name is not None:
 
 # Set the database URL from application settings
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+url = settings.DATABASE_URL
+if url.startswith("postgresql://"):
+    url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+config.set_main_option("sqlalchemy.url", url)
 
 
 def run_migrations_offline() -> None:

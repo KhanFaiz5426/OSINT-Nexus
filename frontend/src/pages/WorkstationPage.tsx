@@ -9,7 +9,6 @@ import { BlankCanvas } from "../components/BlankCanvas";
 import { GraphView } from "../components/GraphView";
 import { GraphLegend } from "../components/GraphLegend";
 import { EntityListPanel } from "../components/EntityListPanel";
-import { EntityDetailPanel } from "../components/EntityDetailPanel";
 import { BottomDrawer } from "../components/BottomDrawer";
 import { NewInvestigationModal } from "../components/NewInvestigationModal";
 import { OpenInvestigationModal } from "../components/OpenInvestigationModal";
@@ -27,7 +26,6 @@ export function WorkstationPage() {
   const setOpenModalOpen = useWorkspaceStore((s) => s.setOpenModalOpen);
 
   const leftPanelOpen = useWorkspaceStore((s) => s.leftPanelOpen);
-  const rightPanelOpen = useWorkspaceStore((s) => s.rightPanelOpen);
   const selectEntity = useWorkspaceStore((s) => s.selectEntity);
   const triggerFit = useWorkspaceStore((s) => s.triggerFit);
 
@@ -110,34 +108,26 @@ export function WorkstationPage() {
 
       {/* 3. Central Workspace Canvas */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
-        <div className="flex h-full w-full flex-col min-h-0">
-          <div className="flex flex-1 min-h-0 overflow-hidden">
-            {/* Left Panel: Entities, Filters, Tools (only when active tab is open) */}
-            {activeTabId && leftPanelOpen && (
-              <aside className="flex w-64 shrink-0 flex-col border-r border-[var(--nx-border)] bg-[var(--nx-surface-1)] z-10 overflow-hidden">
-                <EntityListPanel investigationId={activeTabId} />
-              </aside>
-            )}
+        {/* Left Panel: Entities, Filters, Tools (only when active tab is open) */}
+        {activeTabId && leftPanelOpen && (
+          <aside className="flex w-64 shrink-0 flex-col border-r border-[var(--nx-border)] bg-[var(--nx-surface-1)] z-10 overflow-hidden relative">
+            <EntityListPanel investigationId={activeTabId} />
+          </aside>
+        )}
 
-            {/* Center Canvas: Knowledge Graph or Blank Canvas */}
-            <main className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-[var(--nx-base)]">
-              {activeTabId ? (
-                <>
-                  <GraphLegend investigationId={activeTabId} />
-                  <GraphView investigationId={activeTabId} />
-                </>
-              ) : (
-                <BlankCanvas />
-              )}
-            </main>
-
-            {/* Right Panel: Contextual Entity Inspector (only when active tab is open) */}
-            {activeTabId && rightPanelOpen && (
-              <aside className="flex w-80 shrink-0 flex-col border-l border-[var(--nx-border)] bg-[var(--nx-surface-1)] z-10 overflow-hidden">
-                <EntityDetailPanel investigationId={activeTabId} />
-              </aside>
+        {/* Right Area: Graph + Bottom Drawer */}
+        <div className="flex flex-1 flex-col min-w-0 min-h-0 relative">
+          {/* Center Canvas: Knowledge Graph or Blank Canvas */}
+          <main className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-[var(--nx-base)]">
+            {activeTabId ? (
+              <>
+                <GraphLegend investigationId={activeTabId} />
+                <GraphView investigationId={activeTabId} />
+              </>
+            ) : (
+              <BlankCanvas />
             )}
-          </div>
+          </main>
 
           {/* Bottom Drawer: Activity, AI Intel, Reports (collapsible) */}
           {activeTabId && <BottomDrawer investigationId={activeTabId} />}

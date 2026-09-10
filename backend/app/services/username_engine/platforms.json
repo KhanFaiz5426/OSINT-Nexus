@@ -1,0 +1,315 @@
+{
+  "github": {
+    "name": "GitHub",
+    "url_pattern": "https://github.com/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"],
+      "body_not_contains": ["Page not found", "404"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["Page not found"]
+    },
+    "rate_limit_rpm": 30,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public developer profiles. Reliable 200/404 response."
+  },
+  "gitlab": {
+    "name": "GitLab",
+    "url_pattern": "https://gitlab.com/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["Page not found"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["Page not found"]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public developer profiles."
+  },
+  "reddit": {
+    "name": "Reddit",
+    "url_pattern": "https://www.reddit.com/user/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["Sorry, nobody on Reddit goes by that name"]
+    },
+    "rate_limit_rpm": 10,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public user profiles."
+  },
+  "twitch": {
+    "name": "Twitch",
+    "url_pattern": "https://www.twitch.tv/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public channel profiles."
+  },
+  "medium": {
+    "name": "Medium",
+    "url_pattern": "https://medium.com/@{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["404", "page not found"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 15,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public writer profiles."
+  },
+  "devto": {
+    "name": "Dev.to",
+    "url_pattern": "https://dev.to/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["Page not found"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Developer community profiles."
+  },
+  "keybase": {
+    "name": "Keybase",
+    "url_pattern": "https://keybase.io/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Cryptographic identity profiles."
+  },
+  "telegram": {
+    "name": "Telegram",
+    "url_pattern": "https://t.me/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["If you have <strong>Telegram</strong>, you can contact"]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public Telegram channel/user profiles."
+  },
+  "pinterest": {
+    "name": "Pinterest",
+    "url_pattern": "https://www.pinterest.com/{username}/",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["Not Found"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 15,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public profile pages."
+  },
+  "aboutme": {
+    "name": "About.me",
+    "url_pattern": "https://about.me/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["Page Not Found"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Personal profile pages."
+  },
+  "gravatar": {
+    "name": "Gravatar",
+    "url_pattern": "https://en.gravatar.com/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 30,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Avatar/profile service."
+  },
+  "linktree": {
+    "name": "Linktree",
+    "url_pattern": "https://linktr.ee/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["Nothing to see here"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["Nothing to see here"]
+    },
+    "rate_limit_rpm": 20,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Link aggregation profiles."
+  },
+  "tumblr": {
+    "name": "Tumblr",
+    "url_pattern": "https://{username}.tumblr.com",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["There's nothing here"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["There's nothing here"]
+    },
+    "rate_limit_rpm": 15,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "Public blog profiles."
+  },
+  "hackernews": {
+    "name": "Hacker News",
+    "url_pattern": "https://news.ycombinator.com/user?id={username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["karma"]
+    },
+    "failure_indicators": {
+      "status_codes": [200],
+      "body_contains": ["No such user"]
+    },
+    "rate_limit_rpm": 30,
+    "timeout": 5.0,
+    "enabled": true,
+    "notes": "HN user profiles. Uses query parameter, not path segment."
+  },
+  "x_twitter": {
+    "name": "X/Twitter",
+    "url_pattern": "https://x.com/{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_contains": ["<title>"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "status_codes_redirect": [302]
+    },
+    "rate_limit_rpm": 10,
+    "timeout": 5.0,
+    "enabled": false,
+    "notes": "DISABLED: Heavy bot protection, JavaScript rendering required. Unreliable for direct HTTP probing."
+  },
+  "instagram": {
+    "name": "Instagram",
+    "url_pattern": "https://www.instagram.com/{username}/",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 10,
+    "timeout": 5.0,
+    "enabled": false,
+    "notes": "DISABLED: Aggressive bot detection, login walls. Unreliable for direct HTTP probing."
+  },
+  "linkedin": {
+    "name": "LinkedIn",
+    "url_pattern": "https://www.linkedin.com/in/{username}/",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200]
+    },
+    "failure_indicators": {
+      "status_codes": [404]
+    },
+    "rate_limit_rpm": 5,
+    "timeout": 5.0,
+    "enabled": false,
+    "notes": "DISABLED: Heavy bot protection, authentication walls. Unreliable for direct HTTP probing."
+  },
+  "tiktok": {
+    "name": "TikTok",
+    "url_pattern": "https://www.tiktok.com/@{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["Couldn't find this account"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["Couldn't find this account"]
+    },
+    "rate_limit_rpm": 10,
+    "timeout": 5.0,
+    "enabled": false,
+    "notes": "DISABLED: JavaScript-heavy, bot detection. Unreliable for direct HTTP probing."
+  },
+  "youtube": {
+    "name": "YouTube",
+    "url_pattern": "https://www.youtube.com/@{username}",
+    "method": "GET",
+    "success_indicators": {
+      "status_codes": [200],
+      "body_not_contains": ["This page isn't available"]
+    },
+    "failure_indicators": {
+      "status_codes": [404],
+      "body_contains": ["This page isn't available"]
+    },
+    "rate_limit_rpm": 15,
+    "timeout": 5.0,
+    "enabled": false,
+    "notes": "DISABLED: JavaScript-heavy, inconsistent 404 behavior. Unreliable for direct HTTP probing."
+  }
+}

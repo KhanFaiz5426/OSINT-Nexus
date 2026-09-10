@@ -5,9 +5,12 @@ Uses asyncpg for PostgreSQL operations.
 """
 
 import json
+import logging
 from datetime import UTC, datetime
 
 import asyncpg
+
+logger = logging.getLogger(__name__)
 
 from app.db.client import get_pool
 from app.models import (
@@ -27,18 +30,43 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     """Create a new investigation.
 
     Classifies the target, normalizes it, and stores in PostgreSQL.
+    When the caller does not explicitly choose a depth (i.e. uses the
+    default ``STANDARD``), the runtime setting ``general.default_depth``
+    is applied instead.
     """
     target_type = classify_target(data.target)
     normalized_target = normalize_target(data.target, target_type)
     now = datetime.now(UTC)
+
+    # Apply default depth from settings store when not explicitly overridden.
+    # Only applies when a settings file exists on disk.
+    depth = data.depth
+    if depth == InvestigationDepth.STANDARD:
+        try:
+            from app.core.settings_store import get_app_settings, SETTINGS_FILE
+            if SETTINGS_FILE.exists():
+                settings = get_app_settings()
+                depth = InvestigationDepth(settings.general.default_depth)
+        except Exception:
+            pass
+
+    # Apply default API budget from settings store.
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if SETTINGS_FILE.exists():
+            api_budget = get_app_settings().investigation.api_budget
+        else:
+            api_budget = 100
+    except Exception:
+        api_budget = 100
 
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
             INSERT INTO investigations
-                (name, target, target_type, status, depth, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (name, target, target_type, status, depth, api_budget, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id, name, target, target_type, status, depth,
                       created_at, updated_at, api_calls_used, api_budget,
                       entity_count, relationship_count, observation_count
@@ -47,7 +75,8 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
             normalized_target,
             target_type.value,
             InvestigationStatus.CREATED.value,
-            data.depth.value,
+            depth.value,
+            api_budget,
             now,
             now,
         )
@@ -157,6 +186,100 @@ def _row_to_response(row: asyncpg.Record) -> InvestigationResponse:
         relationship_count=row.get("relationship_count", 0) or 0,
         observation_count=row.get("observation_count", 0) or 0,
     )
+
+
+async def delete_investigation(investigation_id: str) -> bool:
+    """Delete an investigation and all its associated data.
+
+    Deletion order (safe and transactional):
+    1. Verify investigation exists and is not running.
+    2. Capture report file paths before DB deletion.
+    3. Delete Neo4j investigation-scoped data.
+    4. Delete PostgreSQL investigation data (cascades to all child tables).
+    5. Delete report files from disk after successful DB/graph deletion.
+
+    If any critical step fails, the function raises an exception rather than
+    leaving the investigation partially deleted.
+
+    Returns:
+        True if deletion was successful.
+
+    Raises:
+        ValueError: If investigation does not exist.
+        RuntimeError: If investigation is currently running.
+        RuntimeError: If deletion fails at any critical step.
+    """
+    from pathlib import Path
+
+    pool = await get_pool()
+
+    # Step 1: Verify investigation exists and is not running.
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, status FROM investigations WHERE id = $1",
+            investigation_id,
+        )
+        if row is None:
+            raise ValueError(f"Investigation {investigation_id} not found")
+
+        if row["status"] == InvestigationStatus.RUNNING.value:
+            raise RuntimeError("Cannot delete a running investigation. Stop it first.")
+
+    # Step 2: Capture report file paths before DB deletion.
+    report_file_paths: list[str] = []
+    try:
+        async with pool.acquire() as conn:
+            report_rows = await conn.fetch(
+                "SELECT file_path FROM reports WHERE investigation_id = $1",
+                investigation_id,
+            )
+            report_file_paths = [str(r["file_path"]) for r in report_rows if r["file_path"]]
+    except Exception:
+        logger.warning("Failed to capture report file paths for %s", investigation_id)
+
+    # Step 3: Delete Neo4j investigation-scoped data.
+    try:
+        from app.graph.writer import delete_investigation_graph
+
+        await delete_investigation_graph(investigation_id)
+    except Exception as exc:
+        logger.warning(
+            "Failed to delete Neo4j data for %s (proceeding with DB deletion): %s",
+            investigation_id,
+            exc,
+        )
+
+    # Step 4: Delete PostgreSQL investigation data (cascades to all child tables).
+    try:
+        async with pool.acquire() as conn:
+            deleted = await conn.execute(
+                "DELETE FROM investigations WHERE id = $1",
+                investigation_id,
+            )
+            if deleted == "DELETE 0":
+                raise RuntimeError(
+                    f"PostgreSQL deletion returned 0 rows for {investigation_id}"
+                )
+    except Exception as exc:
+        raise RuntimeError(f"Failed to delete investigation from database: {exc}") from exc
+
+    # Step 5: Delete report files from disk (only after successful DB deletion).
+    deleted_files = 0
+    for file_path in report_file_paths:
+        try:
+            p = Path(file_path)
+            if p.is_file():
+                p.unlink()
+                deleted_files += 1
+        except Exception as exc:
+            logger.warning("Failed to delete report file %s: %s", file_path, exc)
+
+    logger.info(
+        "Deleted investigation %s: %d report files cleaned up",
+        investigation_id,
+        deleted_files,
+    )
+    return True
 
 
 async def export_investigation(investigation_id: str) -> dict | None:

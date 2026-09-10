@@ -56,6 +56,20 @@ class EntityType(StrEnum):
     THREAT_INDICATOR = "ThreatIndicator"
 
 
+class SourceAvailabilityStatus(StrEnum):
+    """Evidence-based source accessibility states."""
+
+    AVAILABLE = "available"
+    NOT_FOUND = "not_found"
+    REDIRECTED = "redirected"
+    ACCESS_DENIED = "access_denied"
+    AUTH_REQUIRED = "auth_required"
+    RATE_LIMITED = "rate_limited"
+    TEMPORARILY_UNAVAILABLE = "temporarily_unavailable"
+    BLOCKED = "blocked"
+    UNKNOWN = "unknown"
+
+
 class RelationshipType(StrEnum):
     HOSTED_ON = "hosted_on"
     USES_NAMESERVER = "uses_nameserver"
@@ -223,3 +237,13 @@ class RelationshipCreate(BaseModel):
     rel_type: RelationshipType = Field(..., description="Relationship type")
     confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence score")
     method: str = Field(default="manual", description="How this relationship was discovered")
+
+
+class SourceAvailabilityResponse(BaseModel):
+    """Source URL availability check result."""
+
+    url: str
+    status: SourceAvailabilityStatus
+    checked_at: str
+    detail: str
+    final_url: str = ""

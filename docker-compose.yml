@@ -74,6 +74,7 @@ services:
       retries: 5
     volumes:
       - reports_output:/app/reports_output
+      - settings_data:/app/data
     restart: unless-stopped
 
   celery-worker:
@@ -96,6 +97,7 @@ services:
     restart: unless-stopped
     volumes:
       - reports_output:/app/reports_output
+      - settings_data:/app/data
 
   frontend:
     build:
@@ -109,8 +111,25 @@ services:
     stop_signal: SIGQUIT
     restart: unless-stopped
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: osint-nexus-searxng
+    profiles: ["searxng"]
+    ports:
+      - "8088:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8088/
+      - SEARXNG_FORMATS=html,json
+    volumes:
+      - ./searxng_settings.yml:/etc/searxng/settings.yml
+      - searxng_data:/etc/searxng
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   neo4j_data:
   redis_data:
   reports_output:
+  settings_data:
+  searxng_data:
+

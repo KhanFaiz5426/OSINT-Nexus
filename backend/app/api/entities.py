@@ -13,35 +13,21 @@ from pydantic import BaseModel, Field
 
 from app.db.client import get_pool
 from app.graph.reader import get_entity_detail, get_entity_neighbors
-from app.models import EntityCreate, EntityResponse, RelationshipCreate, RelationshipResponse
+from app.models import (
+    EntityCreate,
+    EntityResponse,
+    RelationshipCreate,
+    RelationshipResponse,
+    SourceAvailabilityResponse,
+    SourceAvailabilityStatus,
+)
 
 router = APIRouter()
 
 
-@router.get("/entities/{entity_id}", response_model=EntityResponse)
-async def get_entity(
-    entity_id: str,
-    investigation_id: str = Query(
-        ..., description="Investigation ID that owns this entity"
-    ),
-) -> EntityResponse:
-    """Get entity details including properties and basic metadata.
-
-    The entity must belong to the specified investigation (enforced via
-    the investigation_id parameter which is checked against PostgreSQL).
-    """
-    await _validate_investigation(investigation_id)
-
-    detail = await get_entity_detail(
-        entity_id, investigation_id=investigation_id
-    )
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Entity not found")
-
-    return _detail_to_response(detail, investigation_id)
 
 
-@router.get("/entities/{entity_id}/evidence", response_model=list[dict])
+@router.get("/entities/{entity_id:path}/evidence", response_model=list[dict])
 async def get_entity_evidence(
     entity_id: str,
     investigation_id: str = Query(
@@ -65,7 +51,7 @@ async def get_entity_evidence(
                    target, raw_response, normalized_value, confidence, status
             FROM observations
             WHERE investigation_id = $1
-              AND (target = $2 OR normalized_value = $2)
+              AND (target = $2 OR normalized_value ILIKE $2)
             ORDER BY collected_at DESC
             """,
             investigation_id,
@@ -76,7 +62,7 @@ async def get_entity_evidence(
 
 
 @router.get(
-    "/entities/{entity_id}/relationships", response_model=list[RelationshipResponse]
+    "/entities/{entity_id:path}/relationships", response_model=list[RelationshipResponse]
 )
 async def get_entity_relationships(
     entity_id: str,
@@ -96,12 +82,13 @@ async def get_entity_relationships(
     relationships: list[RelationshipResponse] = []
     for edge in neighbors.get("edges", []):
         data = edge.get("data", edge)
+        rel_type = (data.get("relationship_type", "co_occurs_with") or "co_occurs_with").lower()
         relationships.append(
             RelationshipResponse(
                 id=data.get("id", ""),
                 source_entity_id=data.get("source", ""),
                 target_entity_id=data.get("target", ""),
-                type=data.get("relationship_type", "co_occurs_with"),
+                type=rel_type,
                 confidence=data.get("confidence", 0.0),
                 evidence=data.get("evidence", []),
                 discovered_at=data.get("discovered_at"),
@@ -112,7 +99,7 @@ async def get_entity_relationships(
     return relationships
 
 
-@router.get("/entities/{entity_id}/provenance", response_model=list[dict])
+@router.get("/entities/{entity_id:path}/provenance", response_model=list[dict])
 async def get_entity_provenance(
     entity_id: str,
     investigation_id: str = Query(
@@ -241,7 +228,7 @@ async def create_entity(
     )
 
 
-@router.patch("/entities/{entity_id}/confidence")
+@router.patch("/entities/{entity_id:path}/confidence")
 async def override_confidence(
     entity_id: str,
     body: ConfidenceOverrideRequest,
@@ -349,6 +336,99 @@ async def create_relationship(
         discovered_at=now,
         method=body.method,
     )
+
+
+@router.get(
+    "/entities/{entity_id}/source-availability",
+    response_model=SourceAvailabilityResponse,
+)
+async def get_source_availability(
+    entity_id: str,
+    investigation_id: str = Query(
+        ..., description="Investigation ID that owns this entity"
+    ),
+) -> SourceAvailabilityResponse:
+    """Check source URL availability for an entity.
+
+    Uses evidence-based URL resolution: looks up the entity's profile_url
+    property or constructs a URL from the entity type and sources. Then
+    performs a HEAD request to verify accessibility. Results are cached
+    for 1 hour.
+    """
+    await _validate_investigation(investigation_id)
+
+    # Get entity details to find the source URL
+    detail = await get_entity_detail(entity_id, investigation_id=investigation_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    properties = detail.get("properties", {})
+    entity_value = detail.get("value", "")
+    labels = detail.get("labels", [])
+    entity_type = labels[0] if labels else ""
+
+    # Resolve source URL from evidence/properties (never construct from name alone)
+    source_url = _resolve_source_url(entity_type, entity_value, properties)
+    if not source_url:
+        raise HTTPException(
+            status_code=404,
+            detail="No source URL available for this entity",
+        )
+
+    # Check availability
+    from app.services.source_availability import check_source_availability
+
+    result = await check_source_availability(source_url)
+
+    return SourceAvailabilityResponse(
+        url=result["url"],
+        status=SourceAvailabilityStatus(result["status"]),
+        checked_at=result["checked_at"],
+        detail=result["detail"],
+        final_url=result.get("final_url", result["url"]),
+    )
+
+
+@router.get("/entities/{entity_id:path}", response_model=EntityResponse)
+async def get_entity(
+    entity_id: str,
+    investigation_id: str = Query(
+        ..., description="Investigation ID that owns this entity"
+    ),
+) -> EntityResponse:
+    """Get entity details including properties and basic metadata.
+
+    The entity must belong to the specified investigation (enforced via
+    the investigation_id parameter which is checked against PostgreSQL).
+    """
+    await _validate_investigation(investigation_id)
+
+    detail = await get_entity_detail(
+        entity_id, investigation_id=investigation_id
+    )
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    return _detail_to_response(detail, investigation_id)
+
+
+def _resolve_source_url(
+    entity_type: str, value: str, properties: dict
+) -> str | None:
+    """Resolve the source URL for an entity from evidence/properties.
+
+    Prefers properties.profile_url (set during extraction from real API responses).
+    Falls back to properties.url. Never constructs URLs from entity names.
+    """
+    profile_url = properties.get("profile_url", "")
+    if isinstance(profile_url, str) and profile_url.startswith("http"):
+        return profile_url
+
+    url = properties.get("url", "")
+    if isinstance(url, str) and url.startswith("http"):
+        return url
+
+    return None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

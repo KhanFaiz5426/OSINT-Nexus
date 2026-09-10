@@ -274,13 +274,20 @@ def _mask_key(key: str) -> str:
 
 def _build_provider_config(
     provider: str, settings: Any,
+    runtime_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
-    """Build config dict for a provider, or None if not configured."""
+    """Build config dict for a provider, or None if not configured.
+
+    ``runtime_overrides`` may contain ``model`` and ``base_url`` from the
+    runtime settings store. When present they take precedence over env-based
+    defaults. API keys always come from env vars (secrets).
+    """
     caller = PROVIDER_CALLERS.get(provider)
     if caller is None:
         return None
 
     defaults = PROVIDER_DEFAULTS.get(provider, {})
+    overrides = runtime_overrides or {}
 
     # Resolve API key
     if provider == "nvidia":
@@ -297,8 +304,9 @@ def _build_provider_config(
     if provider in ("nvidia", "openai", "anthropic", "opencode") and not api_key:
         return None
 
-    model = defaults.get("model", "") if provider != settings.LLM_PROVIDER.lower().strip() else (settings.LLM_MODEL or defaults.get("model", ""))
-    base_url = defaults.get("base_url", "") if provider != settings.LLM_PROVIDER.lower().strip() else (settings.LLM_BASE_URL or defaults.get("base_url", ""))
+    # Resolve model: runtime override > env var > provider default.
+    model = overrides.get("model") or settings.LLM_MODEL or defaults.get("model", "")
+    base_url = overrides.get("base_url") or settings.LLM_BASE_URL or defaults.get("base_url", "")
 
     if provider == "ollama" and not base_url:
         base_url = "http://localhost:11434"
@@ -316,6 +324,38 @@ def _build_provider_config(
 _FALLBACK_ORDER = ["nvidia", "opencode", "openai", "anthropic", "ollama"]
 
 
+def _overlay_runtime_llm_settings(
+    env_settings: Any,
+) -> tuple[str, int, float]:
+    """Overlay runtime LLM settings from AppSettings onto env-based defaults.
+
+    Returns (effective_provider, effective_max_tokens, effective_temperature).
+
+    Only applies overrides when a settings file exists on disk (i.e. the
+    user has explicitly configured something via the UI). When no file exists,
+    env defaults are used unchanged to preserve backward compatibility.
+    """
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if not SETTINGS_FILE.exists():
+            return (
+                env_settings.LLM_PROVIDER.lower().strip(),
+                env_settings.LLM_MAX_TOKENS,
+                env_settings.LLM_TEMPERATURE,
+            )
+        app = get_app_settings()
+        provider = app.llm.active_provider or env_settings.LLM_PROVIDER
+        max_tokens = app.llm.max_tokens or env_settings.LLM_MAX_TOKENS
+        temperature = app.llm.temperature if app.llm.temperature != 0.3 else env_settings.LLM_TEMPERATURE
+        return provider.lower().strip(), max_tokens, temperature
+    except Exception:
+        return (
+            env_settings.LLM_PROVIDER.lower().strip(),
+            env_settings.LLM_MAX_TOKENS,
+            env_settings.LLM_TEMPERATURE,
+        )
+
+
 def get_llm_call_fn() -> Any:
     """Build and return an async LLM callable based on configured provider.
 
@@ -325,21 +365,36 @@ def get_llm_call_fn() -> Any:
     When the primary provider fails, automatically falls back to the next
     available provider with valid credentials.
 
-    The returned callable is suitable for passing as llm_call_fn to
-    plan_pivots_with_ai() and analyze_investigation().
+    Provider selection and generation parameters (max_tokens, temperature)
+    are resolved from the runtime settings store first, falling back to
+    environment variables. API keys always come from environment variables.
     """
     settings = get_settings()
-    primary = settings.LLM_PROVIDER.lower().strip()
+    primary, max_tokens, temperature = _overlay_runtime_llm_settings(settings)
 
     if not primary or primary == "none":
         logger.info("No LLM provider configured; AI features disabled")
         return None
 
+    # Extract runtime model/base_url overrides from the settings store.
+    # Only applies when a settings file exists on disk.
+    runtime_overrides: dict[str, str] = {}
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if SETTINGS_FILE.exists():
+            app = get_app_settings()
+            if app.llm.model:
+                runtime_overrides["model"] = app.llm.model
+            if app.llm.base_url:
+                runtime_overrides["base_url"] = app.llm.base_url
+    except Exception:
+        pass
+
     # Build provider chain: primary first, then fallbacks
     provider_configs: list[dict[str, Any]] = []
 
     # Primary provider
-    primary_cfg = _build_provider_config(primary, settings)
+    primary_cfg = _build_provider_config(primary, settings, runtime_overrides)
     if primary_cfg:
         provider_configs.append(primary_cfg)
     else:
@@ -352,16 +407,13 @@ def get_llm_call_fn() -> Any:
     for fb_provider in _FALLBACK_ORDER:
         if fb_provider == primary:
             continue
-        fb_cfg = _build_provider_config(fb_provider, settings)
+        fb_cfg = _build_provider_config(fb_provider, settings, runtime_overrides)
         if fb_cfg:
             provider_configs.append(fb_cfg)
 
     if not provider_configs:
         logger.info("No LLM providers available; AI features disabled")
         return None
-
-    max_tokens = settings.LLM_MAX_TOKENS
-    temperature = settings.LLM_TEMPERATURE
 
     logger.info(
         "LLM provider chain: %s",

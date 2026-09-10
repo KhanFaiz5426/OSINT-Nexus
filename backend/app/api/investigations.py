@@ -8,9 +8,11 @@ from app.models import (
     InvestigationCreate,
     InvestigationResponse,
     InvestigationStatus,
+    MessageResponse,
 )
 from app.services.investigation import (
     create_investigation,
+    delete_investigation,
     export_investigation,
     get_investigation,
     import_investigation,
@@ -94,6 +96,26 @@ async def stop(investigation_id: str) -> InvestigationResponse:
             detail="Investigation not found or not in a stoppable state",
         )
     return result
+
+
+@router.delete(
+    "/investigations/{investigation_id}",
+    status_code=200,
+)
+async def delete(investigation_id: str) -> MessageResponse:
+    """Delete an investigation and all associated data.
+
+    Permanently removes the investigation, its observations, entities,
+    relationships, graph data, reports, and all other dependent data.
+    This action cannot be undone.
+    """
+    try:
+        await delete_investigation(investigation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return MessageResponse(message=f"Investigation {investigation_id} deleted")
 
 
 @router.post(

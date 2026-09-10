@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WorkstationPage } from "./pages/WorkstationPage";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,6 +17,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/" element={<WorkstationPage />} />
           <Route path="/investigations" element={<WorkstationPage />} />
           <Route path="/investigations/new" element={<WorkstationPage />} />

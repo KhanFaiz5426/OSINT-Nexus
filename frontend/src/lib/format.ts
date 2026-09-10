@@ -202,3 +202,65 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
 
 export const DEFAULT_NODE_COLOR = "#64748b";
 export const DEFAULT_EDGE_COLOR = "#475569";
+
+/**
+ * Compute a visitable profile URL for an entity based on its type, value,
+ * and sources. Returns undefined if no URL can be derived.
+ *
+ * This is evidence-based: the sources list proves which collector found
+ * the entity, so we can map that to a known public URL pattern.
+ */
+export function entityProfileUrl(
+  type: string,
+  value: string,
+  sources?: string[],
+  properties?: Record<string, unknown>,
+): string | undefined {
+  // Prefer an explicit profile_url from properties (set during extraction).
+  if (properties?.profile_url && typeof properties.profile_url === "string" && properties.profile_url.length > 0) {
+    return properties.profile_url;
+  }
+
+  // Fallback: check properties.url for any entity type
+  if (properties?.url && typeof properties.url === "string" && properties.url.startsWith("http")) {
+    return properties.url;
+  }
+
+  // sources may be at top level or nested inside properties._sources / properties.sources
+  const srcList = sources
+    || (Array.isArray(properties?.sources) ? properties.sources as string[] : undefined)
+    || (Array.isArray(properties?._sources) ? properties._sources as string[] : undefined)
+    || [];
+  const srcSet = new Set(srcList.map((s) => s.toLowerCase()));
+
+  switch (type) {
+    case "URL":
+      // URL entities store the URL as their value
+      return value.startsWith("http") ? value : `https://${value}`;
+    case "Domain":
+    case "Subdomain":
+      return `https://${value}`;
+    case "Username":
+      if (srcSet.has("github")) return `https://github.com/${value}`;
+      if (srcSet.has("gitlab")) return `https://gitlab.com/${value}`;
+      if (srcSet.has("reddit")) return `https://www.reddit.com/user/${value}`;
+      if (srcSet.has("hackernews")) return `https://news.ycombinator.com/user?id=${value}`;
+      if (srcSet.has("keybase")) return `https://keybase.io/${value}`;
+      return undefined;
+    case "Repository":
+      if (srcSet.has("github")) return `https://github.com/${value}`;
+      if (srcSet.has("gitlab")) return `https://gitlab.com/${value}`;
+      return undefined;
+    case "Person":
+    case "Organization":
+    case "Email":
+    case "IP":
+    case "ASN":
+    case "Certificate":
+    case "Technology":
+    case "ThreatIndicator":
+      return undefined;
+    default:
+      return undefined;
+  }
+}

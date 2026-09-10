@@ -6,7 +6,6 @@ import {
   Square,
   RefreshCw,
   PanelLeft,
-  PanelRight,
   PanelBottom,
   Maximize2,
   Share2,
@@ -14,50 +13,70 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  Trash2,
+  Settings,
+  Loader2,
+  Check,
+  FileText,
+  File,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore, type GraphLayoutName } from "../store/workspace";
 import {
   useInvestigation,
   useInvestigationStatus,
   useStartInvestigation,
   useStopInvestigation,
+  useDeleteInvestigation,
+  useGenerateReport,
+  useInvestigationSSE,
 } from "../hooks/useApi";
+import { reportsApi, type ReportFormat } from "../api/investigations";
 import { statusBadgeClass } from "../lib/format";
 import { Spinner } from "./LoadingState";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "../lib/utils";
 
 export function WorkstationHeader() {
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const setNewModalOpen = useWorkspaceStore((s) => s.setNewModalOpen);
   const setOpenModalOpen = useWorkspaceStore((s) => s.setOpenModalOpen);
+  const queryClient = useQueryClient();
 
   const leftPanelOpen = useWorkspaceStore((s) => s.leftPanelOpen);
   const toggleLeftPanel = useWorkspaceStore((s) => s.toggleLeftPanel);
-
-  const rightPanelOpen = useWorkspaceStore((s) => s.rightPanelOpen);
-  const toggleRightPanel = useWorkspaceStore((s) => s.toggleRightPanel);
 
   const theme = useWorkspaceStore((s) => s.theme);
   const toggleTheme = useWorkspaceStore((s) => s.toggleTheme);
 
   const bottomDrawerOpen = useWorkspaceStore((s) => s.bottomDrawerOpen);
   const toggleBottomDrawer = useWorkspaceStore((s) => s.toggleBottomDrawer);
-  const setBottomTab = useWorkspaceStore((s) => s.setBottomTab);
 
   const graphLayout = useWorkspaceStore((s) => s.graphLayout);
   const setGraphLayout = useWorkspaceStore((s) => s.setGraphLayout);
   const triggerFit = useWorkspaceStore((s) => s.triggerFit);
 
   const [layoutDropdownOpen, setLayoutDropdownOpen] = useState(false);
+  const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const reportsDropdownRef = useRef<HTMLDivElement>(null);
 
   // Active investigation data & controls
   const investigation = useInvestigation(activeTabId ?? "");
   const status = useInvestigationStatus(activeTabId ?? "", {
     refetchInterval: activeTabId ? 3000 : undefined,
   });
+
+  // SSE for real-time updates
+  useInvestigationSSE(activeTabId ?? undefined);
   const start = useStartInvestigation();
   const stop = useStopInvestigation();
+  const deleteInv = useDeleteInvestigation();
+  const closeTab = useWorkspaceStore((s) => s.closeTab);
+  const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const inv = investigation.data;
   const st = status.data;
@@ -73,6 +92,29 @@ export function WorkstationHeader() {
   const handleStop = () => {
     if (activeTabId) stop.mutate(activeTabId);
   };
+
+  const handleDelete = () => {
+    if (!activeTabId) return;
+    deleteInv.mutate(activeTabId, {
+      onSuccess: () => {
+        setDeleteConfirmOpen(false);
+        closeTab(activeTabId);
+        setActiveTab(null);
+      },
+    });
+  };
+
+  // Close reports dropdown on outside click
+  useEffect(() => {
+    if (!reportsDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (reportsDropdownRef.current && !reportsDropdownRef.current.contains(e.target as Node)) {
+        setReportsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [reportsDropdownOpen]);
 
   const layouts: Array<{ id: GraphLayoutName; label: string }> = [
     { id: "cose", label: "Force Directed (Cose)" },
@@ -164,11 +206,23 @@ export function WorkstationHeader() {
               onClick={() => {
                 investigation.refetch();
                 status.refetch();
+                // Also invalidate graph, activity, and entity data
+                queryClient.invalidateQueries({ queryKey: ["graph", activeTabId] });
+                queryClient.invalidateQueries({ queryKey: ["activity", activeTabId] });
+                queryClient.invalidateQueries({ queryKey: ["entity-list", activeTabId] });
               }}
               className="rounded p-1 text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)] transition-colors"
               title="Refresh status"
             >
               <RefreshCw className="h-3 w-3" />
+            </button>
+
+            <button
+              onClick={() => setDeleteConfirmOpen(true)}
+              className="rounded p-1 text-[var(--nx-text-muted)] hover:bg-red-500/15 hover:text-red-400 transition-colors"
+              title="Delete Investigation"
+            >
+              <Trash2 className="h-3 w-3" />
             </button>
           </div>
         )}
@@ -226,17 +280,13 @@ export function WorkstationHeader() {
               <span>Fit</span>
             </button>
 
-            {/* Reports Trigger */}
-            <button
-              onClick={() => {
-                setBottomTab("reports");
-              }}
-              className="inline-flex items-center gap-1 rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-2 py-1 text-xs text-[var(--nx-text-secondary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-primary)] transition-colors"
-              title="Export & Reports"
-            >
-              <FileDown className="h-3 w-3" />
-              <span>Reports</span>
-            </button>
+            {/* Reports Dropdown */}
+            <ReportsDropdown
+              investigationId={activeTabId}
+              open={reportsDropdownOpen}
+              setOpen={setReportsDropdownOpen}
+              dropdownRef={reportsDropdownRef}
+            />
 
             {/* Panel Toggles */}
             <div className="flex items-center gap-0.5 rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-0.5">
@@ -264,23 +314,21 @@ export function WorkstationHeader() {
               >
                 <PanelBottom className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={toggleRightPanel}
-                className={cn(
-                  "rounded p-1 transition-colors",
-                  rightPanelOpen
-                    ? "bg-[var(--nx-surface-4)] text-[var(--nx-accent)]"
-                    : "text-[var(--nx-text-muted)] hover:text-[var(--nx-text-secondary)]",
-                )}
-                title={rightPanelOpen ? "Hide Contextual Inspector" : "Show Contextual Inspector"}
-              >
-                <PanelRight className="h-3.5 w-3.5" />
-              </button>
             </div>
 
             <div className="h-4 w-px bg-[var(--nx-border)] mx-1" />
           </>
         )}
+
+        {/* Settings link */}
+        <Link
+          to="/settings"
+          className="flex h-7 w-7 items-center justify-center rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] text-[var(--nx-text-secondary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-primary)] transition-colors"
+          title="Settings"
+          aria-label="Settings"
+        >
+          <Settings className="h-3.5 w-3.5" />
+        </Link>
 
         {/* Theme toggle button */}
         <button
@@ -296,6 +344,138 @@ export function WorkstationHeader() {
           )}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Investigation"
+        message={`Permanently delete investigation "${inv?.name ?? ""}" and all its data? This action cannot be undone.`}
+        confirmLabel="Delete"
+        loading={deleteInv.isPending}
+      />
     </header>
+  );
+}
+
+/* ─── Reports Dropdown Component ─────────────────────────────────────────── */
+
+function ReportsDropdown({
+  investigationId,
+  open,
+  setOpen,
+  dropdownRef,
+}: {
+  investigationId: string;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  dropdownRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const generateReport = useGenerateReport();
+  const [generatingFormat, setGeneratingFormat] = useState<string | null>(null);
+  const [lastSuccess, setLastSuccess] = useState<string | null>(null);
+
+  const handleGenerate = async (format: ReportFormat) => {
+    setGeneratingFormat(format);
+    setLastSuccess(null);
+    try {
+      const report = await generateReport.mutateAsync({
+        investigationId,
+        format,
+      });
+      // Auto-download using fetch to ensure correct filename/content-type.
+      const downloadUrl = reportsApi.downloadUrl(investigationId, report.id);
+      const res = await fetch(downloadUrl);
+      const blob = await res.blob();
+      const ext = report.format || format;
+      const filename = `report.${ext}`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setLastSuccess(ext);
+      setTimeout(() => {
+        setLastSuccess(null);
+        setOpen(false);
+      }, 1500);
+    } catch {
+      // Error displayed via generateReport.isError
+    } finally {
+      setGeneratingFormat(null);
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1 rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-2 py-1 text-xs text-[var(--nx-text-secondary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-primary)] transition-colors"
+        title="Export & Reports"
+      >
+        <FileDown className="h-3 w-3" />
+        <span>Reports</span>
+        <ChevronDown className="h-3 w-3 opacity-60" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-2)] py-1 shadow-xl">
+          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
+            Download Report
+          </div>
+
+          {/* PDF */}
+          <button
+            onClick={() => handleGenerate("pdf")}
+            disabled={generatingFormat !== null}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-[var(--nx-text-secondary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-primary)] transition-colors disabled:opacity-50"
+          >
+            {generatingFormat === "pdf" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-red-400" />
+            ) : lastSuccess === "pdf" ? (
+              <Check className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <File className="h-4 w-4 text-red-400" />
+            )}
+            <div className="flex flex-col items-start">
+              <span className="font-medium">Download PDF</span>
+              <span className="text-[10px] text-[var(--nx-text-muted)]">
+                Full investigation report
+              </span>
+            </div>
+          </button>
+
+          {/* HTML */}
+          <button
+            onClick={() => handleGenerate("html")}
+            disabled={generatingFormat !== null}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-[var(--nx-text-secondary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-primary)] transition-colors disabled:opacity-50"
+          >
+            {generatingFormat === "html" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-sky-400" />
+            ) : lastSuccess === "html" ? (
+              <Check className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <FileText className="h-4 w-4 text-sky-400" />
+            )}
+            <div className="flex flex-col items-start">
+              <span className="font-medium">Download HTML</span>
+              <span className="text-[10px] text-[var(--nx-text-muted)]">
+                Web-viewable report
+              </span>
+            </div>
+          </button>
+
+          {generateReport.isError && (
+            <div className="px-3 py-1.5 text-[10px] text-red-400">
+              {generateReport.error.message}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

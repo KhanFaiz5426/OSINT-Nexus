@@ -13,6 +13,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import {
   activityApi,
   aiApi,
@@ -23,6 +24,7 @@ import {
   type ActivityResponse,
   type AIAnalysis,
   type Entity,
+  type EntityAIAnalysis,
   type GraphResponse,
   type Investigation,
   type InvestigationCreate,
@@ -33,6 +35,7 @@ import {
   type Relationship,
   type Report,
   type ReportFormat,
+  type SourceAvailability,
 } from "../api/investigations";
 
 export type { ReportFormat };
@@ -118,6 +121,27 @@ export function useStartInvestigation(): UseMutationResult<
   });
 }
 
+export function useDeleteInvestigation(): UseMutationResult<
+  { message: string },
+  Error,
+  string
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => investigationsApi.delete(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ["investigations"] });
+      qc.removeQueries({ queryKey: ["investigation", id] });
+      qc.removeQueries({ queryKey: ["investigation-status", id] });
+      qc.removeQueries({ queryKey: ["graph", id] });
+      qc.removeQueries({ queryKey: ["activity", id] });
+      qc.removeQueries({ queryKey: ["observations", id] });
+      qc.removeQueries({ queryKey: ["reports", id] });
+      qc.removeQueries({ queryKey: ["ai-analysis", id] });
+    },
+  });
+}
+
 // ── Graph hooks ─────────────────────────────────────────────────────────────
 
 export function useInvestigationGraph(
@@ -176,6 +200,19 @@ export function useEntityRelationships(
     queryFn: () =>
       entitiesApi.relationships(entityId as string, investigationId as string),
     enabled: Boolean(entityId && investigationId),
+  });
+}
+
+export function useEntityAIAnalysis(
+  entityId: string | undefined,
+  investigationId: string | undefined,
+): UseQueryResult<EntityAIAnalysis, Error> {
+  return useQuery({
+    queryKey: ["entity-ai-analysis", entityId, investigationId],
+    queryFn: () =>
+      entitiesApi.aiAnalysis(entityId as string, investigationId as string),
+    enabled: Boolean(entityId && investigationId),
+    staleTime: 60_000,
   });
 }
 
@@ -245,4 +282,139 @@ export function useGenerateReport(): UseMutationResult<
       qc.invalidateQueries({ queryKey: ["reports", investigationId] });
     },
   });
+}
+
+// ── Source Availability hooks ───────────────────────────────────────────────
+
+export function useSourceAvailability(
+  entityId: string | undefined,
+  investigationId: string | undefined,
+): UseQueryResult<SourceAvailability, Error> {
+  return useQuery({
+    queryKey: ["source-availability", entityId, investigationId],
+    queryFn: () =>
+      entitiesApi.sourceAvailability(entityId as string, investigationId as string),
+    enabled: Boolean(entityId && investigationId),
+    staleTime: 30 * 60 * 1000, // 30 minutes — availability doesn't change rapidly
+  });
+}
+
+// ── SSE Hook for real-time investigation updates ───────────────────────────
+
+const sseConnections = new Map<string, EventSource>();
+
+/**
+ * Subscribe to SSE events for a running investigation.
+ * Invalidates relevant TanStack Query caches on events.
+ * Reuses existing EventSource connections to prevent duplicates.
+ * Cleans up on unmount or when investigation reaches terminal state.
+ */
+export function useInvestigationSSE(investigationId: string | undefined) {
+  const queryClient = useQueryClient();
+  const terminalStates = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!investigationId) return;
+    const invId = investigationId;
+
+    // Don't reconnect if we've already seen a terminal event for this investigation
+    if (terminalStates.current.has(invId)) return;
+
+    // Reuse existing connection
+    if (sseConnections.has(invId)) return;
+
+    const eventSource = new EventSource(
+      `/api/v1/investigations/${invId}/events`,
+    );
+    sseConnections.set(invId, eventSource);
+
+    const invalidate = (...queryKeys: Array<string | undefined>) => {
+      for (const key of queryKeys) {
+        if (key) {
+          queryClient.invalidateQueries({ queryKey: [key, invId] });
+        }
+      }
+      // Also invalidate entity-list queries (they use investigationId in the key)
+      queryClient.invalidateQueries({ queryKey: ["entity-list", invId] });
+    };
+
+    const handleStarted = () => {
+      invalidate("investigation-status", "investigation");
+    };
+
+    const handleRoundCompleted = () => {
+      invalidate(
+        "investigation-status",
+        "graph",
+        "activity",
+        "entity-list",
+      );
+    };
+
+    const handleCompleted = () => {
+      terminalStates.current.add(invId);
+      invalidate(
+        "investigation-status",
+        "investigation",
+        "graph",
+        "activity",
+        "entity-list",
+        "ai-analysis",
+      );
+      cleanup();
+    };
+
+    const handleError = () => {
+      terminalStates.current.add(invId);
+      invalidate("investigation-status", "investigation");
+      cleanup();
+    };
+
+    const handleConnected = () => {
+      // SSE connection established
+    };
+
+    const handleHeartbeat = () => {
+      // Keep-alive, no action needed
+    };
+
+    eventSource.addEventListener("investigation_started", handleStarted);
+    eventSource.addEventListener("pivot_round_completed", handleRoundCompleted);
+    eventSource.addEventListener("investigation_completed", handleCompleted);
+    eventSource.addEventListener("investigation_error", handleError);
+    eventSource.addEventListener("connected", handleConnected);
+    eventSource.addEventListener("heartbeat", handleHeartbeat);
+
+    // Fallback: also handle generic "message" events
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.status === "completed" || data.status === "error") {
+          terminalStates.current.add(invId);
+          invalidate(
+            "investigation-status",
+            "investigation",
+            "graph",
+            "activity",
+            "entity-list",
+          );
+          cleanup();
+        }
+      } catch {
+        // Ignore parse errors for heartbeat/non-JSON messages
+      }
+    };
+
+    eventSource.onerror = () => {
+      // SSE connection error — will auto-reconnect per spec
+      // If consistently failing, the polling fallback in useInvestigationStatus handles it
+    };
+
+    function cleanup() {
+      eventSource.close();
+      sseConnections.delete(invId);
+    }
+
+    return cleanup;
+  }, [investigationId, queryClient]);
 }

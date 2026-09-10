@@ -47,6 +47,18 @@ DEFAULT_BUDGET = 100
 DEPTH_MAX_ROUNDS_MAP = DEPTH_MAX_ROUNDS
 
 
+def _get_default_budget() -> int:
+    """Return the default API budget from the runtime settings store.
+    Only applies when a settings file exists on disk."""
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if SETTINGS_FILE.exists():
+            return get_app_settings().investigation.api_budget
+    except Exception:
+        pass
+    return DEFAULT_BUDGET
+
+
 # ── Investigation state tracking ─────────────────────────────────────────────
 
 
@@ -69,6 +81,7 @@ class InvestigationState:
         self.target_type = target_type
         self.depth = depth
         self.budget_remaining = budget
+        self.initial_budget = budget
         self.current_round = 0
         self.max_rounds = DEPTH_MAX_ROUNDS_MAP.get(depth, 3)
         self.dispatched_targets: set[str] = {target.strip().lower()}
@@ -492,6 +505,23 @@ async def run_investigation_loop(
                 except Exception as exc:
                     logger.warning("Username correlation failed (Phase 1d): %s", exc)
 
+        # Phase 1e: Username probe engine — direct platform probing.
+        if state.target_type == TargetType.USERNAME:
+            probe_obs = await _run_username_probe_engine(
+                state, investigation_id
+            )
+            if probe_obs:
+                initial_observations.extend(probe_obs)
+                # Correlate probe observations.
+                corr_result = await correlate_observations(investigation_id, probe_obs)
+                await increment_api_calls(investigation_id, len(probe_obs))
+                await update_investigation_counts(
+                    investigation_id,
+                    corr_result.get("entities_resolved", 0),
+                    corr_result.get("relationships_detected", 0),
+                    state.total_observations_collected + len(probe_obs),
+                )
+
         # Phase 2: AI-guided pivot loop.
         while True:
             # Check stopping conditions.
@@ -631,7 +661,7 @@ async def run_investigation_loop(
         await update_investigation_status(
             investigation_id,
             final_status,
-            extra_fields={"api_calls_used": DEFAULT_BUDGET - state.budget_remaining},
+            extra_fields={"api_calls_used": state.initial_budget - state.budget_remaining},
         )
 
         await log_activity(investigation_id, "investigation_completed", {
@@ -673,6 +703,15 @@ async def run_investigation_loop(
             investigation_id, InvestigationStatus.ERROR
         )
         await log_activity(investigation_id, "investigation_error", {"error": str(exc)})
+        # Publish SSE event for error
+        try:
+            from app.api.sse import publish_investigation_event
+            await publish_investigation_event(investigation_id, "investigation_error", {
+                "error": str(exc),
+                "status": "error",
+            })
+        except Exception:
+            pass
         return {"error": str(exc), "investigation_id": investigation_id}
 
 
@@ -821,6 +860,14 @@ async def _write_username_correlation(
     except Exception as exc:
         logger.warning("Failed to write username correlation to graph: %s", exc)
 
+    # Also write entities to PostgreSQL so the entities API and AI analysis work.
+    if entities:
+        try:
+            from app.services.correlator import _write_entities_to_postgres
+            await _write_entities_to_postgres(investigation_id, entities)
+        except Exception as exc:
+            logger.warning("Failed to write username entities to PostgreSQL: %s", exc)
+
 
 async def _expand_username_searches(
     state: "InvestigationState",
@@ -904,8 +951,14 @@ async def _expand_username_searches(
     # ── Step 3: Search for real names across the web ──────────────────────
     from app.collectors.registry import get_collector as _get_collector
     search_collector = _get_collector("search")
-    if search_collector and discovered_names and state.budget_remaining > 1:
-        for name in discovered_names[:2]:
+
+    # Also treat the target itself as a name if it contains spaces (person name)
+    names_to_search = list(discovered_names)
+    if " " in state.target and state.target not in names_to_search:
+        names_to_search.insert(0, state.target)
+
+    if search_collector and names_to_search and state.budget_remaining > 1:
+        for name in names_to_search[:3]:
             if state.budget_exhausted:
                 break
             try:
@@ -952,6 +1005,115 @@ async def _expand_username_searches(
         await log_activity(investigation_id, "username_expansion_complete", {
             "extra_observations": len(extra_observations),
             "names_discovered": discovered_names,
+        })
+
+    return extra_observations
+
+
+async def _run_username_probe_engine(
+    state: "InvestigationState",
+    investigation_id: str,
+) -> list[dict[str, Any]]:
+    """Run the username probe engine for direct platform probing.
+
+    Generates probe variations, runs the probe engine across enabled
+    platforms, and stores positive results as observations.
+    """
+    from app.models import TargetType
+    from app.services.username_engine.probe import UsernameProbeEngine
+    from app.services.username_engine.models import ProbeBudget
+    from app.services.username_variations import generate_probe_variations
+
+    extra_observations: list[dict[str, Any]] = []
+
+    # Load probe settings from the runtime settings store.
+    # Only applies when a settings file exists on disk.
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if SETTINGS_FILE.exists():
+            _app = get_app_settings()
+            max_variations = _app.investigation.probe.max_variations
+            max_platforms = _app.investigation.probe.max_platforms
+            probe_timeout = _app.investigation.probe.timeout
+        else:
+            max_variations = 10
+            max_platforms = 20
+            probe_timeout = 5.0
+    except Exception:
+        max_variations = 10
+        max_platforms = 20
+        probe_timeout = 5.0
+
+    # Generate probe variations (confidence-ranked, limited).
+    variations = generate_probe_variations(state.target, max_variations=max_variations)
+
+    # Create engine with budget.
+    budget = ProbeBudget(
+        max_variations=max_variations,
+        max_platforms=max_platforms,
+        max_total_requests=min(state.budget_remaining, 200),
+        timeout=probe_timeout,
+    )
+    engine = UsernameProbeEngine(budget=budget)
+
+    try:
+        raw_results = await engine.probe_username(
+            username=state.target,
+            variations=variations,
+            investigation_id=investigation_id,
+        )
+    except Exception as exc:
+        logger.warning("Username probe engine failed: %s", exc)
+        return extra_observations
+
+    # Store positive results as observations.
+    for result in raw_results:
+        if state.budget_exhausted:
+            break
+        try:
+            pool = await get_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO observations
+                        (investigation_id, source_adapter, source_version, collected_at,
+                         method, target, raw_response, normalized_value, confidence, status)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    RETURNING id::text
+                    """,
+                    investigation_id,
+                    result.collector_name,
+                    result.collector_version,
+                    result.collected_at,
+                    result.query,
+                    result.target,
+                    json.dumps(result.raw_response),
+                    result.normalized_value,
+                    result.confidence,
+                    result.status.value,
+                )
+                if row:
+                    extra_observations.append({
+                        "id": row["id"],
+                        "source_adapter": result.collector_name,
+                        "target": result.target,
+                        "raw_response": result.raw_response,
+                        "status": result.status.value,
+                    })
+                    state.consume_budget()
+        except Exception as exc:
+            logger.warning("Failed to store probe observation: %s", exc)
+
+    if extra_observations:
+        logger.info(
+            "Username probe engine: %d positive findings from %d attempts",
+            len(extra_observations),
+            engine._requests_made,
+        )
+        await log_activity(investigation_id, "username_probe_complete", {
+            "positive_findings": len(extra_observations),
+            "total_attempts": engine._requests_made,
+            "platforms_checked": len(engine._platforms),
         })
 
     return extra_observations

@@ -51,7 +51,8 @@ async def initialize_collectors(cache: CollectorCache | None = None) -> None:
     """Initialize and register all built-in collectors.
 
     Called once at application startup. Creates collector instances
-    with optional shared cache.
+    with optional shared cache. Respects ``collectors.enabled`` from
+    the runtime settings store — disabled collectors are skipped.
     """
     from app.collectors.ct_collector import CTCollector
     from app.collectors.dns_collector import DNSCollector
@@ -81,7 +82,21 @@ async def initialize_collectors(cache: CollectorCache | None = None) -> None:
         SearchCollector,
     ]
 
+    # Load enabled/disabled overrides from runtime settings.
+    try:
+        from app.core.settings_store import get_app_settings
+        settings = get_app_settings()
+        enabled_map = settings.collectors.enabled
+    except Exception:
+        enabled_map: dict[str, bool] = {}
+
     for cls in collector_classes:
+        # Peek at the class-level ``name`` without instantiating.
+        temp = cls.__new__(cls)
+        name = getattr(cls, "name", "")
+        if enabled_map.get(name, True) is False:
+            logger.info("Collector %s disabled via settings — skipping", name)
+            continue
         collector = cls(cache=cache)
         register_collector(collector)
 

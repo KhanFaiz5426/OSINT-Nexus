@@ -118,6 +118,11 @@ async def generate_report(
             status_code=500, detail=f"Report generation failed: {safe_msg}"
         ) from exc
 
+    # Detect actual format from generated file extension.
+    # PDF generation may fall back to HTML if WeasyPrint is unavailable.
+    actual_ext = os.path.splitext(file_path)[1].lower().strip(".")
+    actual_fmt = actual_ext if actual_ext in ("html", "pdf", "json", "csv") else fmt
+
     # Compute file size.
     try:
         file_size = os.path.getsize(file_path)
@@ -135,7 +140,7 @@ async def generate_report(
             """,
             report_id,
             investigation_id,
-            fmt,
+            actual_fmt,
             file_path,
             file_size,
             now,
@@ -144,7 +149,7 @@ async def generate_report(
     return ReportResponse(
         id=report_id,
         investigation_id=investigation_id,
-        format=fmt,
+        format=actual_fmt,
         created_at=now,
         download_url=f"/api/v1/investigations/{investigation_id}/reports/{report_id}",
         file_size=file_size,
@@ -226,16 +231,18 @@ async def download_report(investigation_id: str, report_id: str) -> FileResponse
     except (OSError, TypeError, ValueError):
         raise HTTPException(status_code=404, detail="Report file not found on disk") from None
 
-    # Determine media type.
-    fmt = row["format"]
-    media_types = {
-        "html": "text/html",
-        "pdf": "application/pdf",
-        "json": "application/json",
-        "csv": "text/csv",
-    }
-    media_type = media_types.get(fmt, "application/octet-stream")
-    ext = fmt if fmt != "csv" else "csv"
+    # Determine media type based on actual file extension.
+    ext = os.path.splitext(resolved)[1].lower().strip(".")
+    if ext == "html":
+        media_type = "text/html"
+    elif ext == "pdf":
+        media_type = "application/pdf"
+    elif ext == "json":
+        media_type = "application/json"
+    elif ext == "csv":
+        media_type = "text/csv"
+    else:
+        media_type = "application/octet-stream"
 
     return FileResponse(
         path=resolved,

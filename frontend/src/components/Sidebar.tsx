@@ -1,4 +1,4 @@
-import { LayoutDashboard, Search, Plus, Crosshair } from "lucide-react";
+import { LayoutDashboard, Search, Plus, Crosshair, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "../lib/utils";
 
@@ -10,6 +10,7 @@ interface SidebarProps {
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Investigations", href: "/investigations", icon: Search },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {

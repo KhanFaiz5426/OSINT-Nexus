@@ -1,7 +1,6 @@
 import {
   Activity,
   Brain,
-  FileText,
   Network,
 } from "lucide-react";
 import { useWorkspaceStore } from "../store/workspace";
@@ -19,8 +18,12 @@ export function WorkstationStatusBar() {
   const setBottomTab = useWorkspaceStore((s) => s.setBottomTab);
   const graphLayout = useWorkspaceStore((s) => s.graphLayout);
 
-  const { data: graphData } = useInvestigationGraph(activeTabId ?? "");
-  const { data: statusData } = useInvestigationStatus(activeTabId ?? "");
+  const { data: graphData } = useInvestigationGraph(activeTabId ?? "", {
+    refetchInterval: activeTabId ? 5_000 : undefined,
+  });
+  const { data: statusData } = useInvestigationStatus(activeTabId ?? "", {
+    refetchInterval: activeTabId ? 3_000 : undefined,
+  });
 
   const nodeCount = graphData?.nodes.length ?? 0;
   const edgeCount = graphData?.edges.length ?? 0;
@@ -100,42 +103,22 @@ export function WorkstationStatusBar() {
 
             <button
               onClick={() => {
-                if (bottomDrawerOpen && bottomTab === "ai") {
+                if (bottomDrawerOpen && bottomTab === "entity-intel") {
                   toggleBottomDrawer();
                 } else {
-                  setBottomTab("ai");
+                  setBottomTab("entity-intel");
                 }
               }}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors",
-                bottomDrawerOpen && bottomTab === "ai"
+                bottomDrawerOpen && bottomTab === "entity-intel"
                   ? "bg-[var(--nx-surface-3)] text-[var(--nx-accent)] font-medium"
                   : "hover:bg-[var(--nx-surface-2)] hover:text-[var(--nx-text-secondary)]",
               )}
-              title="Toggle AI Intelligence"
+              title="Toggle Entity Intelligence"
             >
               <Brain className="h-3 w-3" />
-              <span className="hidden sm:inline">AI Intel</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (bottomDrawerOpen && bottomTab === "reports") {
-                  toggleBottomDrawer();
-                } else {
-                  setBottomTab("reports");
-                }
-              }}
-              className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors",
-                bottomDrawerOpen && bottomTab === "reports"
-                  ? "bg-[var(--nx-surface-3)] text-[var(--nx-accent)] font-medium"
-                  : "hover:bg-[var(--nx-surface-2)] hover:text-[var(--nx-text-secondary)]",
-              )}
-              title="Toggle Reports"
-            >
-              <FileText className="h-3 w-3" />
-              <span className="hidden sm:inline">Reports</span>
+              <span className="hidden sm:inline">Entity Intel</span>
             </button>
           </>
         )}

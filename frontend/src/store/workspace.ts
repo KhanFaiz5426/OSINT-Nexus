@@ -11,7 +11,7 @@ import type { EntityType } from "../api/investigations";
 
 export type EntityListSort = "confidence" | "value" | "type" | "source_count";
 export type GraphLayoutName = "cose" | "concentric" | "circle" | "grid";
-export type BottomTabType = "timeline" | "ai" | "reports" | "settings";
+export type BottomTabType = "timeline" | "entity-intel";
 export type ThemeMode = "dark" | "light";
 
 export interface WorkspaceTab {
@@ -23,12 +23,12 @@ export interface WorkspaceTab {
 }
 
 export function getInitialTheme(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   try {
     const saved = localStorage.getItem("nx-theme");
     if (saved === "light" || saved === "dark") return saved;
   } catch {}
-  return "dark";
+  return "light";
 }
 
 export function applyTheme(theme: ThemeMode) {
@@ -68,15 +68,21 @@ interface WorkspaceState {
   toggleLeftPanel: () => void;
   setLeftPanel: (open: boolean) => void;
 
-  rightPanelOpen: boolean;
-  toggleRightPanel: () => void;
-  setRightPanel: (open: boolean) => void;
-
   bottomDrawerOpen: boolean;
   toggleBottomDrawer: () => void;
   setBottomDrawer: (open: boolean) => void;
   bottomTab: BottomTabType;
   setBottomTab: (tab: BottomTabType) => void;
+
+  // Bottom drawer resize/maximize
+  bottomDrawerHeight: number;
+  setBottomDrawerHeight: (h: number) => void;
+  bottomDrawerMaximized: boolean;
+  toggleBottomDrawerMaximized: () => void;
+
+  // Reports menu
+  reportsMenuOpen: boolean;
+  setReportsMenuOpen: (open: boolean) => void;
 
   // Modals
   newModalOpen: boolean;
@@ -154,7 +160,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         activeTabId: tab.id,
         selectedEntityId: null,
         leftPanelOpen: true,
-        rightPanelOpen: false,
       };
     }),
 
@@ -178,7 +183,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         activeTabId: nextActive,
         selectedEntityId: null,
         leftPanelOpen: nextActive ? s.leftPanelOpen : false,
-        rightPanelOpen: false,
       };
     }),
 
@@ -186,7 +190,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set({
       activeTabId: id,
       selectedEntityId: null,
-      rightPanelOpen: false,
     }),
 
   updateTabStatus: (id, status) =>
@@ -194,11 +197,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, status } : t)),
     })),
 
-  // Selection
+  // Selection — auto-switches to entity-intel tab when entity is selected
   selectEntity: (id) =>
-    set({
-      selectedEntityId: id,
-      rightPanelOpen: id !== null,
+    set(() => {
+      if (id) {
+        return {
+          selectedEntityId: id,
+          bottomTab: "entity-intel" as BottomTabType,
+          bottomDrawerOpen: true,
+        };
+      }
+      return { selectedEntityId: id };
     }),
 
   // Panels
@@ -206,15 +215,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   toggleLeftPanel: () => set((s) => ({ leftPanelOpen: !s.leftPanelOpen })),
   setLeftPanel: (open) => set({ leftPanelOpen: open }),
 
-  rightPanelOpen: false,
-  toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
-  setRightPanel: (open) => set({ rightPanelOpen: open }),
-
   bottomDrawerOpen: false,
   toggleBottomDrawer: () => set((s) => ({ bottomDrawerOpen: !s.bottomDrawerOpen })),
   setBottomDrawer: (open) => set({ bottomDrawerOpen: open }),
   bottomTab: "timeline",
   setBottomTab: (tab) => set({ bottomTab: tab, bottomDrawerOpen: true }),
+
+  // Bottom drawer resize/maximize
+  bottomDrawerHeight: 240,
+  setBottomDrawerHeight: (h) =>
+    set({ bottomDrawerHeight: Math.max(120, Math.min(600, h)) }),
+  bottomDrawerMaximized: false,
+  toggleBottomDrawerMaximized: () =>
+    set((s) => ({ bottomDrawerMaximized: !s.bottomDrawerMaximized })),
+
+  // Reports menu
+  reportsMenuOpen: false,
+  setReportsMenuOpen: (open) => set({ reportsMenuOpen: open }),
 
   // Modals
   newModalOpen: false,

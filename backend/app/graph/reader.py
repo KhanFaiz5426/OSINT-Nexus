@@ -73,6 +73,7 @@ async def get_investigation_subgraph(
         n.first_seen        AS first_seen,
         n.last_seen         AS last_seen,
         n.source_count      AS source_count,
+        n.sources           AS sources,
         n.properties        AS properties
     """
 
@@ -232,6 +233,7 @@ async def get_entity_neighbors(
         n.first_seen    AS first_seen,
         n.last_seen     AS last_seen,
         n.source_count  AS source_count,
+        n.sources       AS sources,
         n.properties    AS properties
     """
 
@@ -389,6 +391,7 @@ async def get_entity_detail(
         n.first_seen    AS first_seen,
         n.last_seen     AS last_seen,
         n.source_count  AS source_count,
+        n.sources       AS sources,
         n.properties    AS properties
     """
 
@@ -414,8 +417,22 @@ async def get_entity_detail(
 def _node_to_cytoscape(record: dict[str, Any]) -> dict[str, Any]:
     """Convert a Neo4j node record to Cytoscape.js node element."""
     labels = record.get("labels", [])
-    # Use the first (most specific) label as the primary type.
     primary_label = labels[0] if labels else "Unknown"
+
+    properties = record.get("properties", {})
+    if isinstance(properties, str):
+        properties = json.loads(properties) if properties else {}
+    if not isinstance(properties, dict):
+        properties = {}
+
+    # Surface sources list from top-level Neo4j property or properties._sources
+    sources = record.get("sources") or []
+    if isinstance(sources, str):
+        sources = [s for s in sources.split(",") if s]
+    if not sources:
+        sources = properties.get("_sources", [])
+    if sources:
+        properties["sources"] = list(sources)
 
     data: dict[str, Any] = {
         "id": record.get("node_id", record.get("id", "")),
@@ -424,12 +441,9 @@ def _node_to_cytoscape(record: dict[str, Any]) -> dict[str, Any]:
         "confidence": record.get("confidence", 0.0),
         "first_seen": record.get("first_seen", ""),
         "last_seen": record.get("last_seen", ""),
-        "source_count": record.get("source_count", 0),
-        "properties": (
-            json.loads(record["properties"])
-            if isinstance(record.get("properties"), str)
-            else record.get("properties", {})
-        ),
+        "source_count": record.get("source_count", 0) or len(sources),
+        "sources": sources,
+        "properties": properties,
     }
     return {"data": data}
 

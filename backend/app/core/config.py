@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = ""
     ABUSEIPDB_API_KEY: str = ""
     URLHAUS_API_KEY: str = ""
+    YOUTUBE_API_KEY: str = ""
 
     # Supported providers: nvidia, openai, anthropic, ollama, none
     # When "none" or empty, AI planner/analyzer return deterministic defaults.
@@ -76,6 +77,12 @@ class Settings(BaseSettings):
     HTTP_TIMEOUT: int = 30
     CT_TIMEOUT: int = 30
     GITHUB_TIMEOUT: int = 15
+
+    # Search Provider Configuration
+    SEARXNG_BASE_URL: str = ""  # e.g. "http://searxng:8080"
+    SEARXNG_ENABLED: bool = True  # Enable SearXNG when base URL is set
+    SEARCH_PROVIDER_TIMEOUT: float = 10.0  # Per-provider timeout (seconds)
+    SEARCH_MAX_RESULTS_PER_PROVIDER: int = 10  # Max results per provider
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]

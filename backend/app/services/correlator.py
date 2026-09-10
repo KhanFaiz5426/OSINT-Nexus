@@ -18,6 +18,7 @@ from typing import Any
 
 from app.graph.client import get_driver
 from app.graph.writer import write_graph
+from app.models import RelationshipType
 from app.models.processing import ExtractedEntity, ExtractedRelationship
 from app.services.confidence import score_all
 from app.services.extractor import (
@@ -63,8 +64,9 @@ async def correlate_observations(
         len(observations),
     )
 
-    # Step 1: Extract entities from each observation.
+    # Step 1: Extract entities and relationships from each observation.
     all_entities: dict[str, ExtractedEntity] = {}
+    all_observation_rels: list[ExtractedRelationship] = []
     all_raw_results: list[dict[str, Any]] = []
 
     for obs in observations:
@@ -76,10 +78,12 @@ async def correlate_observations(
         if not raw_response:
             continue
 
-        # Extract entities based on collector type.
-        entities, _ = _extract_from_observation(
+        # Extract entities and relationships based on collector type.
+        entities, obs_rels = _extract_from_observation(
             collector, target, raw_response, observation_id=obs_id
         )
+        if obs_rels:
+            all_observation_rels.extend(obs_rels)
 
         # Fix for email targets: explicitly inject Email entity
         from app.services.classifier import classify_target
@@ -111,6 +115,10 @@ async def correlate_observations(
                 existing.touch(obs_id, collector)
                 if entity.confidence > existing.confidence:
                     existing.confidence = entity.confidence
+                # Merge properties so profile_url etc. survive deduplication.
+                for key, val in entity.properties.items():
+                    if val and not existing.properties.get(key):
+                        existing.properties[key] = val
             else:
                 all_entities[entity.id] = entity
 
@@ -155,8 +163,9 @@ async def correlate_observations(
         investigation_id=investigation_id,
     )
 
-    # Merge structural and co-occurrence relationships.
+    # Merge structural, co-occurrence, and observation relationships.
     all_relationships = _merge_relationships(structural_rels, co_occurrence_rels)
+    all_relationships = _merge_relationships(all_relationships, all_observation_rels)
 
     # Step 4: Score confidence for all entities and relationships.
     scored_entities, scored_relationships = score_all(
@@ -180,7 +189,13 @@ async def correlate_observations(
                 "Failed to write graph for investigation %s", investigation_id
             )
 
-    # Step 6: Write entity provenance records to PostgreSQL.
+    # Step 6: Write entities to PostgreSQL entities table.
+    try:
+        await _write_entities_to_postgres(investigation_id, scored_entities)
+    except Exception:
+        logger.warning("Failed to write entities to PostgreSQL for %s", investigation_id)
+
+    # Step 7: Write entity provenance records to PostgreSQL.
     try:
         await _write_entity_provenance(investigation_id, scored_entities)
     except Exception:
@@ -247,6 +262,8 @@ def _extract_from_observation(
         return _extract_from_threat_intel(target, raw_response, observation_id=observation_id)
     elif collector == "search":
         return _extract_from_search(target, raw_response, observation_id=observation_id)
+    elif collector == "username_probe":
+        return _extract_from_username_probe(target, raw_response, observation_id=observation_id)
     else:
         # Generic text extraction as fallback.
         return _extract_generic(target, raw_response, observation_id=observation_id), []
@@ -289,7 +306,7 @@ def _extract_from_github(
 ) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
     """Extract entities from GitHub collector output."""
     from app.models import EntityType
-    from app.services.normalizer import normalize_email
+    from app.services.normalizer import normalize_email, normalize_url
 
     entities: list[ExtractedEntity] = []
     source = "github"
@@ -307,6 +324,7 @@ def _extract_from_github(
             last_seen=now,
             sources=[source],
             evidence_ids=[observation_id] if observation_id else [],
+            properties={"profile_url": f"https://github.com/{login}"},
         )
     )
 
@@ -326,6 +344,47 @@ def _extract_from_github(
                 evidence_ids=[observation_id] if observation_id else [],
             )
         )
+
+    # Blog/website URL.
+    profile = raw_response.get("profile", {})
+    blog_raw = profile.get("blog") if isinstance(profile, dict) else None
+    blog = (blog_raw or "").strip()
+    if blog:
+        # Add scheme if missing so urlparse can extract the domain.
+        if not blog.startswith(("http://", "https://")):
+            blog = f"https://{blog}"
+        norm_blog = normalize_url(blog)
+        if norm_blog:
+            entities.append(
+                ExtractedEntity(
+                    id=f"{EntityType.URL.value.lower()}:{norm_blog}",
+                    entity_type=EntityType.URL,
+                    value=norm_blog,
+                    confidence=0.75,
+                    first_seen=now,
+                    last_seen=now,
+                    sources=[source],
+                    evidence_ids=[observation_id] if observation_id else [],
+                    properties={"source": "github_blog"},
+                )
+            )
+            # Extract domain from the blog URL.
+            from urllib.parse import urlparse
+            parsed = urlparse(norm_blog)
+            domain = (parsed.hostname or "").lower().lstrip("www.")
+            if "." in domain:
+                entities.append(
+                    ExtractedEntity(
+                        id=f"{EntityType.DOMAIN.value.lower()}:{domain}",
+                        entity_type=EntityType.DOMAIN,
+                        value=domain,
+                        confidence=0.7,
+                        first_seen=now,
+                        last_seen=now,
+                        sources=[source],
+                        evidence_ids=[observation_id] if observation_id else [],
+                    )
+                )
 
     # Organization.
     org = raw_response.get("organization", "")
@@ -349,6 +408,7 @@ def _extract_from_github(
         for repo in repos:
             repo_name = repo.get("name", "") if isinstance(repo, dict) else str(repo)
             if repo_name:
+                repo_url = repo.get("html_url", "") if isinstance(repo, dict) else ""
                 entities.append(
                     ExtractedEntity(
                         id=f"{EntityType.REPOSITORY.value.lower()}:{repo_name}",
@@ -359,6 +419,7 @@ def _extract_from_github(
                         last_seen=now,
                         sources=[source],
                         evidence_ids=[observation_id] if observation_id else [],
+                        properties={"profile_url": repo_url} if repo_url else {},
                     )
                 )
 
@@ -461,6 +522,7 @@ def _extract_from_threat_intel(
             last_seen=now,
             sources=[source],
             evidence_ids=[observation_id] if observation_id else [],
+            properties={"profile_url": f"https://{norm_val}"} if etype == EntityType.DOMAIN else {},
         )
     )
 
@@ -518,6 +580,7 @@ def _extract_from_search(
                     last_seen=now,
                     sources=[source],
                     evidence_ids=[observation_id] if observation_id else [],
+                    properties={"profile_url": f"https://{norm_domain}"},
                 )
             )
 
@@ -575,6 +638,127 @@ def _extract_from_search(
     return entities, relationships
 
 
+def _extract_from_username_probe(
+    target: str,
+    raw_response: dict[str, Any],
+    *,
+    observation_id: str = "",
+) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
+    """Extract entities from username_probe collector output."""
+    from app.models import EntityType
+
+    entities: list[ExtractedEntity] = []
+    relationships: list[ExtractedRelationship] = []
+    now = datetime.now(UTC)
+
+    if not raw_response.get("found"):
+        return entities, relationships
+
+    username = raw_response.get("username", target)
+    platform_name = raw_response.get("platform", "")
+    platform_key = raw_response.get("platform_key", "")
+    url = raw_response.get("url", "")
+    evidence = raw_response.get("evidence", {})
+
+    # Create Username entity.
+    username_id = f"{EntityType.USERNAME.value.lower()}:{username}"
+    entities.append(
+        ExtractedEntity(
+            id=username_id,
+            entity_type=EntityType.USERNAME,
+            value=username,
+            confidence=raw_response.get("confidence", 0.7),
+            first_seen=now,
+            last_seen=now,
+            sources=["username_probe"],
+            evidence_ids=[observation_id] if observation_id else [],
+            properties={
+                "platform": platform_name,
+                "platform_key": platform_key,
+                "profile_url": url,
+                "title": evidence.get("title", ""),
+                "snippet": evidence.get("snippet", ""),
+                "source_type": evidence.get("source", "platform_probe"),
+            },
+        )
+    )
+
+    # Create Person entity for LinkedIn/professional platforms
+    if platform_name in ("LinkedIn", "ResearchGate", "Academia"):
+        person_id = f"{EntityType.PERSON.value.lower()}:{username}"
+        entities.append(
+            ExtractedEntity(
+                id=person_id,
+                entity_type=EntityType.PERSON,
+                value=username,
+                confidence=raw_response.get("confidence", 0.7),
+                first_seen=now,
+                last_seen=now,
+                sources=["username_probe"],
+                evidence_ids=[observation_id] if observation_id else [],
+                properties={
+                    "platform": platform_name,
+                    "profile_url": url,
+                    "title": evidence.get("title", ""),
+                },
+            )
+        )
+
+    # Create Website entity for personal domains
+    if platform_name == "Personal Website":
+        website_id = f"{EntityType.URL.value.lower()}:{url}"
+        entities.append(
+            ExtractedEntity(
+                id=website_id,
+                entity_type=EntityType.URL,
+                value=url,
+                confidence=raw_response.get("confidence", 0.75),
+                first_seen=now,
+                last_seen=now,
+                sources=["username_probe"],
+                evidence_ids=[observation_id] if observation_id else [],
+                properties={
+                    "platform": "Personal Website",
+                    "title": evidence.get("title", ""),
+                    "domain": evidence.get("domain", ""),
+                },
+            )
+        )
+
+    # Create URL entity for the profile.
+    if url and platform_name != "Personal Website":
+        url_id = f"{EntityType.URL.value.lower()}:{url}"
+        entities.append(
+            ExtractedEntity(
+                id=url_id,
+                entity_type=EntityType.URL,
+                value=url,
+                confidence=raw_response.get("confidence", 0.7),
+                first_seen=now,
+                last_seen=now,
+                sources=["username_probe"],
+                evidence_ids=[observation_id] if observation_id else [],
+                properties={"platform": platform_name},
+            )
+        )
+
+        # Create HAS_ACCOUNT_ON relationship.
+        relationships.append(
+            ExtractedRelationship(
+                id=f"{username_id}:has_account_on:{url_id}",
+                source_entity_id=username_id,
+                target_entity_id=url_id,
+                rel_type=RelationshipType.HAS_ACCOUNT_ON,
+                confidence=raw_response.get("confidence", 0.7),
+                evidence_ids=[observation_id] if observation_id else [],
+                discovered_at=now,
+                method="username_probe",
+            )
+        )
+
+    return entities, relationships
+
+
 def _extract_generic(
     target: str,
     raw_response: dict[str, Any],
@@ -620,6 +804,7 @@ def _extract_from_reddit(
             last_seen=now,
             sources=[source],
             evidence_ids=[observation_id] if observation_id else [],
+            properties={"profile_url": profile.get("profile_url", "")},
         )
     )
 
@@ -656,6 +841,7 @@ def _extract_from_keybase(
             last_seen=now,
             sources=[source],
             evidence_ids=[observation_id] if observation_id else [],
+            properties={"profile_url": profile.get("profile_url", "")},
         )
     )
 
@@ -741,6 +927,7 @@ def _extract_from_hackernews(
             last_seen=now,
             sources=[source],
             evidence_ids=[observation_id] if observation_id else [],
+            properties={"profile_url": profile.get("profile_url", "")},
         )
     )
 
@@ -777,6 +964,7 @@ def _extract_from_gitlab(
             last_seen=now,
             sources=[source],
             evidence_ids=[observation_id] if observation_id else [],
+            properties={"profile_url": profile.get("profile_url", "")},
         )
     )
 
@@ -881,6 +1069,56 @@ def _merge_relationships(
                 existing.confidence = rel.confidence
 
     return list(seen.values())
+
+
+async def _write_entities_to_postgres(
+    investigation_id: str,
+    entities: list[ExtractedEntity],
+) -> None:
+    """Write scored entities to the PostgreSQL entities table.
+
+    Without this, the entities API and evidence lookup (which query PostgreSQL)
+    return empty results even though Neo4j has the data. This keeps PostgreSQL
+    and Neo4j in sync.
+    """
+    import json as _json
+
+    from app.db.client import get_pool
+
+    if not entities:
+        return
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for entity in entities:
+            try:
+                await conn.execute(
+                    """
+                    INSERT INTO entities (
+                        id, investigation_id, type, value, confidence,
+                        first_seen, last_seen, source_count, properties, created_at
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                    ON CONFLICT (id) DO UPDATE SET
+                        confidence = EXCLUDED.confidence,
+                        last_seen = EXCLUDED.last_seen,
+                        source_count = EXCLUDED.source_count,
+                        properties = EXCLUDED.properties
+                    """,
+                    entity.id,
+                    investigation_id,
+                    entity.entity_type.value,
+                    entity.value,
+                    entity.confidence,
+                    entity.first_seen,
+                    entity.last_seen,
+                    len(entity.sources),
+                    _json.dumps(entity.properties or {}),
+                )
+            except Exception as exc:
+                logger.debug(
+                    "Entity insert failed for %s: %s", entity.id, exc
+                )
 
 
 async def _write_entity_provenance(

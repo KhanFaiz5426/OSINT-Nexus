@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Link2, X } from "lucide-react";
+import { ChevronRight, Link2, X, ExternalLink, Globe, User } from "lucide-react";
 import { useWorkspaceStore } from "../store/workspace";
 import { Panel } from "./Panel";
 import { EmptyState } from "./EmptyState";
@@ -181,6 +181,7 @@ export function EntityDetailPanel({
             {tab === "overview" && (
               <OverviewTab
                 properties={entity.data.properties}
+                sources={entity.data.sources ?? (entity.data.properties?.sources as string[] | undefined)}
                 entityId={selectedEntityId}
               />
             )}
@@ -207,37 +208,139 @@ export function EntityDetailPanel({
 
 function OverviewTab({
   properties,
+  sources,
   entityId,
 }: {
   properties: Record<string, unknown>;
+  sources: string[] | undefined;
   entityId: string;
 }) {
-  const entries = Object.entries(properties ?? {});
-  if (entries.length === 0) {
-    return (
-      <p className="text-sm text-[var(--nx-text-muted)]">
-        No additional properties recorded for this entity.
-      </p>
-    );
-  }
+  const allEntries = Object.entries(properties ?? {});
+  const otherEntries = allEntries.filter(([k]) => !["sources", "_sources", "_evidence_ids"].includes(k));
+
   return (
-    <div className="space-y-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
-        Properties
-      </div>
-      <dl className="space-y-1 rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] p-3 text-xs">
-        {entries.map(([k, v]) => (
-          <div key={k} className="flex gap-2">
-            <dt className="shrink-0 font-medium text-[var(--nx-text-tertiary)]">{k}</dt>
-            <dd className="break-all font-mono text-[var(--nx-text-secondary)]">
-              {typeof v === "string" ? v : JSON.stringify(v)}
-            </dd>
+    <div className="space-y-3">
+      {/* Sources section */}
+      {(sources && sources.length > 0) && (
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
+            Sources
           </div>
-        ))}
-      </dl>
-      <div className="pt-2 text-[10px] font-mono text-[var(--nx-text-muted)]">id: {entityId}</div>
+          <ul className="space-y-1">
+            {sources.map((source, idx) => (
+              <li key={idx} className="flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center rounded bg-[var(--nx-surface-4)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-tertiary)]">
+                  {source}
+                </span>
+                <span className="text-[var(--nx-text-secondary)]">{sourceLabel(source)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Profile URLs / External Links section */}
+      {(() => {
+        const profileUrl = properties?.profile_url as string | undefined;
+        const url = properties?.url as string | undefined;
+        const domain = properties?.domain as string | undefined;
+        const links: { label: string; url: string; icon: React.ElementType }[] = [];
+
+        if (profileUrl && isValidUrl(profileUrl)) {
+          links.push({ label: "Profile", url: profileUrl, icon: User });
+        }
+        if (url && isValidUrl(url) && url !== profileUrl) {
+          links.push({ label: "URL", url, icon: Globe });
+        }
+        if (domain && isValidUrl(`https://${domain}`)) {
+          links.push({ label: "Domain", url: `https://${domain}`, icon: Globe });
+        }
+
+        if (links.length > 0) {
+          return (
+            <div className="space-y-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
+                External Links
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {links.map((link, idx) => (
+                  <a
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80 rounded border border-[var(--nx-border)] bg-[var(--nx-surface-3)] transition-colors"
+                  >
+                    <link.icon className="h-3 w-3" />
+                    <span>{link.label}</span>
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* All properties section */}
+      {otherEntries.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
+            All Properties
+          </div>
+          <dl className="space-y-1 rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] p-3 text-xs max-h-96 overflow-auto">
+            {otherEntries.map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="shrink-0 font-medium text-[var(--nx-text-tertiary)]">{k}</dt>
+                <dd className="break-all font-mono text-[var(--nx-text-secondary)]">
+                  {typeof v === "string" ? v : JSON.stringify(v)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+
+      {otherEntries.length === 0 && !sources?.length && (
+        <p className="text-sm text-[var(--nx-text-muted)]">
+          No additional properties recorded for this entity.
+        </p>
+      )}
+
+      <div className="pt-2 text-[10px] font-mono text-[var(--nx-text-muted)]">
+        id: {entityId}
+      </div>
     </div>
   );
+}
+
+function sourceLabel(source: string): string {
+  const labels: Record<string, string> = {
+    search: "Web Search (SearXNG)",
+    github: "GitHub",
+    gitlab: "GitLab",
+    reddit: "Reddit",
+    keybase: "Keybase",
+    hackernews: "Hacker News",
+    dns: "DNS",
+    whois: "WHOIS",
+    certificate_transparency: "Certificate Transparency",
+    http: "HTTP",
+    ip_to_asn: "IP-to-ASN",
+    threat_intel: "Threat Intel",
+    username_probe: "Username Probe",
+  };
+  return labels[source] ?? source;
+}
+
+function isValidUrl(str: string): boolean {
+  try {
+    new URL(str);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function EvidenceTab({
@@ -319,6 +422,12 @@ function EvidenceTab({
                       {obs.normalized_value || "—"}
                     </span>
                   </div>
+                  <div className="col-span-2">
+                    <span className="text-[var(--nx-text-muted)]">Status:</span>{" "}
+                    <span className="font-mono text-[var(--nx-text-secondary)]">
+                      {obs.status}
+                    </span>
+                  </div>
                 </div>
                 <details className="mt-2">
                   <summary className="cursor-pointer text-[11px] font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80">
@@ -373,6 +482,7 @@ function RelationshipsTab({
             ? rel.target_entity_id
             : rel.source_entity_id;
         const otherLabel = labelById[otherId] ?? otherId;
+        const otherType = otherId.split(":")[0] ?? "";
         return (
           <li
             key={rel.id}
@@ -397,10 +507,20 @@ function RelationshipsTab({
             >
               <Link2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{otherLabel}</span>
+              {otherType && (
+                <span className="inline-flex items-center rounded bg-[var(--nx-surface-4)] px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--nx-text-tertiary)]">
+                  {otherType}
+                </span>
+              )}
             </button>
             {rel.method && (
               <div className="mt-1 text-[10px] text-[var(--nx-text-muted)]">
                 via {rel.method}
+              </div>
+            )}
+            {rel.evidence && rel.evidence.length > 0 && (
+              <div className="mt-1 text-[10px] text-[var(--nx-text-muted)]">
+                {rel.evidence.length} observation(s) as evidence
               </div>
             )}
           </li>

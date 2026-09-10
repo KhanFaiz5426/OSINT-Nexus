@@ -34,6 +34,7 @@ SET
     n.first_seen       = node.first_seen,
     n.last_seen        = node.last_seen,
     n.source_count     = node.source_count,
+    n.sources          = node.sources,
     n.properties       = node.properties
 """
 
@@ -173,6 +174,15 @@ def _entity_to_node(
     investigation_id: str,
 ) -> dict[str, Any]:
     """Convert an ExtractedEntity to a Neo4j node property dict."""
+    # Merge sources list into properties so the frontend can show where
+    # the entity came from (Neo4j cannot store a list as a top-level
+    # property in older versions, so we keep it inside properties JSON).
+    merged_props = dict(entity.properties or {})
+    if entity.sources:
+        merged_props["_sources"] = list(entity.sources)
+    if entity.evidence_ids:
+        merged_props["_evidence_ids"] = list(entity.evidence_ids)
+
     return {
         "id": entity.id,
         "investigation_id": investigation_id,
@@ -181,7 +191,8 @@ def _entity_to_node(
         "first_seen": entity.first_seen.isoformat() if entity.first_seen else "",
         "last_seen": entity.last_seen.isoformat() if entity.last_seen else "",
         "source_count": len(entity.sources),
-        "properties": json.dumps(entity.properties) if entity.properties else "{}",
+        "sources": entity.sources or [],
+        "properties": json.dumps(merged_props),
     }
 
 
@@ -200,6 +211,45 @@ def _relationship_to_edge(
         "discovered_at": rel.discovered_at.isoformat() if rel.discovered_at else "",
         "method": rel.method,
     }
+
+
+async def delete_investigation_graph(
+    investigation_id: str,
+    *,
+    driver: AsyncDriver | None = None,
+) -> int:
+    """Delete all nodes and relationships for an investigation from Neo4j.
+
+    Uses DETACH DELETE to remove all investigation-scoped nodes (and their
+    relationships) in a single operation.
+
+    Args:
+        investigation_id: Owning investigation UUID.
+        driver: Optional driver override (for testing).
+
+    Returns:
+        Number of nodes deleted.
+    """
+    _validate_investigation_id(investigation_id)
+    driver = driver or await get_driver()
+
+    delete_query = """
+    MATCH (n)
+    WHERE n.investigation_id = $investigation_id
+    DETACH DELETE n
+    """
+
+    async with driver.session() as session:
+        result = await session.run(delete_query, investigation_id=investigation_id)
+        summary = await result.consume()
+        deleted = summary.counters.nodes_deleted or 0
+
+    logger.info(
+        "Deleted %d Neo4j nodes for investigation %s",
+        deleted,
+        investigation_id,
+    )
+    return deleted
 
 
 def _validate_investigation_id(investigation_id: str) -> None:

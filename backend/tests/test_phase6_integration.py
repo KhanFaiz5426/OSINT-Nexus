@@ -1256,7 +1256,7 @@ class TestAnalyzerAsync:
             llm_call_fn=failing_llm,
         )
 
-        assert "failed" in output.summary.lower()
+        assert "unavailable" in output.summary.lower()
 
 
 # ── Test: Hallucination edge cases ────────────────────────────────────────────

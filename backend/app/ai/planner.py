@@ -288,7 +288,8 @@ async def plan_pivots_with_ai(
         # contributes nothing, but the investigation continues.
         return AIPlannerOutput(
             summary=f"LLM unavailable ({type(exc).__name__}); deterministic mode active",
-            stop_recommended=False,
+            stop_recommended=True,
+            stop_reason=f"LLM unavailable ({type(exc).__name__})",
         )
 
     output = parse_planner_response(response_text)

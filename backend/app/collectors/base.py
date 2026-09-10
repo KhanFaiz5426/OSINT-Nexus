@@ -20,6 +20,42 @@ from app.models import ObservationStatus, RawResult, TargetType
 logger = logging.getLogger(__name__)
 
 
+def _resolve_cache_ttl(collector_name: str, class_default: int) -> int:
+    """Return the cache TTL for *collector_name*, preferring per-collector
+    overrides from the runtime settings store over the collector class default.
+
+    Only returns a non-default value when the settings file explicitly
+    contains a per-collector entry for *collector_name* in ``rate_limits``.
+    The global ``collectors.cache_ttl`` is applied at call sites (base.py
+    ``collect``) not here, to avoid overwriting class-level TTLs.
+    """
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if not SETTINGS_FILE.exists():
+            return class_default
+        settings = get_app_settings()
+        return settings.collectors.rate_limits.get(collector_name, class_default)
+    except Exception:
+        return class_default
+
+
+def _resolve_rate_limit_rpm(collector_name: str, class_default: int) -> int:
+    """Return the rate limit RPM for *collector_name*, preferring per-collector
+    overrides from the runtime settings store over the collector class default.
+
+    Only returns a non-default value when the settings file explicitly
+    contains a per-collector entry for *collector_name* in ``rate_limits``.
+    """
+    try:
+        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        if not SETTINGS_FILE.exists():
+            return class_default
+        settings = get_app_settings()
+        return settings.collectors.rate_limits.get(collector_name, class_default)
+    except Exception:
+        return class_default
+
+
 class OSINTCollector(abc.ABC):
     """Abstract base class for all OSINT collectors.
 
@@ -31,6 +67,10 @@ class OSINTCollector(abc.ABC):
       - cache_ttl: seconds to cache results (0 = no caching)
       - rate_limit_rpm: max requests per minute (0 = unlimited)
       - _collect(): the actual collection logic
+
+    Cache TTL and rate limits are resolved at init time from the runtime
+    settings store (``collectors.cache_ttl``, ``collectors.rate_limits``).
+    If the store is unavailable the collector class defaults are used.
     """
 
     name: str = "base"
@@ -42,6 +82,9 @@ class OSINTCollector(abc.ABC):
 
     def __init__(self, cache: CollectorCache | None = None) -> None:
         self._cache = cache
+        # Resolve effective cache TTL and rate limit from settings store.
+        self.cache_ttl = _resolve_cache_ttl(self.name, self.cache_ttl)
+        self.rate_limit_rpm = _resolve_rate_limit_rpm(self.name, self.rate_limit_rpm)
         self._rate_limiter: TokenBucketRateLimiter | None = None
         if self.rate_limit_rpm > 0:
             self._rate_limiter = TokenBucketRateLimiter(
