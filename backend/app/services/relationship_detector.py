@@ -124,7 +124,7 @@ def detect_relationships(
             if email_entity and domain_entity:
                 _add_rel(
                     email_entity.id,
-                    RelationshipType.ASSOCIATED_WITH_EMAIL,  # Or maybe a new type? Let's use ASSOCIATED_WITH_EMAIL but reversed, or just use it.
+                    RelationshipType.ASSOCIATED_WITH_EMAIL,  # Reverse relation
                     domain_entity.id,
                     "target_email_domain",
                     1.0,

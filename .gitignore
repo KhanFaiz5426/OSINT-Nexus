@@ -491,3 +491,7 @@ obj/
 test_nvidia_api.py
 test_ai_output.txt
 test_parser.py
+
+#unnecessary .md
+STITCH_FRONTEND_HANDOFF.md
+DESKTOP_MIGRATION_SPEC.md

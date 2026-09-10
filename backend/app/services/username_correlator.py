@@ -325,7 +325,8 @@ def correlate_username_accounts(
         # Create ORGANIZATION entities.
         for account in group:
             if account.organization:
-                org_id = f"{EntityType.ORGANIZATION.value.lower()}:{_normalize_text(account.organization)}"
+                org_val = _normalize_text(account.organization)
+                org_id = f"{EntityType.ORGANIZATION.value.lower()}:{org_val}"
                 entities.append(
                     ExtractedEntity(
                         id=org_id,

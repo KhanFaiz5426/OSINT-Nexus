@@ -298,7 +298,10 @@ async def plan_pivots_with_ai(
     if output is None:
         logger.warning("Failed to parse AI planner response, falling back to deterministic mode")
         return AIPlannerOutput(
-            summary="Failed to parse AI planning response (invalid JSON); deterministic mode active",
+            summary=(
+                "Failed to parse AI planning response (invalid JSON); "
+                "deterministic mode active"
+            ),
             stop_recommended=False,
         )
 

@@ -306,7 +306,10 @@ class UsernameProbeEngine:
             fname, lname = parts[0], parts[-1]
             queries.append(
                 {
-                    "query": f"site:{fname}{lname}.dev OR site:{fname}.{lname}.dev OR site:{lname}{fname}.dev",
+                    "query": (
+                        f"site:{fname}{lname}.dev OR site:{fname}.{lname}.dev "
+                        f"OR site:{lname}{fname}.dev"
+                    ),
                     "description": "Personal domain patterns",
                 }
             )

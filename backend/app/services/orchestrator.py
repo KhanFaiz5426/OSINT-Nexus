@@ -941,7 +941,7 @@ async def _expand_username_searches(
             continue
 
         try:
-            # Platform APIs usually don't accept spaces; strip them if the user entered a full name by mistake
+            # Platform APIs usually don't accept spaces; strip them if user entered full name
             platform_target = state.target.replace(" ", "").lower()
             obs = await collect_and_store(
                 action, platform_target, TargetType.USERNAME, investigation_id

@@ -41,6 +41,16 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/osintnexus_dev
+        ports:
+          - 7687:7687
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -218,7 +218,7 @@ def _build_entity_analysis_prompt(ctx: dict[str, Any]) -> list[dict[str, str]]:
         '  "key_information": ["<list of key facts discovered about this entity>"],\n'
         '  "evidence_summary": "<string: summary of the evidence supporting this entity>",\n'
         '  "confidence_assessment": "<string: why confidence is at this level>",\n'
-        '  "connection_to_target": "<string: how this entity connects to the investigation target>",\n'
+        '  "connection_to_target": "<string: how this entity connects to the investigation target>",\n'  # noqa: E501
         '  "significance": "<string: why this entity may matter to the investigation>",\n'
         '  "uncertainties": ["<list of uncertainties, gaps, or conflicting evidence>"],\n'
         '  "ai_inferences": ["<list of inferences NOT directly from evidence>"]\n'
@@ -352,7 +352,10 @@ async def get_entity_ai_analysis(
         "investigation_target_type": inv["target_type"],
         "analysis": ai_analysis
         or {
-            "what_is": f"A {ent['type']} entity with value '{ent['value']}' discovered during the investigation.",
+            "what_is": (
+                f"A {ent['type']} entity with value '{ent['value']}' "
+                "discovered during the investigation."
+            ),
             "key_information": [
                 f"Discovered from {ent['source_count']} source(s)",
                 f"Confidence level: {ent['confidence'] * 100:.0f}%",
