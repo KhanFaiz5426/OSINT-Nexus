@@ -1,8 +1,9 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.db.client import get_pool, close_pool, reset_pool
+from app.db.client import close_pool, get_pool, reset_pool
 from app.main import app
+
 
 @pytest.fixture
 def anyio_backend():
@@ -65,7 +66,7 @@ async def test_get_entity_evidence_case_insensitive_fallback(client: AsyncClient
 
     # 2. Query the evidence endpoint using the lowercase (normalized) entity ID
     response = await client.get(
-        f"/api/v1/entities/username:jeff geerling/evidence",
+        "/api/v1/entities/username:jeff geerling/evidence",
         params={"investigation_id": test_investigation_id}
     )
     

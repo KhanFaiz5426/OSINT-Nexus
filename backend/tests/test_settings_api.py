@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -227,7 +224,7 @@ class TestSettingsAPIEndpoints:
         response = await client.get("/api/v1/settings")
         data = response.json()
         api_keys = data["api_keys"]
-        for key, val in api_keys.items():
+        for _key, val in api_keys.items():
             assert isinstance(val, bool)
 
     @pytest.mark.anyio

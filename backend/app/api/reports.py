@@ -59,9 +59,10 @@ async def generate_report(
 
     # Handle STIX format specially
     if fmt == "stix":
+        import json
+
         from app.services.investigation import export_investigation
         from app.services.stix_export import investigation_to_stix_bundle
-        import json
 
         inv_data = await export_investigation(investigation_id)
         if inv_data is None:

@@ -318,11 +318,11 @@ def apply_manual_override(
     Returns:
         Dict with override details.
     """
+    import asyncio
     from datetime import UTC, datetime
     from uuid import uuid4
 
     from app.db.client import get_pool
-    import asyncio
 
     override_id = str(uuid4())
     now = datetime.now(UTC)

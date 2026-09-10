@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 
 from app.collectors.rate_limiter import TokenBucketRateLimiter
 from app.models import ObservationStatus, RawResult, TargetType
+from app.services.username_engine.intelligence import PlatformIntelligenceOrchestrator
 from app.services.username_engine.models import (
     PlatformDefinition,
     ProbeBudget,
@@ -31,7 +32,6 @@ from app.services.username_engine.platform_store import (
     get_enabled_platforms,
     load_platforms,
 )
-from app.services.username_engine.intelligence import PlatformIntelligenceOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,6 @@ _PLATFORM_DOMAINS: dict[str, str] = {
     "scholar.google.com": "Google Scholar",
     "zhihu.com": "Zhihu",
     "quora.com": "Quora",
-    "producthunt.com": "ProductHunt",
 }
 
 

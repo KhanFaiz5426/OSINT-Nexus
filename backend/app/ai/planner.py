@@ -9,7 +9,6 @@ and controls actual dispatch. The LLM never executes tools directly.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 

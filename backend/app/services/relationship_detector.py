@@ -123,11 +123,11 @@ def detect_relationships(
             )
 
         # Fix for email targets: ensure relationship between Email and its Domain
+        from app.models import EntityType, RelationshipType, TargetType
         from app.services.classifier import classify_target
-        from app.models import TargetType, EntityType, RelationshipType
         
         if classify_target(target) == TargetType.EMAIL:
-            from app.services.normalizer import normalize_email, normalize_domain
+            from app.services.normalizer import normalize_domain, normalize_email
             email_val = normalize_email(target)
             domain_val = normalize_domain(target.split("@")[-1])
             

@@ -13,11 +13,16 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
+from app.collectors.search_collector import (
+    SearchCollector,
+    _build_providers,
+    _build_query,
+    _extract_entities,
+)
 from app.collectors.search_providers.base import (
     ProviderStatus,
     ProviderStatusCode,
@@ -42,14 +47,7 @@ from app.collectors.search_providers.searxng import (
     SearXNGProvider,
     _parse_searxng_results,
 )
-from app.collectors.search_collector import (
-    SearchCollector,
-    _build_query,
-    _build_providers,
-    _extract_entities,
-)
 from app.models import ObservationStatus, TargetType
-
 
 # ── SearchRequest / SearchResult models ─────────────────────────────────────
 

@@ -6,10 +6,6 @@ properly extracted as URL and Domain entities.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-import pytest
-
 from app.models import EntityType
 from app.services.correlator import _extract_from_github
 

@@ -6,28 +6,26 @@ provenance/confidence, and integration with the orchestrator.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import dataclass
+
+import pytest
 
 from app.services.username_engine.adapters.base import (
     AcquisitionMethod,
     AdapterResult,
     EvidenceConfidence,
-    PlatformAdapter,
 )
 from app.services.username_engine.adapters.http_adapter import DirectHTTPAdapter
-from app.services.username_engine.adapters.youtube_api_adapter import YouTubeAPIAdapter
 from app.services.username_engine.adapters.search_discovery_adapter import (
-    SearchDiscoveryAdapter,
     _SEARCH_CONFIGS,
+    SearchDiscoveryAdapter,
+)
+from app.services.username_engine.adapters.youtube_api_adapter import YouTubeAPIAdapter
+from app.services.username_engine.intelligence import (
+    _PLATFORM_ADAPTER_OVERRIDES,
+    PlatformIntelligenceOrchestrator,
 )
 from app.services.username_engine.models import PlatformDefinition
-from app.services.username_engine.intelligence import (
-    PlatformIntelligenceOrchestrator,
-    _PLATFORM_ADAPTER_OVERRIDES,
-)
-
 
 # ── Adapter Interface Tests ──────────────────────────────────────────────────
 
@@ -115,9 +113,9 @@ class TestDirectHTTPAdapter:
     def test_probe_returns_none_without_platform(self):
         """Adapter should return None if no PlatformDefinition provided."""
         adapter = DirectHTTPAdapter()
-        result = adapter.probe("github", "testuser", "inv-id")
+        adapter.probe("github", "testuser", "inv-id")
         # This is a coroutine, need to await in async test
-        assert result is not None or True  # Will be tested in async
+        assert True  # Will be tested in async
 
     @pytest.mark.asyncio
     async def test_probe_success_200(self):
@@ -625,7 +623,7 @@ class TestProvenanceAndConfidence:
 
     def test_search_discovery_result_includes_warning(self):
         """Search discovery results should warn about unconfirmed status."""
-        adapter = SearchDiscoveryAdapter()
+        SearchDiscoveryAdapter()
         # The warning is in the evidence field, tested via probe method
         # This test documents the expected behavior
         assert "search_discovery" in [a.value for a in AcquisitionMethod]

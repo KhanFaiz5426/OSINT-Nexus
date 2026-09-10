@@ -90,7 +90,7 @@ async def investigation_events(investigation_id: str):
                         "event": data.get("type", "message"),
                         "data": json.dumps(data.get("data", {})),
                     }
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Send heartbeat to keep connection alive
             yield {
                 "event": "heartbeat",

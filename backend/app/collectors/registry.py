@@ -92,7 +92,7 @@ async def initialize_collectors(cache: CollectorCache | None = None) -> None:
 
     for cls in collector_classes:
         # Peek at the class-level ``name`` without instantiating.
-        temp = cls.__new__(cls)
+        cls.__new__(cls)
         name = getattr(cls, "name", "")
         if enabled_map.get(name, True) is False:
             logger.info("Collector %s disabled via settings — skipping", name)

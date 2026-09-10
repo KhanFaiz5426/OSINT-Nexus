@@ -56,17 +56,14 @@ class DuckDuckGoProvider(SearchProvider):
             ) as client:
                 # Attempt 1: DDG HTML
                 raw = await _try_ddg_html(client, request.query)
-                source = "html"
 
                 # Attempt 2: DDG Lite
                 if not raw:
                     raw = await _try_ddg_lite(client, request.query)
-                    source = "lite"
 
                 # Attempt 3: DDG API JSON
                 if not raw:
                     raw = await _try_ddg_api(client, request.query)
-                    source = "api"
 
             elapsed = time.monotonic() - start
             results = [

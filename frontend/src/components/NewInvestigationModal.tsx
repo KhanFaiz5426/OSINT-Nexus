@@ -41,7 +41,7 @@ export function NewInvestigationModal() {
   const [target, setTarget] = useState("");
   const [name, setName] = useState("");
   const [depth, setDepth] = useState<"shallow" | "standard" | "deep">("standard");
-  const [detectedType, setDetectedType] = useState<TargetType>("unknown");
+  const detectedType = detectTargetType(target);
   const [manualType, setManualType] = useState<TargetType | null>(null);
 
   const createMutation = useCreateInvestigation();
@@ -49,17 +49,16 @@ export function NewInvestigationModal() {
 
   useEffect(() => {
     if (newModalOpen) {
+      // eslint-disable-next-line react/set-state-in-effect
       setTarget("");
+      // eslint-disable-next-line react/set-state-in-effect
       setName("");
+      // eslint-disable-next-line react/set-state-in-effect
       setDepth("standard");
+      // eslint-disable-next-line react/set-state-in-effect
       setManualType(null);
     }
   }, [newModalOpen]);
-
-  useEffect(() => {
-    const detected = detectTargetType(target);
-    setDetectedType(detected);
-  }, [target]);
 
   // Handle escape key
   useEffect(() => {

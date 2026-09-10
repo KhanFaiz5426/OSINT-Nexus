@@ -67,7 +67,7 @@ def find_similar_entities(
             by_type.setdefault(entity.entity_type, []).append(entity)
 
     # Compare entities within each type
-    for entity_type, type_entities in by_type.items():
+    for _entity_type, type_entities in by_type.items():
         for i in range(len(type_entities)):
             for j in range(i + 1, len(type_entities)):
                 entity_a = type_entities[i]
@@ -106,7 +106,6 @@ def create_similarity_relationships(
         List of relationships linking similar entities.
     """
     from datetime import UTC, datetime
-    from uuid import uuid4
 
     relationships: list[ExtractedRelationship] = []
     now = datetime.now(UTC)

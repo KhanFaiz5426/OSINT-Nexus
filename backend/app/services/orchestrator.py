@@ -51,7 +51,7 @@ def _get_default_budget() -> int:
     """Return the default API budget from the runtime settings store.
     Only applies when a settings file exists on disk."""
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
         if SETTINGS_FILE.exists():
             return get_app_settings().investigation.api_budget
     except Exception:
@@ -870,7 +870,7 @@ async def _write_username_correlation(
 
 
 async def _expand_username_searches(
-    state: "InvestigationState",
+    state: InvestigationState,
     observations: list[dict[str, Any]],
     investigation_id: str,
 ) -> list[dict[str, Any]]:
@@ -883,6 +883,7 @@ async def _expand_username_searches(
     This runs BEFORE AI planning so the investigation has data even if AI fails.
     """
     import asyncio
+
     from app.models import TargetType
     from app.models.ai import PivotAction
     from app.services.username_variations import (
@@ -1011,7 +1012,7 @@ async def _expand_username_searches(
 
 
 async def _run_username_probe_engine(
-    state: "InvestigationState",
+    state: InvestigationState,
     investigation_id: str,
 ) -> list[dict[str, Any]]:
     """Run the username probe engine for direct platform probing.
@@ -1019,9 +1020,8 @@ async def _run_username_probe_engine(
     Generates probe variations, runs the probe engine across enabled
     platforms, and stores positive results as observations.
     """
-    from app.models import TargetType
-    from app.services.username_engine.probe import UsernameProbeEngine
     from app.services.username_engine.models import ProbeBudget
+    from app.services.username_engine.probe import UsernameProbeEngine
     from app.services.username_variations import generate_probe_variations
 
     extra_observations: list[dict[str, Any]] = []
@@ -1029,7 +1029,7 @@ async def _run_username_probe_engine(
     # Load probe settings from the runtime settings store.
     # Only applies when a settings file exists on disk.
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
         if SETTINGS_FILE.exists():
             _app = get_app_settings()
             max_variations = _app.investigation.probe.max_variations

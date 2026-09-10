@@ -104,7 +104,7 @@ async def put_settings(request: SettingsUpdateRequest) -> SettingsUpdateResponse
     try:
         updated = update_app_settings(update)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors())
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
     return SettingsUpdateResponse(
         message="Settings updated" + (" (restart required for some changes)" if restart_needed else ""),

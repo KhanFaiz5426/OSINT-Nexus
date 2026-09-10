@@ -86,8 +86,8 @@ async def correlate_observations(
             all_observation_rels.extend(obs_rels)
 
         # Fix for email targets: explicitly inject Email entity
+        from app.models import EntityType, TargetType
         from app.services.classifier import classify_target
-        from app.models import TargetType, EntityType
         from app.services.normalizer import normalize_email
         
         if classify_target(target) == TargetType.EMAIL:
@@ -142,8 +142,8 @@ async def correlate_observations(
     # Step 2b: Fuzzy matching for similar entities (organizations, usernames, persons).
     try:
         from app.services.fuzzy_matcher import (
-            find_similar_entities,
             create_similarity_relationships,
+            find_similar_entities,
         )
         similar_pairs = find_similar_entities(resolved_entities)
         if similar_pairs:
@@ -371,7 +371,7 @@ def _extract_from_github(
             # Extract domain from the blog URL.
             from urllib.parse import urlparse
             parsed = urlparse(norm_blog)
-            domain = (parsed.hostname or "").lower().lstrip("www.")
+            domain = (parsed.hostname or "").lower().removeprefix("www.")
             if "." in domain:
                 entities.append(
                     ExtractedEntity(
@@ -819,7 +819,6 @@ def _extract_from_keybase(
 ) -> tuple[list[ExtractedEntity], list[ExtractedRelationship]]:
     """Extract entities from Keybase collector output."""
     from app.models import EntityType
-    from app.services.normalizer import normalize_email
 
     entities: list[ExtractedEntity] = []
     source = "keybase"

@@ -1,11 +1,13 @@
 """Tests for the source availability service."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from app.services.source_availability import (
-    map_http_status,
-    check_source_availability,
     _cache_key,
+    check_source_availability,
+    map_http_status,
 )
 
 

@@ -5,8 +5,6 @@ Tests for the username variation generator and search query generation.
 
 from __future__ import annotations
 
-import pytest
-
 from app.services.username_variations import (
     extract_real_name_from_profile,
     generate_search_queries,

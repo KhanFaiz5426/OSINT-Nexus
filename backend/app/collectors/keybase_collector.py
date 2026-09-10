@@ -7,7 +7,6 @@ No API key required for public user lookups.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import httpx
 

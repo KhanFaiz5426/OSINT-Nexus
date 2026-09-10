@@ -6,12 +6,13 @@ threat intelligence platforms (MISP, OpenCTI, etc.).
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid5
 
-from app.models import EntityType, RelationshipType
+from app.models import EntityType
 
 logger = logging.getLogger(__name__)
 
@@ -81,16 +82,7 @@ def entity_to_stix(entity: dict[str, Any], investigation_id: str) -> dict[str, A
     }
 
     # Type-specific fields
-    if stix_type == "domain-name":
-        sdo["value"] = value
-
-    elif stix_type == "ipv4-addr":
-        sdo["value"] = value
-
-    elif stix_type == "email-addr":
-        sdo["value"] = value
-
-    elif stix_type == "url":
+    if stix_type == "domain-name" or stix_type == "ipv4-addr" or stix_type == "email-addr" or stix_type == "url":
         sdo["value"] = value
 
     elif stix_type == "identity":
@@ -104,10 +96,8 @@ def entity_to_stix(entity: dict[str, Any], investigation_id: str) -> dict[str, A
         # Extract ASN number from value like "AS12345"
         asn_num = 0
         if value.upper().startswith("AS"):
-            try:
+            with contextlib.suppress(ValueError):
                 asn_num = int(value[2:])
-            except ValueError:
-                pass
         sdo["number"] = asn_num
         sdo["name"] = value
 
@@ -202,7 +192,7 @@ def investigation_to_stix_bundle(
             objects.append(stix_sro)
 
     # Create the bundle
-    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     bundle = {
         "type": "bundle",
         "id": f"bundle--{uuid5(STIX_NAMESPACE, f'bundle:{investigation_id}')}",

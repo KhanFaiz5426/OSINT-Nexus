@@ -15,5 +15,5 @@ inv_id = "214c9afc-2aeb-4365-8a9c-bb998377fda6"
 result = post(f"/investigations/{inv_id}/reports", {"format": "html"})
 print(f"Report generated: {result['download_url']}")
 print(f"File size: {result['file_size']} bytes")
-print(f"\nOpen in browser:")
+print("\nOpen in browser:")
 print(f"http://127.0.0.1:8000{result['download_url']}/download")

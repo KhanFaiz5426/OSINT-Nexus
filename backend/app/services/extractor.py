@@ -280,8 +280,8 @@ def extract_from_dns(
     Returns:
         (entities, relationships) tuple.
     """
-    from app.services.classifier import classify_target
     from app.models import TargetType
+    from app.services.classifier import classify_target
     from app.services.normalizer import normalize_email
 
     entities: dict[str, ExtractedEntity] = {}
@@ -455,8 +455,8 @@ def extract_from_whois(
     Returns:
         (entities, relationships) tuple.
     """
-    from app.services.classifier import classify_target
     from app.models import TargetType
+    from app.services.classifier import classify_target
     from app.services.normalizer import normalize_email
 
     entities: dict[str, ExtractedEntity] = {}
@@ -609,8 +609,8 @@ def extract_from_ct(
     Returns:
         (entities, relationships) tuple.
     """
-    from app.services.classifier import classify_target
     from app.models import TargetType
+    from app.services.classifier import classify_target
     from app.services.normalizer import normalize_email
 
     entities: dict[str, ExtractedEntity] = {}

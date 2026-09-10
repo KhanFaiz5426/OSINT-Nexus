@@ -130,6 +130,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
       cy.destroy();
       cyRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectEntity]);
 
   // Update elements when graph data changes.

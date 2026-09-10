@@ -8,7 +8,7 @@ Platform definitions are stored in ``platforms.json``. Adding a new
 platform is a data change, not a code change.
 """
 
-from app.services.username_engine.probe import UsernameProbeEngine
 from app.services.username_engine.platform_store import load_platforms
+from app.services.username_engine.probe import UsernameProbeEngine
 
 __all__ = ["UsernameProbeEngine", "load_platforms"]

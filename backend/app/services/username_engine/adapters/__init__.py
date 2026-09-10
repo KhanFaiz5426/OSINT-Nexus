@@ -11,10 +11,10 @@ from app.services.username_engine.adapters.base import (
     PlatformAdapter,
 )
 from app.services.username_engine.adapters.http_adapter import DirectHTTPAdapter
-from app.services.username_engine.adapters.youtube_api_adapter import YouTubeAPIAdapter
 from app.services.username_engine.adapters.search_discovery_adapter import (
     SearchDiscoveryAdapter,
 )
+from app.services.username_engine.adapters.youtube_api_adapter import YouTubeAPIAdapter
 
 __all__ = [
     "AcquisitionMethod",

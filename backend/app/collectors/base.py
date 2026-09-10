@@ -30,7 +30,7 @@ def _resolve_cache_ttl(collector_name: str, class_default: int) -> int:
     ``collect``) not here, to avoid overwriting class-level TTLs.
     """
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()
@@ -47,7 +47,7 @@ def _resolve_rate_limit_rpm(collector_name: str, class_default: int) -> int:
     contains a per-collector entry for *collector_name* in ``rate_limits``.
     """
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()

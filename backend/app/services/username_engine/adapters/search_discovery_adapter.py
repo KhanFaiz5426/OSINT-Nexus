@@ -29,9 +29,6 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
-import httpx
-from bs4 import BeautifulSoup
-
 from app.services.username_engine.adapters.base import (
     AcquisitionMethod,
     AdapterResult,

@@ -26,11 +26,11 @@ from app.services.username_engine.adapters.base import (
     PlatformAdapter,
 )
 from app.services.username_engine.adapters.http_adapter import DirectHTTPAdapter
-from app.services.username_engine.adapters.youtube_api_adapter import YouTubeAPIAdapter
 from app.services.username_engine.adapters.search_discovery_adapter import (
     SearchDiscoveryAdapter,
 )
-from app.services.username_engine.models import PlatformDefinition, ProbeBudget
+from app.services.username_engine.adapters.youtube_api_adapter import YouTubeAPIAdapter
+from app.services.username_engine.models import ProbeBudget
 from app.services.username_engine.platform_store import (
     get_enabled_platforms,
     load_platforms,
@@ -94,10 +94,7 @@ class PlatformIntelligenceOrchestrator:
     def get_adapter_chain(self, platform_key: str) -> list[PlatformAdapter]:
         """Get ordered list of adapters to try for a platform."""
         override = _PLATFORM_ADAPTER_OVERRIDES.get(platform_key)
-        if override:
-            chain_names = override
-        else:
-            chain_names = _DEFAULT_ADAPTER_PRIORITY
+        chain_names = override or _DEFAULT_ADAPTER_PRIORITY
 
         chain = []
         for name in chain_names:

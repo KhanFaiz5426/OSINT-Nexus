@@ -6,11 +6,11 @@ No live API calls are made.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from app.collectors.search_collector import SearchCollector, _build_query
+from app.collectors.search_collector import SearchCollector
 from app.collectors.search_providers.base import (
     ProviderStatus,
     ProviderStatusCode,
@@ -18,7 +18,6 @@ from app.collectors.search_providers.base import (
 )
 from app.collectors.search_providers.orchestrator import OrchestratorResult
 from app.models import ObservationStatus, TargetType
-
 
 # ── Mock Orchestrator Results ───────────────────────────────────────────────
 

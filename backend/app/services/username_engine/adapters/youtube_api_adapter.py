@@ -15,7 +15,6 @@ API docs: https://developers.google.com/youtube/v3/docs/channels/list
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import httpx
 
@@ -174,7 +173,7 @@ class YouTubeAPIAdapter(PlatformAdapter):
                 channel = items[0]
                 snippet = channel.get("snippet", {})
                 statistics = channel.get("statistics", {})
-                content_details = channel.get("contentDetails", {})
+                channel.get("contentDetails", {})
 
                 # Build profile
                 profile = {

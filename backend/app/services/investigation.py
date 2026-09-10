@@ -10,8 +10,6 @@ from datetime import UTC, datetime
 
 import asyncpg
 
-logger = logging.getLogger(__name__)
-
 from app.db.client import get_pool
 from app.models import (
     EntityType,
@@ -24,6 +22,8 @@ from app.models import (
 )
 from app.services.classifier import classify_target
 from app.services.normalizer import normalize_target
+
+logger = logging.getLogger(__name__)
 
 
 async def create_investigation(data: InvestigationCreate) -> InvestigationResponse:
@@ -43,7 +43,7 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     depth = data.depth
     if depth == InvestigationDepth.STANDARD:
         try:
-            from app.core.settings_store import get_app_settings, SETTINGS_FILE
+            from app.core.settings_store import SETTINGS_FILE, get_app_settings
             if SETTINGS_FILE.exists():
                 settings = get_app_settings()
                 depth = InvestigationDepth(settings.general.default_depth)
@@ -52,11 +52,8 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
 
     # Apply default API budget from settings store.
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
-        if SETTINGS_FILE.exists():
-            api_budget = get_app_settings().investigation.api_budget
-        else:
-            api_budget = 100
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
+        api_budget = get_app_settings().investigation.api_budget if SETTINGS_FILE.exists() else 100
     except Exception:
         api_budget = 100
 

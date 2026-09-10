@@ -14,7 +14,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.security import sanitize_error_message
 from app.db.client import get_pool
 
 logger = logging.getLogger(__name__)
@@ -229,7 +228,7 @@ def _build_entity_analysis_prompt(ctx: dict[str, Any]) -> list[dict[str, str]]:
     user_parts = [
         f"Investigation: {inv['name']}",
         f"Investigation target: {inv['target']} (type: {inv['target_type']})",
-        f"\n--- Entity Under Analysis ---",
+        "\n--- Entity Under Analysis ---",
         f"Entity ID: {ent['id']}",
         f"Type: {ent['type']}",
         f"Value: {ent['value']}",

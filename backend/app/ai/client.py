@@ -336,7 +336,7 @@ def _overlay_runtime_llm_settings(
     env defaults are used unchanged to preserve backward compatibility.
     """
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
         if not SETTINGS_FILE.exists():
             return (
                 env_settings.LLM_PROVIDER.lower().strip(),
@@ -380,7 +380,7 @@ def get_llm_call_fn() -> Any:
     # Only applies when a settings file exists on disk.
     runtime_overrides: dict[str, str] = {}
     try:
-        from app.core.settings_store import get_app_settings, SETTINGS_FILE
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
         if SETTINGS_FILE.exists():
             app = get_app_settings()
             if app.llm.model:

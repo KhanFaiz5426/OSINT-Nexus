@@ -142,6 +142,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (data?.settings) {
+      // eslint-disable-next-line react/set-state-in-effect
       setEditState(structuredClone(data.settings));
     }
   }, [data]);

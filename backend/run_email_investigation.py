@@ -1,16 +1,13 @@
 """Run investigation for hello.khan7684@gmail.com and verify results."""
 import asyncio
-import json
-import urllib.request
-import urllib.error
 
 INV_ID = "9f16f268-5b94-409c-b47a-b07ec8b29d1a"
 
 async def main():
     # 1. Run the orchestrator directly (Celery isn't running)
     print("=== Running orchestrator for email investigation ===")
-    from app.services.orchestrator import run_investigation_loop
     from app.ai.client import get_llm_call_fn
+    from app.services.orchestrator import run_investigation_loop
 
     result = await run_investigation_loop(INV_ID, llm_call_fn=get_llm_call_fn())
     print(f"  Status: {result.get('status')}")
@@ -37,10 +34,7 @@ async def main():
     graph = await get_investigation_subgraph(INV_ID)
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
-    if isinstance(edges, dict):
-        edge_list = edges.get("data", [])
-    else:
-        edge_list = edges
+    edge_list = edges.get("data", []) if isinstance(edges, dict) else edges
     print(f"  Nodes: {len(nodes)}, Edges: {len(edge_list)}")
 
     type_dist = {}

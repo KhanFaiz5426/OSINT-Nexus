@@ -23,7 +23,6 @@ from app.collectors.base import OSINTCollector
 from app.collectors.search_providers.base import (
     SearchProvider,
     SearchRequest,
-    SearchResult,
 )
 from app.collectors.search_providers.duckduckgo import DuckDuckGoProvider
 from app.collectors.search_providers.orchestrator import (

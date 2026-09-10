@@ -71,7 +71,7 @@ class MultiProviderOrchestrator:
         all_results: list[SearchResult] = []
         statuses: list[ProviderStatus] = []
 
-        for provider, response in zip(self._providers, raw_responses):
+        for provider, response in zip(self._providers, raw_responses, strict=False):
             if isinstance(response, BaseException):
                 logger.warning(
                     "Provider %s raised exception: %s", provider.name, response

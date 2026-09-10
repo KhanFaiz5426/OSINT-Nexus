@@ -255,7 +255,7 @@ def generate_search_queries(
         # Search for the name + username together
         queries.append({
             "query": f'"{real_name}" "{username}"',
-            "description": f'Name + username correlation',
+            "description": 'Name + username correlation',
         })
 
     # 6. Reverse lookup: search for common patterns

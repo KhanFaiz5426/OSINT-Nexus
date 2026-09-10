@@ -7,7 +7,6 @@ Rate limited to 10 req/min to respect Reddit's guidelines.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import httpx
 

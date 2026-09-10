@@ -5,12 +5,13 @@ Tests for platform definitions, probe engine, and variation generation.
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-import httpx
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.username_engine.models import ProbeBudget, ProbeResult, PlatformDefinition
-from app.services.username_engine.platform_store import load_platforms, get_enabled_platforms
+import httpx
+import pytest
+
+from app.services.username_engine.models import PlatformDefinition, ProbeBudget, ProbeResult
+from app.services.username_engine.platform_store import get_enabled_platforms, load_platforms
 from app.services.username_engine.probe import UsernameProbeEngine
 from app.services.username_variations import generate_probe_variations
 
