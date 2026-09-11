@@ -15,6 +15,43 @@ interface GraphViewProps {
   investigationId: string;
 }
 
+const getIconSvg = (type: string, color: string) => {
+  let path = '';
+  const c = color;
+  switch (type.toLowerCase()) {
+    case 'domain':
+    case 'url':
+      path = `<circle cx="12" cy="12" r="10" stroke="${c}" fill="none" stroke-width="2"/><path d="M2 12h20" stroke="${c}" stroke-width="2"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="${c}" fill="none" stroke-width="2"/>`;
+      break;
+    case 'username':
+    case 'person':
+      path = `<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" stroke="${c}" fill="none" stroke-width="2"/><circle cx="12" cy="7" r="4" stroke="${c}" fill="none" stroke-width="2"/>`;
+      break;
+    case 'technology':
+      path = `<rect width="20" height="14" x="2" y="3" rx="2" stroke="${c}" fill="none" stroke-width="2"/><line x1="8" x2="16" y1="21" y2="21" stroke="${c}" stroke-width="2"/><line x1="12" x2="12" y1="17" y2="21" stroke="${c}" stroke-width="2"/>`;
+      break;
+    case 'repository':
+      path = `<polyline points="16 18 22 12 16 6" stroke="${c}" fill="none" stroke-width="2"/><polyline points="8 6 2 12 8 18" stroke="${c}" fill="none" stroke-width="2"/>`;
+      break;
+    case 'link':
+      path = `<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="${c}" fill="none" stroke-width="2"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="${c}" fill="none" stroke-width="2"/>`;
+      break;
+    default:
+      path = `<circle cx="12" cy="12" r="10" stroke="${c}" fill="none" stroke-width="2"/>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+};
+
+const getNodeShape = (type: string) => {
+  const t = type.toLowerCase();
+  if (t === 'technology' || t === 'repository') return 'roundrectangle';
+  if (t === 'organization') return 'hexagon';
+  if (t === 'threatindicator') return 'diamond';
+  if (t === 'person' || t === 'username') return 'ellipse';
+  return 'ellipse';
+};
+
 export function GraphView({ investigationId }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -41,34 +78,53 @@ export function GraphView({ investigationId }: GraphViewProps) {
         {
           selector: "node",
           style: {
-            "background-color": DEFAULT_NODE_COLOR,
+            "shape": "data(shape)" as any,
+            "background-color": theme === "light" ? "#ffffff" : "#0f172a",
             label: "data(displayLabel)",
             color: theme === "light" ? "#0f172a" : "#cbd5e1",
             "font-size": "10px",
             "font-family": "Inter, system-ui, sans-serif",
             "text-valign": "bottom",
             "text-halign": "center",
-            "text-margin-y": 5,
+            "text-margin-y": 6,
             "text-wrap": "wrap",
-            "text-max-width": "120px",
-            "border-width": 2,
+            "text-max-width": "140px",
+            "border-width": 1.5,
             "border-color": "data(color)",
-            "background-opacity": 0.9,
-            width: 30,
-            height: 30,
+            width: 36,
+            height: 36,
+            "background-image": "data(iconSvg)",
+            "background-width": "55%",
+            "background-height": "55%",
+            "background-image-opacity": 1,
             "text-background-color": theme === "light" ? "#ffffff" : "#0f1420",
-            "text-background-opacity": 0.85,
-            "text-background-padding": "2px",
+            "text-background-opacity": 0.95,
+            "text-background-padding": "4px",
             "text-background-shape": "roundrectangle",
+            "text-border-width": 1,
+            "text-border-color": "data(color)",
+            "text-border-opacity": 0.4,
           },
+        },
+        {
+          selector: "node[isSeed]",
+          style: {
+            "border-width": 2,
+            "width": 42,
+            "height": 42,
+            "text-border-opacity": 0.8,
+            "font-weight": "bold",
+            "color": theme === "light" ? "#0284c7" : "#38bdf8",
+            "border-color": theme === "light" ? "#0284c7" : "#38bdf8",
+          }
         },
         {
           selector: "node:selected",
           style: {
             "border-width": 3,
             "border-color": theme === "light" ? "#0284c7" : "#22d3ee",
-            width: 38,
-            height: 38,
+            width: 44,
+            height: 44,
             "z-index": 999,
           },
         },
@@ -79,21 +135,33 @@ export function GraphView({ investigationId }: GraphViewProps) {
         {
           selector: "edge",
           style: {
-            width: 1,
+            width: 1.5,
             "line-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
             "curve-style": "bezier",
             "target-arrow-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
             "target-arrow-shape": "triangle",
-            "arrow-scale": 0.7,
-            "font-size": "8px",
+            "arrow-scale": 0.8,
+            "font-size": "9px",
+            "font-family": "monospace",
             label: "data(displayLabel)",
-            color: theme === "light" ? "#475569" : "#64748b",
+            color: theme === "light" ? "#64748b" : "#94a3b8",
             "text-rotation": "autorotate",
-            "text-background-color": theme === "light" ? "#ffffff" : "#0f1420",
+            "text-background-color": theme === "light" ? "#f8fafc" : "#0f1420",
             "text-background-opacity": 0.85,
-            "text-background-padding": "1px",
-            opacity: 0.6,
+            "text-background-padding": "2px",
+            opacity: 0.7,
+            "line-style": "dashed",
+            "line-dash-pattern": [4, 4],
           },
+        },
+        {
+          selector: "edge[relationship_type = 'commits_to']",
+          style: {
+            "line-style": "solid",
+            "line-color": theme === "light" ? "#0ea5e9" : "#38bdf8",
+            "target-arrow-color": theme === "light" ? "#0ea5e9" : "#38bdf8",
+            "width": 2,
+          }
         },
         {
           selector: "edge.dimmed",
@@ -105,7 +173,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
             "line-color": theme === "light" ? "#0284c7" : "#22d3ee",
             "target-arrow-color": theme === "light" ? "#0284c7" : "#22d3ee",
             opacity: 1,
-            width: 2,
+            width: 2.5,
           },
         },
       ],
@@ -131,7 +199,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectEntity]);
+  }, [selectEntity, theme]);
 
   // Update elements when graph data changes.
   useEffect(() => {
@@ -143,7 +211,15 @@ export function GraphView({ investigationId }: GraphViewProps) {
     for (const n of data.nodes) {
       const d = n.data;
       const color = NODE_TYPE_COLORS[d.type] ?? DEFAULT_NODE_COLOR;
-      const displayLabel = d.label || d.id.split(":").slice(1).join(":") || d.id;
+      let displayLabel = d.label || d.id.split(":").slice(1).join(":") || d.id;
+      if (d.confidence != null) {
+        displayLabel += ` ${Math.round(d.confidence * 100)}%`;
+      }
+      const isSeed = (d as any).is_seed === true || d.properties?.is_seed === true;
+      if (isSeed) {
+        displayLabel += "\nSEED TARGET";
+      }
+
       elements.push({
         group: "nodes",
         data: {
@@ -154,6 +230,9 @@ export function GraphView({ investigationId }: GraphViewProps) {
           source_count: d.source_count,
           displayLabel,
           color,
+          iconSvg: getIconSvg(d.type, color),
+          shape: getNodeShape(d.type),
+          isSeed,
         },
       });
     }
@@ -169,7 +248,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
           target: d.target,
           relationship_type: d.relationship_type,
           confidence: d.confidence,
-          displayLabel,
+          displayLabel: d.confidence != null ? `${displayLabel} (${Math.round(d.confidence * 100)}%)` : displayLabel,
         },
       });
     }
