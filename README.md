@@ -116,46 +116,39 @@ The orchestrator manages the collection loop with configurable depth (shallow / 
 
 ## Architecture
 
-```
+OSINT Nexus is distributed as a standalone Windows Desktop Application. It packages a Python FastAPI backend and a React/Vite frontend into a single executable using PyInstaller and `pywebview`.
+
+```text
 ┌──────────────────────────────────────────────────────┐
-│                   Frontend (React)                     │
-│   Dashboard · Investigation Detail · Knowledge Graph   │
-│   Entity List · Timeline · Reports · AI Analysis       │
-└──────────────────────┬───────────────────────────────┘
-                       │ HTTP
-                       ▼
-┌──────────────────────────────────────────────────────┐
-│               FastAPI Backend (Python)                 │
-│  ┌─────────┐  ┌───────────┐  ┌───────────────────┐  │
-│  │   API    │  │ Services  │  │    Collectors     │  │
-│  │ Routes   │  │ Pipeline  │  │ DNS · WHOIS · CT  │  │
-│  │          │  │           │  │ GitHub · HTTP ·   │  │
-│  │          │  │           │  │ Threat Intel      │  │
-│  └─────────┘  └───────────┘  └───────────────────┘  │
-│  ┌─────────┐  ┌───────────┐  ┌───────────────────┐  │
-│  │   AI    │  │  Graph    │  │    Database       │  │
-│  │Planner  │  │  Reader/  │  │    Client         │  │
-│  │Analyzer │  │  Writer   │  │  (asyncpg)        │  │
-│  └─────────┘  └───────────┘  └───────────────────┘  │
-└───────┬──────────────┬──────────────┬───────────────┘
-        │              │              │
-        ▼              ▼              ▼
-┌────────────┐ ┌────────────┐ ┌────────────┐
-│ PostgreSQL │ │   Neo4j    │ │   Redis    │
-│            │ │            │ │            │
-│ investig.  │ │  knowledge │ │  caching   │
-│ observ.    │ │    graph   │ │  Celery    │
-│ entities   │ │  entities  │ │  broker    │
-│ reports    │ │  rels      │ │            │
-│ activity   │ │            │ │            │
-└────────────┘ └────────────┘ └────────────┘
-                                        │
-                                        ▼
-                                 ┌────────────┐
-                                 │   Celery   │
-                                 │   Worker   │
-                                 │ (optional) │
-                                 └────────────┘
+│             Desktop Shell (pywebview)                │
+│ ┌──────────────────────────────────────────────────┐ │
+│ │                Frontend (React)                  │ │
+│ │ Dashboard · Graph · Timeline · Reports · AI      │ │
+│ └────────────────────────┬─────────────────────────┘ │
+│                          │ HTTP (Localhost)          │
+│                          ▼                           │
+│ ┌──────────────────────────────────────────────────┐ │
+│ │             FastAPI Backend (Python)             │ │
+│ │  ┌─────────┐  ┌───────────┐  ┌────────────────┐  │ │
+│ │  │   API   │  │ Services  │  │   Collectors   │  │ │
+│ │  │ Routes  │  │ Pipeline  │  │ DNS · WHOIS ·  │  │ │
+│ │  │         │  │           │  │ Threat Intel   │  │ │
+│ │  └─────────┘  └───────────┘  └────────────────┘  │ │
+│ │  ┌─────────┐  ┌───────────┐  ┌────────────────┐  │ │
+│ │  │   AI    │  │ Workspace │  │  Background    │  │ │
+│ │  │Planner  │  │  Manager  │  │   Task Mgr     │  │ │
+│ │  └─────────┘  └───────────┘  └────────────────┘  │ │
+│ └────────────────────────┬─────────────────────────┘ │
+└──────────────────────────┼───────────────────────────┘
+                           │ SQLite (Local File)
+                           ▼
+                 ┌───────────────────┐
+                 │ Local Workspace   │
+                 │   (*.osint)       │
+                 │ - Entities & Rels │
+                 │ - Observations    │
+                 │ - Activity Log    │
+                 └───────────────────┘
 ```
 
 ---
@@ -249,10 +242,9 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 | Component | Technology | Purpose |
 |---|---|---|
 | Web framework | FastAPI | Async API, OpenAPI auto-docs |
-| Database (relational) | PostgreSQL 16 + asyncpg | Investigations, observations, entities, reports |
-| Database (graph) | Neo4j 5 Community | Knowledge graph (entities + relationships) |
-| Cache / message broker | Redis 7 | Collector response caching, Celery broker |
-| Task queue | Celery + Redis | Background OSINT collection (optional) |
+| Database | SQLite | Local workspace files (`.osint`) |
+| Desktop Shell | pywebview | Native OS window rendering |
+| Task queue | `asyncio` TaskManager | Background OSINT collection |
 | HTTP client | httpx | Async outbound requests for collectors |
 | DNS | dnspython | DNS record queries |
 | WHOIS | python-whois | Domain registration data |
@@ -325,24 +317,22 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 │   │   │   ├── planner.py
 │   │   │   ├── analyzer.py
 │   │   │   └── validator.py
-│   │   ├── graph/            # Neo4j integration
+│   │   ├── graph/            # Graph queries
 │   │   │   ├── client.py
 │   │   │   ├── reader.py
 │   │   │   ├── writer.py
 │   │   │   ├── queries.py
 │   │   │   └── models.py
-│   │   ├── db/               # PostgreSQL integration
+│   │   ├── db/               # SQLite database integration
 │   │   │   ├── client.py
 │   │   │   ├── models.py
-│   │   │   └── migrations/
-│   │   │       └── init.sql
+│   │   │   └── schema.sql
 │   │   ├── models/           # Pydantic schemas
 │   │   │   ├── __init__.py
 │   │   │   ├── processing.py
 │   │   │   └── ai.py
-│   │   ├── tasks/            # Celery tasks
-│   │   │   ├── celery_app.py
-│   │   │   ├── collect.py
+│   │   ├── tasks/            # Asyncio task manager
+│   │   │   ├── __init__.py
 │   │   │   └── run_investigation.py
 │   │   └── templates/
 │   │       └── report.html
@@ -401,13 +391,18 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 
 ## Prerequisites
 
+**For End Users:**
+- Windows 10 or 11 (64-bit)
+- No additional software required (SQLite is bundled natively)
+
+**For Developers:**
 | Requirement | Version | Purpose |
 |---|---|---|
 | Python | 3.12+ | Backend runtime |
 | Node.js | 20+ | Frontend build and dev server |
 | npm | 9+ | Frontend package management |
-| Docker | 24+ | Database containers |
-| Docker Compose | v2 | Multi-container orchestration |
+| PyInstaller | 6+ | Executable packaging |
+| Inno Setup | 6+ | Windows installer generation |
 
 ---
 
@@ -417,19 +412,7 @@ Copy `.env.example` to `.env` and adjust values. All settings have sensible defa
 
 ### Required Settings
 
-| Variable | Description | Default |
-|---|---|---|
-| `POSTGRES_HOST` | PostgreSQL hostname | `localhost` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `POSTGRES_USER` | PostgreSQL username | `osintnexus` |
-| `POSTGRES_PASSWORD` | PostgreSQL password | `osintnexus_dev` |
-| `POSTGRES_DB` | PostgreSQL database name | `osintnexus` |
-| `NEO4J_URI` | Neo4j bolt URI | `bolt://localhost:7687` |
-| `NEO4J_USER` | Neo4j username | `neo4j` |
-| `NEO4J_PASSWORD` | Neo4j password | `osintnexus_dev` |
-| `REDIS_HOST` | Redis hostname | `localhost` |
-| `REDIS_PORT` | Redis port | `6379` |
-| `REDIS_DB` | Redis database number | `0` |
+No required environment variables. The application uses a local SQLite database for storage and cache.
 
 ### Optional: OSINT API Keys
 
@@ -471,39 +454,36 @@ When `LLM_PROVIDER=none` (the default), the AI planner returns deterministic piv
 
 ## Setup and Running
 
-### 1. Start Databases
+### End User Installation
 
-```bash
-docker compose up -d
-```
+1. Download the `OSINT-Nexus-Setup.exe` installer from the latest release.
+2. Run the installer and follow the prompts.
+3. Launch "OSINT Nexus" from your Start Menu.
+4. The application stores its configuration, logs, and workspaces locally in your user directory. No databases (PostgreSQL/Neo4j) or Docker containers are required.
 
-This starts PostgreSQL 16, Neo4j 5 Community, and Redis 7 with persistent volumes. The schema is auto-initialized from `backend/app/db/migrations/init.sql`.
+### Developer Setup (Local Development)
 
-Verify services are healthy:
-
-```bash
-docker compose ps
-```
-
-### 2. Configure Environment
+#### 1. Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` if needed. The defaults work for local development with Docker. The `.env` file belongs in `backend/` because that is the working directory when the FastAPI server starts.
+Edit `.env` if needed to add API keys (e.g., `GITHUB_TOKEN`, `LLM_API_KEY`).
 
-### 3. Start Backend
+#### 2. Start Backend
 
 ```bash
 cd backend
-python -m pip install -r requirements.txt
+python -m venv .venv
+source .venv/Scripts/activate  # (or .venv\Scripts\activate on Windows)
+pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
 The API is available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-### 4. Start Frontend
+#### 3. Start Frontend
 
 ```bash
 cd frontend
@@ -513,14 +493,22 @@ npm run dev
 
 Open `http://localhost:5173` in your browser.
 
-### Optional: Start Celery Worker
+#### 4. Packaging the Application
 
-For background OSINT collection tasks:
+To build the standalone Windows executable and installer:
 
 ```bash
-cd backend
-celery -A app.tasks.celery_app worker --loglevel=info
+cd frontend
+npm run build
+
+cd ../backend
+pyinstaller osint-nexus.spec --noconfirm
+
+# Compile the installer using Inno Setup (requires Inno Setup installed)
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" OSINT-Nexus.iss
 ```
+
+The final installer will be located in the `backend/Output/` directory.
 
 ---
 
@@ -542,10 +530,8 @@ python -m pytest tests/ -v --tb=short
 | Report generation | `test_report_generation.py` | 17 | No |
 | Integration tests | `test_integration_phase9.py` | 25 | No |
 | Performance benchmarks | `test_performance.py` | 7 | No |
-| API contract tests | `test_api_contracts.py` | ~35 | **Yes** (PostgreSQL) |
-| API integration tests | `test_investigations_api.py`, `test_activity_api.py` | ~15 | **Yes** (PostgreSQL) |
-
-Tests requiring PostgreSQL use live database connections and are excluded from the default CI run.
+| API contract tests | `test_api_contracts.py` | ~35 | Yes |
+| API integration tests | `test_investigations_api.py`, `test_activity_api.py` | ~15 | Yes |
 
 ### Frontend Tests (13 tests)
 
@@ -610,7 +596,7 @@ Response:
 curl -X POST http://localhost:8000/api/v1/investigations/{id}/start
 ```
 
-The orchestrator dispatches relevant collectors (DNS, WHOIS, CT, etc.), runs the normalization/extraction/resolution pipeline, stores observations in PostgreSQL, builds the knowledge graph in Neo4j, and optionally queries the AI planner for pivot suggestions.
+The orchestrator dispatches relevant collectors (DNS, WHOIS, CT, etc.), runs the normalization/extraction/resolution pipeline, stores observations in SQLite, builds the knowledge graph locally, and optionally queries the AI planner for pivot suggestions.
 
 ### View the Knowledge Graph
 
@@ -685,7 +671,7 @@ OSINT Nexus implements multiple security layers:
 
 ### Input Validation and Sanitization
 
-- **Parameterized SQL queries** — all PostgreSQL queries use asyncpg parameterized statements (no SQL injection)
+- **Parameterized SQL queries** — all SQLite queries use parameterized statements (no SQL injection)
 - **SSRF protection** — outbound HTTP requests are validated against a blocklist of private/internal IP ranges, localhost, and cloud metadata endpoints (`core/security.py`)
 - **Input validation** — targets are validated and sanitized (control character stripping, length limits, scheme validation)
 - **AI output validation** — LLM responses are parsed against Pydantic schemas; hallucinated entity IDs are filtered against the actual graph
@@ -707,46 +693,6 @@ OSINT Nexus implements multiple security layers:
 
 ---
 
-## Deployment
-
-### Environment Variables for Production
-
-```bash
-DEBUG=false
-POSTGRES_PASSWORD=<strong-random-password>
-NEO4J_PASSWORD=<strong-random-password>
-CORS_ORIGINS=["https://your-domain.com"]
-```
-
-### Docker Compose (Development)
-
-The included `docker-compose.yml` is configured for local development.
-
-To start the full stack (PostgreSQL, Neo4j, Redis, Backend, Celery, and Frontend):
-
-```bash
-docker compose up --build -d
-```
-
-To also start the optional SearXNG search provider, use the `searxng` profile:
-
-```bash
-docker compose --profile searxng up --build -d
-```
-
-Once running, access the application at:
-- **Frontend UI:** [http://localhost:3000](http://localhost:3000)
-- **Backend API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-
-For production deployments:
-
-1. Use managed database services (AWS RDS, GCP Cloud SQL, etc.) instead of Docker containers
-2. Enable TLS for all database connections
-3. Set strong, unique passwords for PostgreSQL, Neo4j, and Redis
-4. Restrict `CORS_ORIGINS` to your actual frontend domain
-5. Place the backend behind a reverse proxy (nginx, Caddy) with TLS termination
-6. Use environment-specific configuration (secrets manager, not `.env` files)
-
 ### CI/CD
 
 A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push to `main`/`develop` and pull requests to `main`:
@@ -763,9 +709,6 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push to `main`/`d
 
 | Limitation | Description |
 |---|---|
-| **Database dependency** | PostgreSQL must be running for API operations. Some tests require live database connections. |
-| **Neo4j optional** | The graph database enhances visualization but the system degrades gracefully if unavailable. |
-| **Celery optional** | Background task processing requires Celery + Redis. Without it, investigations run synchronously. |
 | **API rate limits** | Free-tier OSINT APIs have strict rate limits. The system respects these via token bucket rate limiting. |
 | **LLM costs** | AI planner and analyzer calls consume LLM API tokens. Budget-aware users should monitor usage. |
 | **No authentication** | The current version does not implement user authentication. Not intended for multi-user production use. |
@@ -775,29 +718,9 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push to `main`/`d
 
 ## Troubleshooting
 
-### PostgreSQL Connection Refused
+### SQLite Database Locked
 
-```bash
-# Verify Docker container is running
-docker compose ps postgres
-
-# Check logs
-docker compose logs postgres
-
-# Restart if needed
-docker compose restart postgres
-```
-
-### Neo4j Unavailable
-
-The system starts without Neo4j. Graph features will be unavailable but the investigation pipeline continues. Check:
-
-```bash
-docker compose ps neo4j
-docker compose logs neo4j
-```
-
-Default Neo4j credentials: `neo4j` / `osintnexus_dev` (change in `.env`).
+If you encounter `database is locked` errors during heavy investigation, the application will automatically retry. Ensure you are not opening the `.osint` file in another program.
 
 ### Frontend Build Errors
 

@@ -1,15 +1,16 @@
-"""Collector cache — Redis-based cache layer for collector responses.
+"""Collector cache — in-memory TTLCache for collector responses.
 
-Provides a simple async cache keyed by collector name, target, and target type.
-Supports per-collector TTL (default 24 hours).
+Provides a bounded, TTL-based cache for collector RawResult objects.
+Replaces the previous Redis-backed implementation. Safe to access
+directly under the single-event-loop model without locking.
 """
 
 from __future__ import annotations
 
-import json
 import logging
+from typing import Any
 
-import redis.asyncio as redis
+from cachetools import TTLCache
 
 from app.models import RawResult
 
@@ -17,44 +18,53 @@ logger = logging.getLogger(__name__)
 
 
 class CollectorCache:
-    """Redis-backed cache for collector RawResult objects.
+    """In-memory TTL cache for collector RawResult objects.
 
-    Keys are formatted as: osint:cache:{cache_key}
-    Values are JSON-serialized RawResult dicts.
+    Keys are formatted as: {collector_name}:{target}:{target_type}
+    Values are RawResult instances.
+
+    Under the single-process asyncio model, TTLCache dictionary
+    operations are atomic (they do not yield control) so no locking
+    is required.
     """
 
-    PREFIX = "osint:cache"
-
-    def __init__(self, redis_client: redis.Redis) -> None:
-        self._redis = redis_client
-
-    def _make_key(self, cache_key: str) -> str:
-        return f"{self.PREFIX}:{cache_key}"
+    def __init__(
+        self,
+        maxsize: int = 10000,
+        ttl: int = 86400,
+    ) -> None:
+        self._cache: TTLCache[str, RawResult] = TTLCache(
+            maxsize=maxsize,
+            ttl=ttl,
+        )
 
     async def get(self, cache_key: str) -> RawResult | None:
-        """Retrieve a cached result. Returns None on miss or error."""
+        """Retrieve a cached result. Returns None on miss."""
         try:
-            raw = await self._redis.get(self._make_key(cache_key))
-            if raw is None:
-                return None
-            data = json.loads(raw)
-            return RawResult(**data)
+            return self._cache.get(cache_key)
         except Exception:
             logger.debug("Cache get failed for %s", cache_key, exc_info=True)
             return None
 
-    async def set(self, cache_key: str, result: RawResult, ttl: int = 86400) -> None:
-        """Store a result in cache with TTL in seconds."""
+    async def set(self, cache_key: str, result: RawResult, ttl: int | None = None) -> None:
+        """Store a result in cache.
+
+        Note: Per-key TTL override is not supported by cachetools.TTLCache;
+        the cache-wide TTL is used. The ttl parameter is accepted for API
+        compatibility but ignored.
+        """
         try:
-            data = result.model_dump_json()
-            await self._redis.set(self._make_key(cache_key), data, ex=ttl)
+            self._cache[cache_key] = result
         except Exception:
             logger.debug("Cache set failed for %s", cache_key, exc_info=True)
 
     async def invalidate(self, cache_key: str) -> bool:
         """Remove a cached entry. Returns True if key existed."""
         try:
-            return bool(await self._redis.delete(self._make_key(cache_key)))
+            if cache_key in self._cache:
+                del self._cache[cache_key]
+                return True
+            return False
         except Exception:
             logger.debug("Cache invalidate failed for %s", cache_key, exc_info=True)
             return False
@@ -62,12 +72,40 @@ class CollectorCache:
     async def clear_collector(self, collector_name: str) -> int:
         """Clear all cached results for a specific collector. Returns count removed."""
         try:
-            pattern = f"{self.PREFIX}:{collector_name}:*"
-            count = 0
-            async for key in self._redis.scan_iter(match=pattern):
-                await self._redis.delete(key)
-                count += 1
-            return count
+            prefix = f"{collector_name}:"
+            keys_to_remove = [k for k in self._cache if k.startswith(prefix)]
+            for key in keys_to_remove:
+                del self._cache[key]
+            return len(keys_to_remove)
         except Exception:
             logger.debug("Cache clear failed for %s", collector_name, exc_info=True)
             return 0
+
+    @property
+    def size(self) -> int:
+        """Current number of entries in the cache."""
+        return len(self._cache)
+
+    @property
+    def maxsize(self) -> int:
+        """Maximum cache capacity."""
+        return self._cache.maxsize
+
+
+# ── Module-level singleton ────────────────────────────────────────────────────
+
+_collector_cache: CollectorCache | None = None
+
+
+def get_collector_cache() -> CollectorCache:
+    """Get or create the global CollectorCache singleton."""
+    global _collector_cache
+    if _collector_cache is None:
+        _collector_cache = CollectorCache()
+    return _collector_cache
+
+
+def reset_collector_cache() -> None:
+    """Reset the global CollectorCache (for testing)."""
+    global _collector_cache
+    _collector_cache = None

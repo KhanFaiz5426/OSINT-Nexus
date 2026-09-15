@@ -184,7 +184,6 @@ async def create_entity(
 
     # Write to Neo4j
     try:
-        from app.graph.client import get_driver
         from app.graph.writer import write_nodes
         from app.models.processing import ExtractedEntity
 
@@ -198,8 +197,7 @@ async def create_entity(
             sources=["manual"],
             properties=body.properties,
         )
-        driver = await get_driver()
-        await write_nodes([entity], investigation_id=investigation_id, driver=driver)
+        await write_nodes([entity], investigation_id=investigation_id)
     except Exception:
         pass  # Best effort for graph write
 
@@ -274,14 +272,12 @@ async def create_relationship(
 
     from uuid import uuid4
 
-    from app.graph.client import get_driver
     from app.graph.models import relationship_type_to_cypher
 
     rel_id = str(uuid4())
     now = datetime.now(UTC)
 
     # Write to Neo4j
-    driver = await get_driver()
     rel_type_cypher = relationship_type_to_cypher(body.rel_type)
 
     async with driver.session() as session:

@@ -53,7 +53,7 @@ class TestCollectorEnabledSetting:
 
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(initialize_collectors(cache=None))
+            asyncio.run(initialize_collectors(cache=None))
 
             assert "dns" not in _collectors, (
                 "DNS collector should be excluded when disabled in settings"
@@ -79,7 +79,7 @@ class TestCollectorEnabledSetting:
 
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(initialize_collectors(cache=None))
+            asyncio.run(initialize_collectors(cache=None))
 
             assert "dns" in _collectors
             _collectors.clear()
@@ -99,7 +99,7 @@ class TestCollectorEnabledSetting:
 
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(initialize_collectors(cache=None))
+            asyncio.run(initialize_collectors(cache=None))
 
             assert "dns" in _collectors
             assert "whois" in _collectors

@@ -1,9 +1,6 @@
-"""Database models — SQLAlchemy-style table definitions for reference.
+"""Database models — Table definitions for reference.
 
-Note: We use raw asyncpg for now (simpler, no ORM overhead).
-This file documents the expected table shapes for Phase 2+ services.
+The SQLite schema lives in app/db/schema.sql. 
+This file exists so that services can import table shape documentation if needed.
+We no longer use PostgreSQL or Alembic as per the Desktop Migration (Phase 2).
 """
-
-# This module is intentionally minimal. The actual schema lives in
-# app/db/migrations/init.sql. This file exists so that services in
-# later phases can import table shape documentation if needed.

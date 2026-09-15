@@ -376,6 +376,8 @@ searxng_data/
 *.sqlite3
 *.db
 *.db-journal
+*.osint
+*.osint.bak
 
 # Mongo / Elastic / others
 mongo_data/
@@ -461,6 +463,7 @@ client.key
 # ── Build artifacts (catch-all) ──────────────────────────────────────────────
 target/
 out/
+Output/
 bin/
 obj/
 
@@ -491,6 +494,19 @@ obj/
 test_nvidia_api.py
 test_ai_output.txt
 test_parser.py
+debug_*.py
+rewrite_*.py
+update_details.py
+build_log*.txt
+backend_build.txt
+down_log.txt
+phase1_benchmarks/
+searxng_settings.yml
+test_*.py
+*.log
+*.log.*
+*.db-shm
+*.db-wal
 
 #unnecessary .md
 STITCH_FRONTEND_HANDOFF.md

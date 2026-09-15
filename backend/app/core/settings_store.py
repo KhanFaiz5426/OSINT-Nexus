@@ -17,7 +17,14 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_FILE = Path(os.getenv("SETTINGS_FILE", "/app/data/settings.json"))
+SETTINGS_FILE = Path(
+    os.getenv(
+        "SETTINGS_FILE", 
+        os.path.join(os.environ.get("APPDATA", ""), "osint-nexus", "config.json")
+        if os.name == "nt" 
+        else str(Path.home() / ".config" / "osint-nexus" / "config.json")
+    )
+)
 
 
 class GeneralSettings(BaseModel):
@@ -121,21 +128,7 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = value
 
 
-def get_masked_api_keys() -> dict[str, bool]:
-    """Check which API keys are configured (never return actual values)."""
-    from app.core.config import get_settings
 
-    settings = get_settings()
-    return {
-        "github": bool(settings.GITHUB_TOKEN),
-        "abuseipdb": bool(settings.ABUSEIPDB_API_KEY),
-        "urlhaus": bool(settings.URLHAUS_API_KEY),
-        "youtube": bool(settings.YOUTUBE_API_KEY),
-        "nvidia": bool(settings.NVIDIA_API_KEY),
-        "openai": bool(settings.OPENAI_API_KEY),
-        "anthropic": bool(settings.ANTHROPIC_API_KEY),
-        "opencode": bool(settings.OPENCODE_API_KEY),
-    }
 
 
 def get_service_health() -> dict[str, Any]:
@@ -152,10 +145,5 @@ def get_service_health() -> dict[str, Any]:
         "neo4j": {
             "uri": settings.NEO4J_URI,
             "user": settings.NEO4J_USER,
-        },
-        "redis": {
-            "host": settings.REDIS_HOST,
-            "port": settings.REDIS_PORT,
-            "db": settings.REDIS_DB,
         },
     }

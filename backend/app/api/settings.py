@@ -12,10 +12,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from app.core.secrets import get_masked_api_keys, set_secret
 from app.core.settings_store import (
     AppSettings,
     get_app_settings,
-    get_masked_api_keys,
     get_service_health,
     reload_app_settings,
     update_app_settings,
@@ -38,6 +38,7 @@ class SettingsUpdateRequest(BaseModel):
     llm: dict[str, Any] | None = None
     collectors: dict[str, Any] | None = None
     investigation: dict[str, Any] | None = None
+    api_keys: dict[str, str] | None = None
 
 
 class SettingsUpdateResponse(BaseModel):
@@ -97,14 +98,20 @@ async def put_settings(request: SettingsUpdateRequest) -> SettingsUpdateResponse
     if request.investigation is not None:
         update["investigation"] = request.investigation
 
-    if not update:
+    if request.api_keys:
+        for key, value in request.api_keys.items():
+            set_secret(key, value)
+
+    if not update and not request.api_keys:
         raise HTTPException(status_code=400, detail="No settings provided")
 
     restart_needed = _detect_restart_needed(update)
-    try:
-        updated = update_app_settings(update)
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+    updated = get_app_settings()
+    if update:
+        try:
+            updated = update_app_settings(update)
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
     return SettingsUpdateResponse(
         message="Settings updated"

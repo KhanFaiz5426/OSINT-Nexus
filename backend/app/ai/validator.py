@@ -103,9 +103,6 @@ async def validate_entity_ids(
         return []
 
     try:
-        from app.graph.client import get_driver
-
-        driver = await get_driver()
         query = """
         MATCH (n)
         WHERE n.investigation_id = $investigation_id

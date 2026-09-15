@@ -20,20 +20,7 @@ NODE_LABELS: list[str] = [et.value for et in EntityType]
 # Each RelationshipType maps to a Neo4j relationship type (SCREAMING_SNAKE).
 RELATIONSHIP_TYPES: list[str] = [rt.value.upper() for rt in RelationshipType]
 
-# ── Cypher DDL for schema constraints ─────────────────────────────────────────
-
-# Composite unique constraints on (id, investigation_id) for every node label.
-# This allows the same entity id across different investigations while keeping
-# nodes unique within an investigation.
-CONSTRAINTS_CYPHER: list[str] = [
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE (n.id, n.investigation_id) IS UNIQUE"
-    for label in NODE_LABELS
-]
-
-# Investigation_id index for filtering subgraphs.
-INVESTIGATION_INDEX_CYPHER: list[str] = [
-    f"CREATE INDEX IF NOT EXISTS FOR (n:{label}) ON (n.investigation_id)" for label in NODE_LABELS
-]
+# Removed Neo4j constraints in Phase 3
 
 # ── Node property keys (canonical schema) ─────────────────────────────────────
 

@@ -1080,26 +1080,6 @@ class TestOrchestratorIntegration:
         # Should complete with budget exhaustion as stop reason.
         assert "stop_reason" in result
 
-
-# ── Test: Celery task ─────────────────────────────────────────────────────────
-
-
-class TestCeleryTask:
-    """Test the Celery run_investigation task."""
-
-    def test_task_name(self):
-        from app.tasks.run_investigation import run_investigation_task
-
-        assert run_investigation_task.name == "app.tasks.run_investigation"
-
-    def test_task_is_celery_task(self):
-        from app.tasks.run_investigation import run_investigation_task
-
-        # Should have the AsyncResult interface.
-        assert hasattr(run_investigation_task, "delay")
-        assert hasattr(run_investigation_task, "apply_async")
-
-
 # ── Test: API endpoint models ─────────────────────────────────────────────────
 
 

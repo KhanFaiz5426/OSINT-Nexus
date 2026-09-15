@@ -1,1 +1,1 @@
-"""Core package — configuration, Redis, security."""
+"""Core package — configuration, security, event bus, task management."""

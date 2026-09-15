@@ -57,7 +57,13 @@ async def create(body: InvestigationCreate) -> InvestigationResponse:
     Accepts a target (domain, IP, URL, email, username, or organization),
     classifies the target type, normalizes the input, and stores the investigation.
     """
-    return await create_investigation(body)
+    try:
+        return await create_investigation(body)
+    except Exception as exc:
+        from app.core.security import SSRFBlockedError
+        if isinstance(exc, (ValueError, SSRFBlockedError)):
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise
 
 
 @router.get("/investigations", response_model=list[InvestigationResponse])
@@ -125,8 +131,8 @@ async def delete(investigation_id: str) -> MessageResponse:
 async def start(investigation_id: str) -> InvestigationStartResponse:
     """Start an investigation — triggers the background collection loop.
 
-    Launches a Celery task that runs the full investigation pipeline:
-    collect → correlate → AI plan → pivot → ... → stop.
+    Submits an async task to the TaskManager that runs the full
+    investigation pipeline: collect → correlate → AI plan → pivot → ... → stop.
     """
     result = await get_investigation(investigation_id)
     if result is None:
@@ -138,15 +144,20 @@ async def start(investigation_id: str) -> InvestigationStartResponse:
             detail=f"Cannot start investigation in '{result.status}' status",
         )
 
-    # Launch Celery task.
-    from app.tasks.run_investigation import run_investigation_task
+    # Submit to TaskManager.
+    from app.core.task_manager import get_task_manager
+    from app.tasks.run_investigation import run_investigation_async
 
-    task = run_investigation_task.delay(investigation_id)
+    tm = get_task_manager()
+    task_info = tm.submit(
+        task_id=investigation_id,
+        coro=run_investigation_async(investigation_id),
+    )
 
     return InvestigationStartResponse(
         message="Investigation started",
         investigation_id=investigation_id,
-        task_id=task.id,
+        task_id=task_info.task_id,
     )
 
 

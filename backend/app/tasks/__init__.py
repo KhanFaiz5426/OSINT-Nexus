@@ -1,5 +1,5 @@
-"""Tasks package — Celery background tasks (Phase 3+)."""
+"""Tasks package — async background tasks."""
 
-from app.tasks.celery_app import celery_app as celery
+from app.tasks.run_investigation import run_investigation_async
 
-__all__ = ["celery"]
+__all__ = ["run_investigation_async"]

@@ -34,8 +34,12 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     default ``STANDARD``), the runtime setting ``general.default_depth``
     is applied instead.
     """
+    from app.core.security import validate_target_for_collector
+    
     target_type = classify_target(data.target)
     normalized_target = normalize_target(data.target, target_type)
+    validate_target_for_collector(normalized_target, target_type.value)
+    
     now = datetime.now(UTC)
 
     # Apply default depth from settings store when not explicitly overridden.
@@ -480,7 +484,7 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                     (id, investigation_id, type, value, confidence, first_seen,
                      last_seen, source_count, properties)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT (id) DO UPDATE SET
+                ON CONFLICT (id, investigation_id) DO UPDATE SET
                     confidence = EXCLUDED.confidence,
                     last_seen = EXCLUDED.last_seen,
                     source_count = EXCLUDED.source_count
@@ -527,7 +531,6 @@ async def import_investigation(data: dict) -> InvestigationResponse:
     graph_data = data.get("graph", {})
     if graph_data.get("nodes") or graph_data.get("edges"):
         try:
-            from app.graph.client import get_driver
             from app.graph.writer import write_graph
             from app.models.processing import ExtractedEntity, ExtractedRelationship
 
@@ -584,13 +587,10 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                         method=data_edge.get("method", "import"),
                     )
                 )
-
-            driver = await get_driver()
             await write_graph(
                 entities,
                 relationships,
                 investigation_id=new_id,
-                driver=driver,
             )
         except Exception:
             pass  # Graph import is best-effort

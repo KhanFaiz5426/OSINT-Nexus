@@ -415,17 +415,12 @@ async def run_investigation_loop(
         return {"error": "Investigation not found"}
 
     # Initialize collectors if needed.
-    from app.collectors.cache import CollectorCache
+    from app.collectors.cache import get_collector_cache
     from app.collectors.registry import get_all_collectors
-    from app.core.redis import get_redis
 
     if not get_all_collectors():
-        try:
-            redis_client = await get_redis()
-            cache = CollectorCache(redis_client)
-            await initialize_collectors(cache=cache)
-        except Exception:
-            await initialize_collectors(cache=None)
+        cache = get_collector_cache()
+        await initialize_collectors(cache=cache)
 
     # Set status to running.
     await update_investigation_status(investigation_id, InvestigationStatus.RUNNING)
@@ -870,15 +865,11 @@ async def _write_username_correlation(
         return
 
     try:
-        from app.graph.client import get_driver
         from app.graph.writer import write_graph
-
-        driver = await get_driver()
         nodes_written, edges_written = await write_graph(
             entities,
             relationships,
             investigation_id=investigation_id,
-            driver=driver,
         )
         logger.info(
             "Username correlation graph write: %d nodes, %d edges",
