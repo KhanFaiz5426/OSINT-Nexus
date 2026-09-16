@@ -129,8 +129,8 @@ export function WorkstationHeader() {
       <div className="flex items-center gap-2">
         {/* Brand */}
         <div className="flex items-center gap-2 pr-2 border-r border-[var(--nx-border)]">
-          <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--nx-accent-subtle)] text-[var(--nx-accent)]">
-            <Crosshair className="h-4 w-4" />
+          <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--nx-surface-1)]">
+            <img src="/osint-nexus-logo.svg" alt="Logo" className="h-5 w-5" />
           </div>
           <span className="text-xs font-semibold uppercase tracking-wider text-[var(--nx-text-primary)]">
             OSINT Nexus

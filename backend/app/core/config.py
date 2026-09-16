@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "osintnexus_dev"
 
+    # API Keys (Optional)
+    LLM_API_KEY: str = ""
+    NVIDIA_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
+    OPENCODE_API_KEY: str = ""
+
     # Supported providers: nvidia, openai, anthropic, ollama, none
     # When "none" or empty, AI planner/analyzer return deterministic defaults.
     LLM_PROVIDER: str = "none"
