@@ -100,7 +100,7 @@ class TestDeleteInvestigation:
                         assert mock_unlink.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_delete_neo4j_before_postgresql(self):
+    async def test_delete_graph_before_postgresql(self):
         from app.services.investigation import delete_investigation
 
         call_order = []
@@ -117,7 +117,7 @@ class TestDeleteInvestigation:
         mock_pool = _make_mock_pool(mock_conn)
 
         async def mock_delete_graph(inv_id):
-            call_order.append("neo4j")
+            call_order.append("graph")
             return 5
 
         with patch("app.services.investigation.get_pool", _mock_get_pool(mock_pool)):
@@ -126,10 +126,10 @@ class TestDeleteInvestigation:
             ):
                 await delete_investigation("test-id")
 
-        assert call_order == ["neo4j"]
+        assert call_order == ["graph"]
 
     @pytest.mark.asyncio
-    async def test_delete_neo4j_failure_still_deletes_postgresql(self):
+    async def test_delete_graph_failure_still_deletes_postgresql(self):
         from app.services.investigation import delete_investigation
 
         mock_conn = AsyncMock()
@@ -144,7 +144,7 @@ class TestDeleteInvestigation:
         mock_pool = _make_mock_pool(mock_conn)
 
         async def failing_delete_graph(inv_id):
-            raise Exception("Neo4j connection failed")
+            raise Exception("Graph deletion failed")
 
         with patch("app.services.investigation.get_pool", _mock_get_pool(mock_pool)):
             with patch(

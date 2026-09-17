@@ -47,13 +47,14 @@ async def test_get_entity_evidence_case_insensitive_fallback(client: AsyncClient
         obs_id = await conn.fetchval(
             """
             INSERT INTO observations (
-                investigation_id, target, method, 
+                id, investigation_id, target, method, 
                 source_adapter, source_version, raw_response, 
                 normalized_value, confidence, status, collected_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
             RETURNING id
             """,
+            str(uuid.uuid4()),
             test_investigation_id,
             "Jeff Geerling",
             "test_method",

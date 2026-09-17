@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -192,11 +193,12 @@ async def collect_and_store(
             row = await conn.fetchrow(
                 """
                 INSERT INTO observations
-                    (investigation_id, source_adapter, source_version, collected_at,
+                    (id, investigation_id, source_adapter, source_version, collected_at,
                      method, target, raw_response, normalized_value, confidence, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING id::text
                 """,
+                str(uuid.uuid4()),
                 investigation_id,
                 result.collector_name,
                 result.collector_version,

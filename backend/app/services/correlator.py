@@ -1133,10 +1133,11 @@ async def _write_entity_provenance(
                 try:
                     await conn.execute(
                         """
-                        INSERT INTO entity_provenance (entity_id, observation_id, investigation_id)
-                        VALUES ($1, $2, $3)
+                        INSERT INTO entity_provenance (id, entity_id, observation_id, investigation_id)
+                        VALUES ($1, $2, $3, $4)
                         ON CONFLICT (entity_id, observation_id) DO NOTHING
                         """,
+                        str(_uuid.uuid4()),
                         entity.id,
                         obs_id,
                         investigation_id,

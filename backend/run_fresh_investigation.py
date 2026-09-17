@@ -30,7 +30,7 @@ async def run():
         async with pool.acquire() as conn:
             inv_id = await conn.fetchval(
                 "INSERT INTO investigations (name, target, target_type, status, depth) "
-                "VALUES ('Fresh Geerlingguy Test', 'geerlingguy', 'username', 'active', 'standard') RETURNING id"
+                "VALUES ('Fresh Geerlingguy Test', 'geerlingguy', 'username', 'running', 'standard') RETURNING id"
             )
             print(f"Created investigation {inv_id}")
             
@@ -49,7 +49,7 @@ async def run():
         async with pool.acquire() as conn:
             domain_inv_id = await conn.fetchval(
                 "INSERT INTO investigations (name, target, target_type, status, depth) "
-                "VALUES ('Fresh Domain Test', 'messagingengine.com', 'domain', 'active', 'standard') RETURNING id"
+                "VALUES ('Fresh Domain Test', 'messagingengine.com', 'domain', 'running', 'standard') RETURNING id"
             )
             print(f"Created domain investigation {domain_inv_id}")
         await collect_and_store(PivotAction.COLLECT_DNS, "messagingengine.com", TargetType.DOMAIN, str(domain_inv_id))

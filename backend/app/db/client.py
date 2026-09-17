@@ -1,6 +1,7 @@
 """Database client — aiosqlite wrapper for asyncpg migration compatibility."""
 
 from collections.abc import AsyncGenerator
+import functools
 import os
 import re
 import aiosqlite
@@ -17,10 +18,12 @@ def set_db_path(path: str) -> None:
 def get_db_path() -> str:
     global _db_path
     if _db_path is None:
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-        os.makedirs(data_dir, exist_ok=True)
-        db_name = "osint_nexus_test2.osint" if "PYTEST_CURRENT_TEST" in os.environ else "osint_nexus_dev.osint"
-        _db_path = os.path.join(data_dir, db_name)
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+            os.makedirs(data_dir, exist_ok=True)
+            _db_path = os.path.join(data_dir, "osint_nexus_test2.osint")
+        else:
+            raise RuntimeError("No active workspace")
     return _db_path
 
 
@@ -30,7 +33,9 @@ class AsyncpgCompatibleConnection:
         self._conn = conn
         self._conn.row_factory = aiosqlite.Row
 
-    def _translate_sql(self, sql: str) -> str:
+    @staticmethod
+    @functools.lru_cache(maxsize=1024)
+    def _translate_sql(sql: str) -> str:
         # Translate Postgres $1, $2 to SQLite ?1, ?2 to preserve order.
         sql = re.sub(r'\$(\d+)', r'?\1', sql)
         sql = sql.replace("::text[]", "")
@@ -212,6 +217,7 @@ async def get_pool():
         await _pool_conn.execute("PRAGMA busy_timeout=5000")
         await _pool_conn.execute("PRAGMA synchronous=NORMAL")
         await _pool_conn.execute("PRAGMA foreign_keys=ON")
+        await _pool_conn.execute("PRAGMA trusted_schema=OFF")
         
         # Always run schema to ensure new tables (like workspace_reports) are added
         # to existing databases. schema.sql uses IF NOT EXISTS safely.
