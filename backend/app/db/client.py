@@ -180,7 +180,19 @@ async def _init_schema(conn: aiosqlite.Connection) -> None:
     if os.path.exists(schema_path):
         with open(schema_path, "r", encoding="utf-8") as f:
             schema_sql = f.read()
-            await conn.executescript(schema_sql)
+            
+            # Auto-heal edges_bidi if migrating from older schema
+            try:
+                await conn.execute("ALTER TABLE edges_bidi ADD COLUMN investigation_id TEXT NOT NULL DEFAULT ''")
+                await conn.commit()
+            except Exception:
+                pass
+                
+            try:
+                await conn.executescript(schema_sql)
+            except Exception as e:
+                import logging
+                logging.warning(f"Schema init issue: {e}")
             await conn.commit()
 
 async def get_pool():
@@ -201,8 +213,9 @@ async def get_pool():
         await _pool_conn.execute("PRAGMA synchronous=NORMAL")
         await _pool_conn.execute("PRAGMA foreign_keys=ON")
         
-        if is_new:
-            await _init_schema(_pool_conn)
+        # Always run schema to ensure new tables (like workspace_reports) are added
+        # to existing databases. schema.sql uses IF NOT EXISTS safely.
+        await _init_schema(_pool_conn)
             
         _pool = AsyncpgCompatiblePool(_pool_conn)
     return _pool

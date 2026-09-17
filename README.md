@@ -51,7 +51,7 @@ OSINT investigations today suffer from fragmented workflows across standalone to
 | **AI-assisted planning** | LLM-powered pivot suggestions and investigation analysis (optional; works without LLM) |
 | **Confidence scoring** | Automatic confidence scores for entities and relationships based on source reliability, data quality, and recency |
 | **Evidence provenance** | Every observation records its source adapter, collection timestamp, raw response, and method |
-| **Report generation** | Export investigation findings in HTML, PDF, JSON, or CSV formats with source attribution |
+| **Report generation** | Export investigation findings in HTML, JSON, or CSV formats with source attribution |
 | **Budget control** | Configurable API call budgets and depth limits to prevent runaway investigations |
 
 ---
@@ -106,7 +106,7 @@ Target Input
          │
          ▼
 ┌─────────────────┐
-│   Reporting      │  Generates HTML/PDF/JSON/CSV reports with provenance
+│   Reporting      │  Generates HTML/JSON/CSV reports with provenance
 └─────────────────┘
 ```
 
@@ -249,7 +249,7 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 | DNS | dnspython | DNS record queries |
 | WHOIS | python-whois | Domain registration data |
 | HTML parsing | BeautifulSoup4 | Web page metadata extraction |
-| Reporting | Jinja2 + WeasyPrint | HTML/PDF report generation |
+| Reporting | Jinja2 | HTML report generation |
 | Validation | Pydantic v2 | Request/response schemas, settings |
 | Linting | Ruff | Python linting and formatting |
 
@@ -457,9 +457,9 @@ When `LLM_PROVIDER=none` (the default), the AI planner returns deterministic piv
 ### End User Installation
 
 1. Download the `OSINT-Nexus-Setup.exe` installer from the latest release.
-2. Run the installer and follow the prompts.
+2. Run the installer and follow the prompts. The application installs to your local user directory (e.g., `C:\Users\<Username>\AppData\Local\Programs\OSINT-Nexus`).
 3. Launch "OSINT Nexus" from your Start Menu.
-4. The application stores its configuration, logs, and workspaces locally in your user directory. No databases (PostgreSQL/Neo4j) or Docker containers are required.
+4. The application stores its configuration, logs, and `.osint` workspace files locally in your user directory. No databases (PostgreSQL/Neo4j) or Docker containers are required.
 
 ### Developer Setup (Local Development)
 
@@ -643,7 +643,7 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 | **AI** | | |
 | `GET` | `/api/v1/investigations/{id}/ai-analysis` | Get AI-generated analysis |
 | **Reports** | | |
-| `POST` | `/api/v1/investigations/{id}/reports` | Generate a report (`html`, `pdf`, `json`, or `csv`) |
+| `POST` | `/api/v1/investigations/{id}/reports` | Generate a report (`html`, `json`, or `csv`) |
 | `GET` | `/api/v1/investigations/{id}/reports` | List all reports |
 | `GET` | `/api/v1/investigations/{id}/reports/{rid}` | Get report metadata |
 | `GET` | `/api/v1/investigations/{id}/reports/{rid}/download` | Download report file |
@@ -652,12 +652,11 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 
 ## Reports and Export
 
-OSINT Nexus supports four report formats:
+OSINT Nexus supports three report formats:
 
 | Format | Content | Use Case |
 |---|---|---|
 | `html` | Styled HTML with evidence provenance, entity tables, and relationship lists | Sharing with stakeholders, printing |
-| `pdf` | PDF rendering of the HTML report | Formal documentation, archival |
 | `json` | Structured JSON with all investigation data | Programmatic consumption, integration |
 | `csv` | Tab-separated entities and observations tables | Spreadsheet analysis, data import |
 
@@ -774,7 +773,7 @@ mkdir -p backend/reports_output
 | 5. Knowledge Graph | Complete | Neo4j integration, graph reader/writer, subgraph queries |
 | 6. Investigation Orchestration | Complete | Automated collection loop, AI planner, pivot selection |
 | 7. Dashboard & Visualization | Complete | React frontend, graph view, entity panels, timeline |
-| 8. Reporting & Export | Complete | HTML/PDF/JSON/CSV report generation with provenance |
+| 8. Reporting & Export | Complete | HTML/JSON/CSV report generation with provenance |
 | 9. Testing, Security & Deployment | Complete | 285+ backend tests, 13 frontend tests, security hardening, CI |
 
 **Test coverage:** 285 backend tests + 13 frontend tests passing. Ruff lint and TypeScript type checks clean.
@@ -783,4 +782,4 @@ mkdir -p backend/reports_output
 
 ## License
 
-Academic use only. This project was developed as an academic endeavor. For commercial or production use, consult the project specification documents (`PROJECT_SPECIFICATION.md`, `TECH_STACK.md`).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

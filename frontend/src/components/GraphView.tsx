@@ -52,6 +52,110 @@ const getNodeShape = (type: string) => {
   return 'ellipse';
 };
 
+const getGraphStyle = (theme: string) => [
+  {
+    selector: "node",
+    style: {
+      "shape": "data(shape)" as any,
+      "background-color": theme === "light" ? "#ffffff" : "#0f172a",
+      label: "data(displayLabel)",
+      color: theme === "light" ? "#0f172a" : "#cbd5e1",
+      "font-size": "10px",
+      "font-family": "Inter, system-ui, sans-serif",
+      "text-valign": "bottom",
+      "text-halign": "center",
+      "text-margin-y": 6,
+      "text-wrap": "wrap",
+      "text-max-width": "140px",
+      "border-width": 1.5,
+      "border-color": "data(color)",
+      width: 36,
+      height: 36,
+      "background-image": "data(iconSvg)",
+      "background-width": "55%",
+      "background-height": "55%",
+      "background-image-opacity": 1,
+      "text-background-color": theme === "light" ? "#ffffff" : "#0f1420",
+      "text-background-opacity": 0.95,
+      "text-background-padding": "4px",
+      "text-background-shape": "roundrectangle",
+      "text-border-width": 1,
+      "text-border-color": "data(color)",
+      "text-border-opacity": 0.4,
+    },
+  },
+  {
+    selector: "node[isSeed]",
+    style: {
+      "border-width": 2,
+      "width": 42,
+      "height": 42,
+      "text-border-opacity": 0.8,
+      "font-weight": "bold",
+      "color": theme === "light" ? "#0284c7" : "#38bdf8",
+      "border-color": theme === "light" ? "#0284c7" : "#38bdf8",
+    }
+  },
+  {
+    selector: "node:selected",
+    style: {
+      "border-width": 3,
+      "border-color": theme === "light" ? "#0284c7" : "#22d3ee",
+      width: 44,
+      height: 44,
+      "z-index": 999,
+    },
+  },
+  {
+    selector: "node.dimmed",
+    style: { opacity: 0.15 },
+  },
+  {
+    selector: "edge",
+    style: {
+      width: 1.5,
+      "line-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
+      "curve-style": "bezier",
+      "target-arrow-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
+      "target-arrow-shape": "triangle",
+      "arrow-scale": 0.8,
+      "font-size": "9px",
+      "font-family": "monospace",
+      label: "data(displayLabel)",
+      color: theme === "light" ? "#64748b" : "#94a3b8",
+      "text-rotation": "autorotate",
+      "text-background-color": theme === "light" ? "#f8fafc" : "#0f1420",
+      "text-background-opacity": 0.85,
+      "text-background-padding": "2px",
+      opacity: 0.7,
+      "line-style": "dashed",
+      "line-dash-pattern": [4, 4],
+    },
+  },
+  {
+    selector: "edge[relationship_type = 'commits_to']",
+    style: {
+      "line-style": "solid",
+      "line-color": theme === "light" ? "#0ea5e9" : "#38bdf8",
+      "target-arrow-color": theme === "light" ? "#0ea5e9" : "#38bdf8",
+      "width": 2,
+    }
+  },
+  {
+    selector: "edge.dimmed",
+    style: { opacity: 0.04 },
+  },
+  {
+    selector: "edge:selected",
+    style: {
+      "line-color": theme === "light" ? "#0284c7" : "#22d3ee",
+      "target-arrow-color": theme === "light" ? "#0284c7" : "#22d3ee",
+      opacity: 1,
+      width: 2.5,
+    },
+  },
+];
+
 export function GraphView({ investigationId }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -74,109 +178,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
     const cy = cytoscape({
       container: containerRef.current,
       elements: [],
-      style: [
-        {
-          selector: "node",
-          style: {
-            "shape": "data(shape)" as any,
-            "background-color": theme === "light" ? "#ffffff" : "#0f172a",
-            label: "data(displayLabel)",
-            color: theme === "light" ? "#0f172a" : "#cbd5e1",
-            "font-size": "10px",
-            "font-family": "Inter, system-ui, sans-serif",
-            "text-valign": "bottom",
-            "text-halign": "center",
-            "text-margin-y": 6,
-            "text-wrap": "wrap",
-            "text-max-width": "140px",
-            "border-width": 1.5,
-            "border-color": "data(color)",
-            width: 36,
-            height: 36,
-            "background-image": "data(iconSvg)",
-            "background-width": "55%",
-            "background-height": "55%",
-            "background-image-opacity": 1,
-            "text-background-color": theme === "light" ? "#ffffff" : "#0f1420",
-            "text-background-opacity": 0.95,
-            "text-background-padding": "4px",
-            "text-background-shape": "roundrectangle",
-            "text-border-width": 1,
-            "text-border-color": "data(color)",
-            "text-border-opacity": 0.4,
-          },
-        },
-        {
-          selector: "node[isSeed]",
-          style: {
-            "border-width": 2,
-            "width": 42,
-            "height": 42,
-            "text-border-opacity": 0.8,
-            "font-weight": "bold",
-            "color": theme === "light" ? "#0284c7" : "#38bdf8",
-            "border-color": theme === "light" ? "#0284c7" : "#38bdf8",
-          }
-        },
-        {
-          selector: "node:selected",
-          style: {
-            "border-width": 3,
-            "border-color": theme === "light" ? "#0284c7" : "#22d3ee",
-            width: 44,
-            height: 44,
-            "z-index": 999,
-          },
-        },
-        {
-          selector: "node.dimmed",
-          style: { opacity: 0.15 },
-        },
-        {
-          selector: "edge",
-          style: {
-            width: 1.5,
-            "line-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
-            "curve-style": "bezier",
-            "target-arrow-color": theme === "light" ? "#94a3b8" : DEFAULT_EDGE_COLOR,
-            "target-arrow-shape": "triangle",
-            "arrow-scale": 0.8,
-            "font-size": "9px",
-            "font-family": "monospace",
-            label: "data(displayLabel)",
-            color: theme === "light" ? "#64748b" : "#94a3b8",
-            "text-rotation": "autorotate",
-            "text-background-color": theme === "light" ? "#f8fafc" : "#0f1420",
-            "text-background-opacity": 0.85,
-            "text-background-padding": "2px",
-            opacity: 0.7,
-            "line-style": "dashed",
-            "line-dash-pattern": [4, 4],
-          },
-        },
-        {
-          selector: "edge[relationship_type = 'commits_to']",
-          style: {
-            "line-style": "solid",
-            "line-color": theme === "light" ? "#0ea5e9" : "#38bdf8",
-            "target-arrow-color": theme === "light" ? "#0ea5e9" : "#38bdf8",
-            "width": 2,
-          }
-        },
-        {
-          selector: "edge.dimmed",
-          style: { opacity: 0.04 },
-        },
-        {
-          selector: "edge:selected",
-          style: {
-            "line-color": theme === "light" ? "#0284c7" : "#22d3ee",
-            "target-arrow-color": theme === "light" ? "#0284c7" : "#22d3ee",
-            opacity: 1,
-            width: 2.5,
-          },
-        },
-      ],
+      style: getGraphStyle(theme) as any,
       layout: { name: "preset" },
       minZoom: 0.15,
       maxZoom: 3,
@@ -199,7 +201,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectEntity, theme]);
+  }, [selectEntity]);
 
   // Update elements when graph data changes.
   useEffect(() => {
@@ -322,30 +324,9 @@ export function GraphView({ investigationId }: GraphViewProps) {
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    const isLight = theme === "light";
-    cy.style()
-      .selector("node")
-      .style({
-        color: isLight ? "#0f172a" : "#cbd5e1",
-        "text-background-color": isLight ? "#ffffff" : "#0f1420",
-      })
-      .selector("node:selected")
-      .style({
-        "border-color": isLight ? "#0284c7" : "#22d3ee",
-      })
-      .selector("edge")
-      .style({
-        "line-color": isLight ? "#94a3b8" : DEFAULT_EDGE_COLOR,
-        "target-arrow-color": isLight ? "#94a3b8" : DEFAULT_EDGE_COLOR,
-        color: isLight ? "#475569" : "#64748b",
-        "text-background-color": isLight ? "#ffffff" : "#0f1420",
-      })
-      .selector("edge:selected")
-      .style({
-        "line-color": isLight ? "#0284c7" : "#22d3ee",
-        "target-arrow-color": isLight ? "#0284c7" : "#22d3ee",
-      })
-      .update();
+    
+    // Completely replace the stylesheet with the new theme
+    cy.style(getGraphStyle(theme) as any);
   }, [theme]);
 
   // Highlight / dim based on selected node.

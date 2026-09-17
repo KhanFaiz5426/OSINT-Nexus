@@ -36,6 +36,7 @@ class SettingsResponse(BaseModel):
 class SettingsUpdateRequest(BaseModel):
     general: dict[str, Any] | None = None
     llm: dict[str, Any] | None = None
+    search: dict[str, Any] | None = None
     collectors: dict[str, Any] | None = None
     investigation: dict[str, Any] | None = None
     api_keys: dict[str, str] | None = None
@@ -93,6 +94,8 @@ async def put_settings(request: SettingsUpdateRequest) -> SettingsUpdateResponse
         update["general"] = request.general
     if request.llm is not None:
         update["llm"] = request.llm
+    if request.search is not None:
+        update["search"] = request.search
     if request.collectors is not None:
         update["collectors"] = request.collectors
     if request.investigation is not None:

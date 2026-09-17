@@ -378,6 +378,8 @@ searxng_data/
 *.db-journal
 *.osint
 *.osint.bak
+*.osint-shm
+*.osint-wal
 
 # Mongo / Elastic / others
 mongo_data/

@@ -84,11 +84,18 @@ interface WorkspaceState {
   reportsMenuOpen: boolean;
   setReportsMenuOpen: (open: boolean) => void;
 
-  // Modals
+  // Modals & Panels
   newModalOpen: boolean;
   setNewModalOpen: (open: boolean) => void;
   openModalOpen: boolean;
   setOpenModalOpen: (open: boolean) => void;
+  newWorkspaceModalOpen: boolean;
+  setNewWorkspaceModalOpen: (open: boolean) => void;
+
+  openWorkspaceBlockerOpen: boolean;
+  setOpenWorkspaceBlockerOpen: (open: boolean) => void;
+  openWorkspaceConfirmOpen: boolean;
+  setOpenWorkspaceConfirmOpen: (open: boolean) => void;
 
   // Graph Layout & Controls
   graphLayout: GraphLayoutName;
@@ -113,7 +120,7 @@ interface WorkspaceState {
   clearGraphTypeFilter: () => void;
 
   // Reset current tab workspace
-  resetWorkspace: () => void;
+  resetWorkspaceUiState: () => void;
 }
 
 const initialFilters = {
@@ -233,11 +240,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   reportsMenuOpen: false,
   setReportsMenuOpen: (open) => set({ reportsMenuOpen: open }),
 
-  // Modals
+  // Modals & Panels
   newModalOpen: false,
   setNewModalOpen: (open) => set({ newModalOpen: open }),
   openModalOpen: false,
   setOpenModalOpen: (open) => set({ openModalOpen: open }),
+  newWorkspaceModalOpen: false,
+  setNewWorkspaceModalOpen: (open) => set({ newWorkspaceModalOpen: open }),
+
+  openWorkspaceBlockerOpen: false,
+  setOpenWorkspaceBlockerOpen: (open) => set({ openWorkspaceBlockerOpen: open }),
+  openWorkspaceConfirmOpen: false,
+  setOpenWorkspaceConfirmOpen: (open) => set({ openWorkspaceConfirmOpen: open }),
 
   // Graph Layout
   graphLayout: "cose",
@@ -270,10 +284,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     }),
   clearGraphTypeFilter: () => set({ graphTypeFilter: new Set() }),
 
-  resetWorkspace: () =>
+  resetWorkspaceUiState: () =>
     set({
       ...initialFilters,
       entityTypeFilter: new Set(),
       graphTypeFilter: new Set(),
+      openTabs: [],
+      activeTabId: null,
     }),
 }));

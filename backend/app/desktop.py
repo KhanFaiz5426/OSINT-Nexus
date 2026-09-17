@@ -37,6 +37,13 @@ logger = logging.getLogger("osint.desktop")
 
 class DesktopApi:
     """API exposed to the frontend javascript via window.pywebview.api"""
+
+    def __init__(self, window: "webview.Window | None" = None) -> None:
+        self._window = window
+
+    def set_window(self, window: "webview.Window") -> None:
+        """Set the webview window reference (called after window creation)."""
+        self._window = window
     
     def open_external(self, url: str) -> None:
         """Securely open external URLs in the system default browser."""
@@ -47,6 +54,112 @@ class DesktopApi:
         else:
             logger.warning("Blocked attempt to open unsafe external URL: %s", url)
 
+    def open_file_dialog(self) -> str | None:
+        """Open a native file-selection dialog filtered for .osint files.
+
+        Returns the selected file path, or None if cancelled.
+        """
+        if not self._window:
+            logger.warning("open_file_dialog called but no window reference set.")
+            return None
+        try:
+            result = self._window.create_file_dialog(
+                webview.OPEN_DIALOG,
+                file_types=("OSINT Workspace (*.osint)",),
+            )
+            if result and len(result) > 0:
+                selected = result[0]
+                logger.info("File dialog selected: %s", selected)
+                return selected
+            logger.info("File dialog cancelled by user.")
+            return None
+        except Exception as exc:
+            logger.error("File dialog error: %s", exc)
+            return None
+
+    def save_file_dialog(self) -> str | None:
+        """Open a native save dialog for .osint files.
+
+        Returns the selected destination path, or None if cancelled.
+        Ensures the path ends with .osint extension.
+        """
+        if not self._window:
+            logger.warning("save_file_dialog called but no window reference set.")
+            return None
+        try:
+            result = self._window.create_file_dialog(
+                webview.SAVE_DIALOG,
+                save_filename="investigation.osint",
+                file_types=("OSINT Workspace (*.osint)",),
+            )
+            if result:
+                selected = result if isinstance(result, str) else result[0]
+                # Ensure .osint extension
+                if not selected.endswith(".osint"):
+                    selected += ".osint"
+                logger.info("Save dialog selected: %s", selected)
+                return selected
+            logger.info("Save dialog cancelled by user.")
+            return None
+        except Exception as exc:
+            logger.error("Save dialog error: %s", exc)
+            return None
+
+    def select_folder_dialog(self) -> str | None:
+        """Open a native folder-selection dialog.
+
+        Returns the selected folder path, or None if cancelled.
+        """
+        if not self._window:
+            logger.warning("select_folder_dialog called but no window reference set.")
+            return None
+        try:
+            result = self._window.create_file_dialog(
+                webview.FOLDER_DIALOG
+            )
+            if result and len(result) > 0:
+                selected = result[0]
+                logger.info("Folder dialog selected: %s", selected)
+                return selected
+            logger.info("Folder dialog cancelled by user.")
+            return None
+        except Exception as exc:
+            logger.error("Folder dialog error: %s", exc)
+            return None
+
+    def save_report_dialog(self, default_filename: str, format_type: str) -> str | None:
+        """Open a native save dialog for reports."""
+        if not self._window:
+            return None
+        file_types = ("HTML Files (*.html)", "All Files (*.*)")
+        try:
+            result = self._window.create_file_dialog(
+                webview.SAVE_DIALOG,
+                save_filename=default_filename,
+                file_types=file_types
+            )
+            if result:
+                selected = result if isinstance(result, str) else result[0]
+                if format_type == "html" and not selected.endswith(".html"):
+                    selected += ".html"
+                return selected
+            return None
+        except Exception as exc:
+            logger.error("Save report dialog error: %s", exc)
+            return None
+
+    def download_file_to_path(self, url: str, dest_path: str) -> bool:
+        """Download a file from a local URL to a specific path."""
+        try:
+            import urllib.request
+            logger.info("Downloading %s to %s", url, dest_path)
+            req = urllib.request.Request(url, headers={'User-Agent': 'OSINT-Nexus-Desktop'})
+            with urllib.request.urlopen(req) as response, open(dest_path, 'wb') as out_file:
+                out_file.write(response.read())
+            return True
+        except Exception as exc:
+            logger.error("Failed to download file: %s", exc)
+            return False
 
 class DesktopApp:
     def __init__(self):
@@ -131,6 +244,8 @@ class DesktopApp:
                 min_size=(800, 600),
                 js_api=api
             )
+            # Give the API the window reference for native file dialogs
+            api.set_window(window)
 
             window.events.closing += self.on_closing
 
@@ -177,5 +292,22 @@ class DesktopApp:
 
 
 if __name__ == "__main__":
+    import os
+    import sys
+
+    # On Python 3.8+ Windows, DLLs must be explicitly added to the search path
+    if os.name == 'nt' and sys.version_info >= (3, 8):
+        gtk_paths = [
+            r"C:\Program Files\GTK3-Runtime Win64\bin",
+            r"C:\Program Files (x86)\GTK3-Runtime Win32\bin",
+        ]
+        for path in gtk_paths:
+            if os.path.isdir(path):
+                try:
+                    os.add_dll_directory(path)
+                    os.environ["PATH"] = path + os.pathsep + os.environ.get("PATH", "")
+                except Exception:
+                    pass
+
     app = DesktopApp()
     app.run()

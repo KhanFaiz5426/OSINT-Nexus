@@ -122,7 +122,7 @@ async def generate_report(
     # Detect actual format from generated file extension.
     # PDF generation may fall back to HTML if WeasyPrint is unavailable.
     actual_ext = os.path.splitext(file_path)[1].lower().strip(".")
-    actual_fmt = actual_ext if actual_ext in ("html", "pdf", "json", "csv") else fmt
+    actual_fmt = actual_ext if actual_ext in ("html", "json", "csv") else fmt
 
     # Compute file size.
     try:
@@ -224,8 +224,14 @@ async def download_report(investigation_id: str, report_id: str) -> FileResponse
 
         resolved = os.path.realpath(str(file_path))
         reports_dir = os.path.realpath(str(_REPORTS_DIR))
-        if not resolved.startswith(reports_dir):
-            raise HTTPException(status_code=403, detail="Access denied")
+        
+        import os as _os
+        if _os.name == 'nt':
+            if not resolved.lower().startswith(reports_dir.lower()):
+                raise HTTPException(status_code=403, detail="Access denied")
+        else:
+            if not resolved.startswith(reports_dir):
+                raise HTTPException(status_code=403, detail="Access denied")
 
         if not os.path.isfile(resolved):
             raise HTTPException(status_code=404, detail="Report file not found on disk")
@@ -236,8 +242,7 @@ async def download_report(investigation_id: str, report_id: str) -> FileResponse
     ext = os.path.splitext(resolved)[1].lower().strip(".")
     if ext == "html":
         media_type = "text/html"
-    elif ext == "pdf":
-        media_type = "application/pdf"
+
     elif ext == "json":
         media_type = "application/json"
     elif ext == "csv":

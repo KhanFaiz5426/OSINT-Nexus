@@ -35,7 +35,7 @@ export function InvestigationTabBar() {
       <button
         onClick={() => setNewModalOpen(true)}
         className="flex h-6 w-6 items-center justify-center rounded text-[var(--nx-text-tertiary)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-accent)] transition-colors mr-1 shrink-0"
-        title="New Investigation Workspace (Ctrl+N)"
+        title="New Investigation (Ctrl+N)"
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
@@ -43,7 +43,7 @@ export function InvestigationTabBar() {
       {/* Tabs */}
       {openTabs.length === 0 ? (
         <span className="text-[11px] text-[var(--nx-text-muted)] italic px-2">
-          No investigation workspaces open. Click [+] or "Open..." to start.
+          No investigations open. Click [+] or "Open Investigation" to start.
         </span>
       ) : (
         <div className="flex items-center gap-0.5 h-full">
@@ -107,7 +107,7 @@ export function InvestigationTabBar() {
                     closeTab(tab.id);
                   }}
                   className="ml-1 rounded p-0.5 text-[var(--nx-text-muted)] opacity-0 group-hover:opacity-100 hover:bg-[var(--nx-surface-4)] hover:text-[var(--nx-text-primary)] transition-all"
-                  title="Close Workspace"
+                  title="Close Investigation"
                 >
                   <X className="h-3 w-3" />
                 </button>

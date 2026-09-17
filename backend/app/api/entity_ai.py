@@ -163,6 +163,9 @@ async def _collect_entity_context(
         except (json.JSONDecodeError, TypeError):
             props = {}
 
+    first_seen = ent_row.get("first_seen")
+    last_seen = ent_row.get("last_seen")
+
     return {
         "investigation": {
             "id": str(inv_row["id"]),
@@ -176,8 +179,8 @@ async def _collect_entity_context(
             "type": ent_row["type"],
             "value": ent_row["value"],
             "confidence": ent_row["confidence"],
-            "first_seen": ent_row["first_seen"].isoformat() if ent_row["first_seen"] else None,
-            "last_seen": ent_row["last_seen"].isoformat() if ent_row["last_seen"] else None,
+            "first_seen": first_seen.isoformat() if hasattr(first_seen, "isoformat") else first_seen,
+            "last_seen": last_seen.isoformat() if hasattr(last_seen, "isoformat") else last_seen,
             "source_count": ent_row["source_count"],
             "properties": props or {},
         },
@@ -187,7 +190,7 @@ async def _collect_entity_context(
                 "method": row["method"],
                 "target": row["target"],
                 "confidence": row.get("confidence", 0.0),
-                "collected_at": row["collected_at"].isoformat() if row["collected_at"] else "",
+                "collected_at": row["collected_at"].isoformat() if hasattr(row["collected_at"], "isoformat") else (row["collected_at"] or ""),
                 "status": row.get("status", "success"),
             }
             for row in evidence_rows

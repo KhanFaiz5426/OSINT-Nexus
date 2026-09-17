@@ -164,8 +164,8 @@ class ReportResponse(BaseModel):
 class ReportGenerateRequest(BaseModel):
     format: str = Field(
         default="html",
-        pattern="^(html|pdf|json|csv|stix)$",
-        description="Report format: html, pdf, json, csv, or stix",
+        pattern="^(html|json|csv|stix)$",
+        description="Report format: html, json, csv, or stix",
     )
 
 

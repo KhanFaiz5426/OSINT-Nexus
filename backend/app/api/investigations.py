@@ -138,7 +138,12 @@ async def start(investigation_id: str) -> InvestigationStartResponse:
     if result is None:
         raise HTTPException(status_code=404, detail="Investigation not found")
 
-    if result.status not in (InvestigationStatus.CREATED,):
+    allowed_states = {
+        InvestigationStatus.CREATED,
+        InvestigationStatus.STOPPED,
+        InvestigationStatus.ERROR,
+    }
+    if result.status not in allowed_states:
         raise HTTPException(
             status_code=409,
             detail=f"Cannot start investigation in '{result.status}' status",

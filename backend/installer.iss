@@ -7,17 +7,22 @@ OutputDir=dist
 OutputBaseFilename=OSINT-Nexus-Setup
 Compression=lzma2
 SolidCompression=yes
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
+SetupIconFile=app\icon.ico
+UninstallDisplayIcon={app}\osint-nexus.exe
 
 [Files]
 Source: "dist\osint-nexus\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\OSINT Nexus"; Filename: "{app}\osint-nexus.exe"
-Name: "{commondesktop}\OSINT Nexus"; Filename: "{app}\osint-nexus.exe"
+Name: "{userdesktop}\OSINT Nexus"; Filename: "{app}\osint-nexus.exe"
 
 [Run]
 Filename: "{app}\osint-nexus.exe"; Description: "Launch OSINT Nexus"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}"

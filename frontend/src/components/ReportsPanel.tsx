@@ -6,7 +6,6 @@ import {
   Download,
   Loader2,
   Check,
-  File,
 } from "lucide-react";
 import {
   useReports,
@@ -21,14 +20,12 @@ interface ReportsPanelProps {
 
 const FORMAT_OPTIONS: { value: ReportFormat; label: string; icon: typeof FileText }[] = [
   { value: "html", label: "HTML", icon: FileText },
-  { value: "pdf", label: "PDF", icon: File },
   { value: "json", label: "JSON", icon: FileJson },
   { value: "csv", label: "CSV", icon: FileSpreadsheet },
 ];
 
 const FORMAT_COLORS: Record<ReportFormat, string> = {
   html: "bg-sky-500/15 text-sky-400",
-  pdf: "bg-red-500/15 text-red-400",
   json: "bg-emerald-500/15 text-emerald-400",
   csv: "bg-purple-500/15 text-purple-400",
 };

@@ -218,7 +218,7 @@ def _parse_ddg_html(html: str) -> list[dict[str, str]]:
     except Exception as exc:
         logger.debug("Failed to parse DuckDuckGo HTML: %s", exc)
 
-    return results[:10]
+    return results
 
 
 def _parse_ddg_lite_html(html: str) -> list[dict[str, str]]:
@@ -254,7 +254,7 @@ def _parse_ddg_lite_html(html: str) -> list[dict[str, str]]:
     except Exception as exc:
         logger.debug("Failed to parse DuckDuckGo Lite: %s", exc)
 
-    return results[:10]
+    return results
 
 
 def _parse_ddg_api_json(data: dict) -> list[dict[str, str]]:
@@ -304,4 +304,4 @@ def _parse_ddg_api_json(data: dict) -> list[dict[str, str]]:
                 }
             )
 
-    return results[:10]
+    return results

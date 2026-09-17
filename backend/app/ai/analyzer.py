@@ -55,8 +55,8 @@ def build_analyzer_prompt(
         "  ],\n"
         '  "recommendations": [<list of recommended next steps>]\n'
         "}\n\n"
-        "Rules:\n"
-        "- Be objective and evidence-based.\n"
+        "- Be objective and evidence-based. Do NOT make absolute claims about the absence of risk.\n"
+        "- Use bounded language (e.g. 'No potentially relevant malicious indicators were identified within the evidence collected...').\n"
         "- Only reference entities that appear in the provided context.\n"
         "- Risk assessment should consider: threat indicators, exposure, "
         "data completeness, and potential impact.\n"

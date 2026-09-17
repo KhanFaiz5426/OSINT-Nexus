@@ -127,6 +127,14 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 CREATE INDEX IF NOT EXISTS idx_reports_investigation ON reports(investigation_id);
 
+CREATE TABLE IF NOT EXISTS workspace_reports (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    format TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now', 'utc'))
+);
+
 CREATE TABLE IF NOT EXISTS entity_provenance (
     id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
     entity_id TEXT NOT NULL,

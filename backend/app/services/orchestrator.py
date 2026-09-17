@@ -760,7 +760,12 @@ async def _load_investigation_state(
         return None
 
     status = row["status"]
-    if status not in (InvestigationStatus.CREATED.value, InvestigationStatus.RUNNING.value):
+    if status not in (
+        InvestigationStatus.CREATED.value,
+        InvestigationStatus.RUNNING.value,
+        InvestigationStatus.STOPPED.value,
+        InvestigationStatus.ERROR.value,
+    ):
         return None
 
     budget_used = row["api_calls_used"]

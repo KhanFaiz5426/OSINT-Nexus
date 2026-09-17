@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Supported providers: nvidia, openai, anthropic, ollama, none
     # When "none" or empty, AI planner/analyzer return deterministic defaults.
-    LLM_PROVIDER: str = "none"
+    LLM_PROVIDER: str = "ollama"
     LLM_MODEL: str = ""
     LLM_BASE_URL: str = ""
     LLM_MAX_TOKENS: int = 2048
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     SEARXNG_BASE_URL: str = ""  # e.g. "http://searxng:8080"
     SEARXNG_ENABLED: bool = True  # Enable SearXNG when base URL is set
     SEARCH_PROVIDER_TIMEOUT: float = 10.0  # Per-provider timeout (seconds)
-    SEARCH_MAX_RESULTS_PER_PROVIDER: int = 10  # Max results per provider
+    SEARCH_MAX_RESULTS_PER_PROVIDER: int = 40  # Max results per provider
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]

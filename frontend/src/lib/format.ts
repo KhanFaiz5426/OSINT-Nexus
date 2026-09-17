@@ -239,7 +239,7 @@ export function entityProfileUrl(
       return value.startsWith("http") ? value : `https://${value}`;
     case "Domain":
     case "Subdomain":
-      return `https://${value}`;
+      return value.startsWith("http") ? value : `https://${value}`;
     case "Username":
       if (srcSet.has("github")) return `https://github.com/${value}`;
       if (srcSet.has("gitlab")) return `https://gitlab.com/${value}`;
