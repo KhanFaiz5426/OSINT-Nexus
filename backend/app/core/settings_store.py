@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 SETTINGS_FILE = Path(
     os.getenv(
-        "SETTINGS_FILE", 
+        "SETTINGS_FILE",
         os.path.join(os.environ.get("APPDATA", ""), "osint-nexus", "config.json")
-        if os.name == "nt" 
-        else str(Path.home() / ".config" / "osint-nexus" / "config.json")
+        if os.name == "nt"
+        else str(Path.home() / ".config" / "osint-nexus" / "config.json"),
     )
 )
 
@@ -136,14 +136,11 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = value
 
 
-
-
-
 def get_service_health() -> dict[str, Any]:
     """Check health of backend services (native architecture)."""
     from app.core.config import get_settings
-    from app.core.workspace import get_workspace_manager
     from app.core.settings_store import get_app_settings
+    from app.core.workspace import get_workspace_manager
 
     settings = get_settings()
     app_settings = get_app_settings()
@@ -164,5 +161,5 @@ def get_service_health() -> dict[str, Any]:
         "graph_engine": {
             "type": "SQLite Recursive CTE",
             "neo4j_fallback": False,
-        }
+        },
     }

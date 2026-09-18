@@ -7,24 +7,21 @@ and creating .osint investigation databases safely.
 from __future__ import annotations
 
 import logging
-from typing import Any
+import os
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import os
-from uuid import uuid4
-from datetime import datetime, UTC
-
-from app.models import ReportGenerateRequest, ReportResponse
 
 from app.core.workspace import (
     WorkspaceConflictError,
     WorkspaceError,
-    WorkspaceManager,
     WorkspaceValidationError,
     get_workspace_manager,
 )
+from app.models import ReportGenerateRequest, ReportResponse
 
 logger = logging.getLogger(__name__)
 
@@ -108,24 +105,27 @@ async def generate_workspace_report(
 ) -> ReportResponse:
     """Generate a workspace-level report in the requested format."""
     fmt = body.format if body else "html"
-    
+
     # We must ensure there is an active workspace first
     wm = get_workspace_manager()
     if not wm.current_workspace:
         raise HTTPException(status_code=400, detail="No workspace open")
 
     from app.services.report_data import collect_workspace_report_data
+
     try:
         data = await collect_workspace_report_data()
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to collect workspace data: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Failed to collect workspace data: {exc}"
+        ) from exc
 
-    from app.services.report_generator import generate_report as gen
     from app.core.security import sanitize_error_message
-    
+    from app.services.report_generator import generate_report as gen
+
     # Ensure data is flagged as a workspace report for the generator
     data["is_workspace_report"] = True
-    
+
     try:
         file_path = gen(data, fmt)
     except ValueError:
@@ -146,8 +146,9 @@ async def generate_workspace_report(
 
     report_id = str(uuid4())
     now = datetime.now(UTC)
-    
+
     from app.db.client import get_pool
+
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
@@ -198,9 +199,10 @@ async def download_workspace_report(report_id: str) -> FileResponse:
 
         resolved = os.path.realpath(str(file_path))
         reports_dir = os.path.realpath(str(_REPORTS_DIR))
-        
+
         import os as _os
-        if _os.name == 'nt':
+
+        if _os.name == "nt":
             if not resolved.lower().startswith(reports_dir.lower()):
                 raise HTTPException(status_code=403, detail="Access denied")
         else:

@@ -9,14 +9,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import shutil
 from pathlib import Path
-from typing import Any
 
 import aiosqlite
 
 from app.core.task_manager import get_task_manager
-from app.db.client import get_pool, set_db_path, close_pool
+from app.db.client import close_pool, get_pool, set_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -65,19 +63,27 @@ class WorkspaceManager:
             # We connect directly, strictly avoiding the global pool
             async with aiosqlite.connect(path) as conn:
                 await conn.execute("PRAGMA trusted_schema=OFF")
-                
+
                 # Check tables
-                async with conn.execute("SELECT name FROM sqlite_master WHERE type='table'") as cursor:
+                async with conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ) as cursor:
                     tables = {row[0] async for row in cursor}
-                
+
                 required_tables = {
-                    "investigations", "observations", "entities", 
-                    "relationships", "activity_log", "notes"
+                    "investigations",
+                    "observations",
+                    "entities",
+                    "relationships",
+                    "activity_log",
+                    "notes",
                 }
-                
+
                 missing = required_tables - tables
                 if missing:
-                    raise WorkspaceValidationError(f"Database is missing required tables: {missing}")
+                    raise WorkspaceValidationError(
+                        f"Database is missing required tables: {missing}"
+                    )
 
                 # Check version (we only support version 1 right now based on our init script)
                 # But our schema.sql doesn't actually set user_version currently. Let's just ensure it's a valid SQLite DB.
@@ -85,7 +91,7 @@ class WorkspaceManager:
                 async with conn.execute("PRAGMA user_version") as cursor:
                     row = await cursor.fetchone()
                     version = row[0] if row else 0
-                    
+
         except aiosqlite.DatabaseError as exc:
             raise WorkspaceValidationError(f"Invalid SQLite database: {exc}")
 
@@ -94,7 +100,7 @@ class WorkspaceManager:
         async with self._lock:
             await self._assert_no_active_tasks("New")
             path = self._validate_path(path)
-            
+
             if os.path.exists(path):
                 raise WorkspaceConflictError("File already exists.")
 
@@ -102,7 +108,7 @@ class WorkspaceManager:
             set_db_path(path)
             # get_pool() handles `is_new` check and calls `_init_schema`
             await get_pool()
-            
+
             self._current_workspace = path
             logger.info("Created new workspace: %s", path)
 
@@ -111,13 +117,13 @@ class WorkspaceManager:
         async with self._lock:
             await self._assert_no_active_tasks("Open")
             path = self._validate_path(path)
-            
+
             if not os.path.exists(path):
                 raise WorkspaceValidationError("Workspace file does not exist.")
 
             # Validate before creating backup
             await self._validate_schema(path)
-            
+
             # Create safe .bak backup via SQLite Online Backup
             bak_path = path + ".bak"
             try:
@@ -134,20 +140,20 @@ class WorkspaceManager:
             await close_pool()
             set_db_path(path)
             await get_pool()
-            
+
             self._current_workspace = path
             logger.info("Opened workspace: %s", path)
 
     async def save_as(self, new_path: str) -> None:
         """Save the active workspace to a new file via SQLite backup API.
-        
+
         This can be done concurrently while tasks are running, since
         it uses the safe Online Backup API from the active connection.
         """
         async with self._lock:
             if not self._current_workspace:
                 raise WorkspaceError("No active workspace to save.")
-                
+
             new_path = self._validate_path(new_path)
             if os.path.exists(new_path):
                 raise WorkspaceConflictError("Destination file already exists.")
@@ -156,7 +162,10 @@ class WorkspaceManager:
             try:
                 # We do this from the disk file. Active pool flushes to WAL.
                 # SQLite backup API handles WAL coordination seamlessly.
-                async with aiosqlite.connect(self._current_workspace) as src, aiosqlite.connect(new_path) as dst:
+                async with (
+                    aiosqlite.connect(self._current_workspace) as src,
+                    aiosqlite.connect(new_path) as dst,
+                ):
                     await src.execute("PRAGMA trusted_schema=OFF")
                     await dst.execute("PRAGMA trusted_schema=OFF")
                     await src.backup(dst)
@@ -169,7 +178,7 @@ class WorkspaceManager:
         """Close the active workspace."""
         async with self._lock:
             await self._assert_no_active_tasks("Close")
-            
+
             if not self._current_workspace:
                 return
 
@@ -178,14 +187,17 @@ class WorkspaceManager:
             self._current_workspace = None
             logger.info("Workspace closed.")
 
+
 # Singleton
 _workspace_manager: WorkspaceManager | None = None
+
 
 def get_workspace_manager() -> WorkspaceManager:
     global _workspace_manager
     if _workspace_manager is None:
         _workspace_manager = WorkspaceManager()
     return _workspace_manager
+
 
 def reset_workspace_manager() -> None:
     global _workspace_manager

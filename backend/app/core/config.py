@@ -34,7 +34,6 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-
     # API Keys (Optional)
     LLM_API_KEY: str = ""
     NVIDIA_API_KEY: str = ""
@@ -73,4 +72,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Cached singleton for application settings."""
     return Settings()
-

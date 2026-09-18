@@ -9,7 +9,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import activity, entities, entity_ai, graph, investigations, notes, reports, sse, workspace
+from app.api import (
+    activity,
+    entities,
+    entity_ai,
+    graph,
+    investigations,
+    notes,
+    reports,
+    sse,
+    workspace,
+)
 from app.api import settings as settings_api
 from app.core.config import get_settings
 
@@ -38,6 +48,7 @@ async def lifespan(app: FastAPI):
         pass
 
     from app.db.client import close_pool
+
     await close_pool()
 
 
@@ -115,18 +126,20 @@ def create_app() -> FastAPI:
 
     import sys
     from pathlib import Path
-    from fastapi.responses import FileResponse
-    from fastapi import HTTPException
 
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         base_dir = Path(sys._MEIPASS)
     else:
         base_dir = Path(__file__).parent.parent.parent
-        
+
     dist_path = base_dir / "frontend" / "dist"
     if dist_path.exists() and dist_path.is_dir():
         # Optional: mount /assets explicitly if Vite is using it to skip Python routing overhead
         from fastapi.staticfiles import StaticFiles
+
         assets_path = dist_path / "assets"
         if assets_path.exists():
             app.mount("/assets", StaticFiles(directory=str(assets_path)), name="assets")
@@ -135,11 +148,11 @@ def create_app() -> FastAPI:
         async def serve_spa(full_path: str):
             if full_path.startswith("api/"):
                 raise HTTPException(status_code=404, detail="API route not found")
-            
+
             file_path = dist_path / full_path
             if file_path.is_file():
                 return FileResponse(file_path)
-            
+
             return FileResponse(dist_path / "index.html")
 
     return app

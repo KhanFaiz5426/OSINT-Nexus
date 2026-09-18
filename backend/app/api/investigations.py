@@ -61,6 +61,7 @@ async def create(body: InvestigationCreate) -> InvestigationResponse:
         return await create_investigation(body)
     except Exception as exc:
         from app.core.security import SSRFBlockedError
+
         if isinstance(exc, (ValueError, SSRFBlockedError)):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         raise

@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
-from typing import Any
 
 from app.db.client import get_pool
 from app.models.processing import ExtractedEntity, ExtractedRelationship
@@ -29,6 +27,7 @@ def _validate_id(value: str) -> None:
     if not value or not str(value).strip():
         raise ValueError("investigation_id must be a non-empty string")
 
+
 async def write_nodes(
     entities: list[ExtractedEntity],
     *,
@@ -41,10 +40,14 @@ async def write_nodes(
 
     pool = await get_pool()
     nodes_written = 0
-    
+
     async with pool.acquire() as conn:
         # For testing without a full database setup, ensure the investigation exists
-        await conn.execute("INSERT OR IGNORE INTO investigations (id, name, target, target_type) VALUES ($1, $2, 'test_target', 'domain')", investigation_id, investigation_id)
+        await conn.execute(
+            "INSERT OR IGNORE INTO investigations (id, name, target, target_type) VALUES ($1, $2, 'test_target', 'domain')",
+            investigation_id,
+            investigation_id,
+        )
         for entity in entities:
             try:
                 await conn.execute(
@@ -69,12 +72,12 @@ async def write_nodes(
                     entity.first_seen,
                     entity.last_seen,
                     len(entity.sources),
-                    json.dumps(entity.properties)
+                    json.dumps(entity.properties),
                 )
                 nodes_written += 1
             except Exception as e:
                 logger.error("Failed to write node %s: %s", entity.id, e)
-                    
+
     return nodes_written
 
 
@@ -92,7 +95,11 @@ async def write_edges(
     edges_written = 0
 
     async with pool.acquire() as conn:
-        await conn.execute("INSERT OR IGNORE INTO investigations (id, name, target, target_type) VALUES ($1, $2, 'test_target', 'domain')", investigation_id, investigation_id)
+        await conn.execute(
+            "INSERT OR IGNORE INTO investigations (id, name, target, target_type) VALUES ($1, $2, 'test_target', 'domain')",
+            investigation_id,
+            investigation_id,
+        )
         for rel in relationships:
             try:
                 await conn.execute(
@@ -117,12 +124,12 @@ async def write_edges(
                     rel.confidence,
                     json.dumps(rel.evidence_ids),
                     rel.discovered_at.isoformat(),
-                    rel.method
+                    rel.method,
                 )
                 edges_written += 1
             except Exception as e:
                 logger.error("Failed to write edge %s: %s", rel.id, e)
-                    
+
     return edges_written
 
 
@@ -141,22 +148,22 @@ async def write_graph(
     return n, e
 
 
-async def delete_investigation_graph(
-    investigation_id: str
-) -> int:
+async def delete_investigation_graph(investigation_id: str) -> int:
     """Delete all graph data for an investigation."""
     _validate_id(investigation_id)
 
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # In SQLite with ON DELETE CASCADE, deleting from entities will 
+        # In SQLite with ON DELETE CASCADE, deleting from entities will
         # automatically delete from relationships, and the triggers will update edges_bidi.
-        
-        # We need to explicitly count affected rows. 
+
+        # We need to explicitly count affected rows.
         # Using returning or just counting beforehand.
-        n = await conn.fetch("SELECT COUNT(*) as c FROM entities WHERE investigation_id = $1", investigation_id)
+        n = await conn.fetch(
+            "SELECT COUNT(*) as c FROM entities WHERE investigation_id = $1", investigation_id
+        )
         count = n[0]["c"] if n else 0
-        
+
         await conn.execute("DELETE FROM entities WHERE investigation_id = $1", investigation_id)
-        
+
         return count

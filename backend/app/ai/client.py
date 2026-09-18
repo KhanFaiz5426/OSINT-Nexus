@@ -325,8 +325,12 @@ def _build_provider_config(
 
     from app.core.secrets import get_secret
 
-    settings_dict = settings.model_dump() if hasattr(settings, "model_dump") else getattr(settings, "__dict__", {})
-    
+    settings_dict = (
+        settings.model_dump()
+        if hasattr(settings, "model_dump")
+        else getattr(settings, "__dict__", {})
+    )
+
     # 1. Native secure keyring
     api_key = get_secret(provider)
 

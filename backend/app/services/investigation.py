@@ -4,11 +4,11 @@ Manages investigation lifecycle: creation, retrieval, listing, state transitions
 Uses asyncpg for PostgreSQL operations.
 """
 
-import asyncio
 import json
 import logging
 import uuid
 from datetime import UTC, datetime
+
 import aiosqlite
 
 from app.db.client import get_pool
@@ -36,11 +36,11 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     is applied instead.
     """
     from app.core.security import validate_target_for_collector
-    
+
     target_type = classify_target(data.target)
     normalized_target = normalize_target(data.target, target_type)
     validate_target_for_collector(normalized_target, target_type.value)
-    
+
     now = datetime.now(UTC)
 
     # Apply default depth from settings store when not explicitly overridden.

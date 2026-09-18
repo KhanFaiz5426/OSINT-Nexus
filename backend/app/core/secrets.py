@@ -8,7 +8,6 @@ OS-native keyring (Windows Credential Manager). Keys are stored under the
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import keyring
 from keyring.errors import KeyringError
@@ -40,7 +39,7 @@ def set_secret(key: str, value: str) -> bool:
     """
     if not value:
         return delete_secret(key)
-        
+
     try:
         keyring.set_password(SERVICE_NAME, key, value)
         return True

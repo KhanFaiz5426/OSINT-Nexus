@@ -41,9 +41,7 @@ class EventBus:
 
         Returns the Queue that the SSE endpoint should await on.
         """
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(
-            maxsize=self._max_queue_size
-        )
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=self._max_queue_size)
         if investigation_id not in self._subscribers:
             self._subscribers[investigation_id] = set()
         self._subscribers[investigation_id].add(queue)

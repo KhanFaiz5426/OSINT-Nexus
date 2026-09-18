@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import uuid
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -873,6 +873,7 @@ async def _write_username_correlation(
 
     try:
         from app.graph.writer import write_graph
+
         nodes_written, edges_written = await write_graph(
             entities,
             relationships,

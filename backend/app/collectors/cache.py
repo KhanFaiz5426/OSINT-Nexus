@@ -8,7 +8,6 @@ directly under the single-event-loop model without locking.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from cachetools import TTLCache
 

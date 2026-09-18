@@ -179,7 +179,9 @@ async def _collect_entity_context(
             "type": ent_row["type"],
             "value": ent_row["value"],
             "confidence": ent_row["confidence"],
-            "first_seen": first_seen.isoformat() if hasattr(first_seen, "isoformat") else first_seen,
+            "first_seen": first_seen.isoformat()
+            if hasattr(first_seen, "isoformat")
+            else first_seen,
             "last_seen": last_seen.isoformat() if hasattr(last_seen, "isoformat") else last_seen,
             "source_count": ent_row["source_count"],
             "properties": props or {},
@@ -190,7 +192,9 @@ async def _collect_entity_context(
                 "method": row["method"],
                 "target": row["target"],
                 "confidence": row.get("confidence", 0.0),
-                "collected_at": row["collected_at"].isoformat() if hasattr(row["collected_at"], "isoformat") else (row["collected_at"] or ""),
+                "collected_at": row["collected_at"].isoformat()
+                if hasattr(row["collected_at"], "isoformat")
+                else (row["collected_at"] or ""),
                 "status": row.get("status", "success"),
             }
             for row in evidence_rows

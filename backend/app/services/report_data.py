@@ -17,6 +17,7 @@ from app.graph.reader import get_investigation_subgraph
 
 logger = logging.getLogger(__name__)
 
+
 def _safe_isoformat(dt: Any) -> str | None:
     if not dt:
         return None
@@ -100,7 +101,7 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                     props = json.loads(props)
                 except (json.JSONDecodeError, TypeError):
                     props = {}
-            
+
             # Parse provenance and extract real external URLs
             provenance = []
             prov_json = row["provenance_json"]
@@ -112,7 +113,7 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                         # but we did a correlated subquery so it should be valid unless empty.
                         if not p.get("observation_id"):
                             continue
-                        
+
                         source_url = None
                         raw_resp = p.get("raw_response", "")
                         if isinstance(raw_resp, str) and raw_resp.startswith("{"):
@@ -120,22 +121,28 @@ async def collect_report_data(investigation_id: str) -> dict[str, Any]:
                                 raw_dict = json.loads(raw_resp)
                                 # Try to extract real URL based on known adapters
                                 if p["source_adapter"] == "github":
-                                    source_url = raw_dict.get("html_url") or raw_dict.get("profile", {}).get("html_url")
+                                    source_url = raw_dict.get("html_url") or raw_dict.get(
+                                        "profile", {}
+                                    ).get("html_url")
                                 elif p["source_adapter"] in ("ddg", "search", "http"):
                                     source_url = raw_dict.get("url") or raw_dict.get("link")
                                 elif p["source_adapter"] == "hackernews":
-                                    source_url = f"https://news.ycombinator.com/user?id={p['target']}"
+                                    source_url = (
+                                        f"https://news.ycombinator.com/user?id={p['target']}"
+                                    )
                                 elif p["source_adapter"] == "reddit":
                                     source_url = f"https://reddit.com/user/{p['target']}"
                             except json.JSONDecodeError:
                                 pass
 
-                        provenance.append({
-                            "observation_id": p["observation_id"],
-                            "source_adapter": p["source_adapter"],
-                            "method": p["method"],
-                            "source_url": source_url
-                        })
+                        provenance.append(
+                            {
+                                "observation_id": p["observation_id"],
+                                "source_adapter": p["source_adapter"],
+                                "method": p["method"],
+                                "source_url": source_url,
+                            }
+                        )
                 except json.JSONDecodeError:
                     pass
 
@@ -333,24 +340,26 @@ async def collect_workspace_report_data() -> dict[str, Any]:
             ORDER BY created_at DESC
             """
         )
-        
+
         investigations = []
         for row in inv_rows:
-            investigations.append({
-                "id": str(row["id"]),
-                "name": row["name"],
-                "target": row["target"],
-                "target_type": row["target_type"],
-                "status": row["status"],
-                "depth": row["depth"],
-                "api_calls_used": row["api_calls_used"],
-                "api_budget": row["api_budget"],
-                "entity_count": row["entity_count"],
-                "relationship_count": row["relationship_count"],
-                "observation_count": row["observation_count"],
-                "created_at": _safe_isoformat(row["created_at"]),
-                "updated_at": _safe_isoformat(row["updated_at"]),
-            })
+            investigations.append(
+                {
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "target": row["target"],
+                    "target_type": row["target_type"],
+                    "status": row["status"],
+                    "depth": row["depth"],
+                    "api_calls_used": row["api_calls_used"],
+                    "api_budget": row["api_budget"],
+                    "entity_count": row["entity_count"],
+                    "relationship_count": row["relationship_count"],
+                    "observation_count": row["observation_count"],
+                    "created_at": _safe_isoformat(row["created_at"]),
+                    "updated_at": _safe_isoformat(row["updated_at"]),
+                }
+            )
 
         # ── Cross-investigation Metrics ─────────────────────────────────────
         metrics_row = await conn.fetchrow("""
@@ -377,7 +386,9 @@ async def collect_workspace_report_data() -> dict[str, Any]:
             GROUP BY source_adapter 
             ORDER BY count DESC
         """)
-        collection_coverage = [{"source_adapter": r["source_adapter"], "count": r["count"]} for r in coverage_rows]
+        collection_coverage = [
+            {"source_adapter": r["source_adapter"], "count": r["count"]} for r in coverage_rows
+        ]
 
         # ── Workspace Notes ──────────────────────────────────────────────────
         notes_rows = await conn.fetch("""
@@ -386,11 +397,14 @@ async def collect_workspace_report_data() -> dict[str, Any]:
             JOIN investigations i ON n.investigation_id = i.id
             ORDER BY n.created_at DESC
         """)
-        workspace_notes = [{
-            "content": r["content"], 
-            "created_at": _safe_isoformat(r["created_at"]), 
-            "investigation_name": r["investigation_name"]
-        } for r in notes_rows]
+        workspace_notes = [
+            {
+                "content": r["content"],
+                "created_at": _safe_isoformat(r["created_at"]),
+                "investigation_name": r["investigation_name"],
+            }
+            for r in notes_rows
+        ]
 
         # ── Observed Shared Values ───────────────────────────────────────────
         # Find entities with the exact same type and value across multiple investigations
@@ -403,12 +417,15 @@ async def collect_workspace_report_data() -> dict[str, Any]:
             HAVING overlap > 1
             ORDER BY overlap DESC, type, value
         """)
-        shared_values = [{
-            "type": r["type"],
-            "value": r["value"],
-            "overlap_count": r["overlap"],
-            "shared_across": r["shared_across"].split(",") if r["shared_across"] else []
-        } for r in shared_rows]
+        shared_values = [
+            {
+                "type": r["type"],
+                "value": r["value"],
+                "overlap_count": r["overlap"],
+                "shared_across": r["shared_across"].split(",") if r["shared_across"] else [],
+            }
+            for r in shared_rows
+        ]
 
         # ── Activity ─────────────────────────────────────────────────
         activity_rows = await conn.fetch(
@@ -427,17 +444,19 @@ async def collect_workspace_report_data() -> dict[str, Any]:
                     details = json.loads(details)
                 except (json.JSONDecodeError, TypeError):
                     details = {}
-            activity_log.append({
-                "id": row["id"],
-                "investigation_id": row["investigation_id"],
-                "event_type": row["event_type"],
-                "details": details,
-                "created_at": _safe_isoformat(row["created_at"]),
-            })
+            activity_log.append(
+                {
+                    "id": row["id"],
+                    "investigation_id": row["investigation_id"],
+                    "event_type": row["event_type"],
+                    "details": details,
+                    "created_at": _safe_isoformat(row["created_at"]),
+                }
+            )
 
     result = {
         "workspace": {
-            "name": "Workspace Overview", 
+            "name": "Workspace Overview",
             "total_investigations": metrics_row["total_investigations"],
             "total_entities": metrics_row["total_entities"],
             "total_relationships": metrics_row["total_relationships"],
@@ -451,13 +470,13 @@ async def collect_workspace_report_data() -> dict[str, Any]:
         "activity_log": activity_log,
         "generated_at": datetime.now(UTC).isoformat(),
     }
-    
+
     # Collect full report data for each investigation (outside the connection block)
     full_reports = []
     for inv in investigations:
         full_report = await collect_report_data(inv["id"])
         full_reports.append(full_report)
-        
+
     result["full_reports"] = full_reports
-    
+
     return result

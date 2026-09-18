@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _node_to_cytoscape(record: dict[str, Any]) -> dict[str, Any]:
     """Convert a SQLite entity record to Cytoscape.js node element."""
     primary_label = record.get("type", "Unknown")
@@ -53,7 +54,7 @@ def _edge_to_cytoscape(record: dict[str, Any]) -> dict[str, Any]:
             evidence = json.loads(evidence) if evidence else []
         except Exception:
             evidence = []
-            
+
     data: dict[str, Any] = {
         "id": record.get("edge_id", record.get("id", "")),
         "source": record.get("source_id", record.get("source", "")),
@@ -94,7 +95,7 @@ async def get_investigation_subgraph(
     if entity_type_filter:
         nodes_query += " AND type = $2"
         params.append(entity_type_filter)
-        
+
     if limit is not None:
         nodes_query += f" LIMIT {limit} OFFSET {offset}"
 
@@ -110,18 +111,27 @@ async def get_investigation_subgraph(
     cyto_nodes = [_node_to_cytoscape(dict(n)) for n in nodes]
     cyto_edges = [_edge_to_cytoscape(dict(e)) for e in edges]
 
-    logger.info("Retrieved subgraph for %s: %d nodes, %d edges", investigation_id, len(cyto_nodes), len(cyto_edges))
+    logger.info(
+        "Retrieved subgraph for %s: %d nodes, %d edges",
+        investigation_id,
+        len(cyto_nodes),
+        len(cyto_edges),
+    )
     return {"nodes": cyto_nodes, "edges": cyto_edges}
 
 
-async def get_investigation_graph_stats(
-    investigation_id: str) -> dict[str, int]:
+async def get_investigation_graph_stats(investigation_id: str) -> dict[str, int]:
     _validate_id(investigation_id)
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        n = await conn.fetch("SELECT COUNT(*) as count FROM entities WHERE investigation_id = $1", investigation_id)
-        e = await conn.fetch("SELECT COUNT(*) as count FROM relationships WHERE investigation_id = $1", investigation_id)
+        n = await conn.fetch(
+            "SELECT COUNT(*) as count FROM entities WHERE investigation_id = $1", investigation_id
+        )
+        e = await conn.fetch(
+            "SELECT COUNT(*) as count FROM relationships WHERE investigation_id = $1",
+            investigation_id,
+        )
 
     return {
         "total_nodes": n[0]["count"] if n else 0,
@@ -144,7 +154,7 @@ async def get_entity_neighbors(
 
     max_depth = max(1, min(max_depth, 6))
 
-    cte = f"""
+    cte = """
     WITH RECURSIVE traverse(node_id, depth, path) AS (
         SELECT $1, 0, ',' || $1 || ','
         UNION ALL
@@ -160,16 +170,16 @@ async def get_entity_neighbors(
 
     async with pool.acquire() as conn:
         node_ids_records = await conn.fetch(cte, entity_id, investigation_id, max_depth)
-        
+
         if not node_ids_records:
             return {"nodes": [], "edges": []}
-            
+
         # SQLite IN clause limitation bypass (Phase 2 json_each trick)
         ids_json = json.dumps([r["node_id"] for r in node_ids_records])
-        
+
         nodes_q = "SELECT id AS node_id, * FROM entities WHERE investigation_id = $1 AND id IN (SELECT value FROM json_each($2))"
         nodes = await conn.fetch(nodes_q, investigation_id, ids_json)
-        
+
         edges_q = """
         SELECT id AS edge_id, source_id AS source, target_id AS target, * FROM relationships 
         WHERE investigation_id = $1 
@@ -204,7 +214,7 @@ async def get_multi_hop_paths(
     # To find ALL paths between source and target, we trace paths from source.
     # We collect paths that reach the target.
     # Then we extract all unique nodes and edges from those paths.
-    cte = f"""
+    cte = """
     WITH RECURSIVE traverse(node_id, depth, path) AS (
         SELECT $1, 0, ',' || $1 || ','
         UNION ALL
@@ -220,20 +230,20 @@ async def get_multi_hop_paths(
 
     async with pool.acquire() as conn:
         paths = await conn.fetch(cte, source_id, target_id, investigation_id, max_hops)
-        
+
         if not paths:
             return {"nodes": [], "edges": []}
-            
+
         unique_nodes = set()
         for p in paths:
             nodes = [n for n in p["path"].split(",") if n]
             unique_nodes.update(nodes)
-            
+
         ids_json = json.dumps(list(unique_nodes))
-        
+
         nodes_q = "SELECT id AS node_id, * FROM entities WHERE investigation_id = $1 AND id IN (SELECT value FROM json_each($2))"
         nodes_records = await conn.fetch(nodes_q, investigation_id, ids_json)
-        
+
         edges_q = """
         SELECT id AS edge_id, source_id AS source, target_id AS target, * FROM relationships 
         WHERE investigation_id = $1 
@@ -263,12 +273,13 @@ async def get_entity_detail(
     async with pool.acquire() as conn:
         r = await conn.fetch(
             "SELECT id AS node_id, * FROM entities WHERE id = $1 AND investigation_id = $2",
-            entity_id, investigation_id
+            entity_id,
+            investigation_id,
         )
-        
+
     if not r:
         return None
-        
+
     d = dict(r[0])
     props = d.get("properties")
     if isinstance(props, str):

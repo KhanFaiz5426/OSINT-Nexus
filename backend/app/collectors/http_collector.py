@@ -97,7 +97,7 @@ class HTTPCollector(OSINTCollector):
         try:
             redirects = []
             current_url = url
-            
+
             async with httpx.AsyncClient(
                 timeout=settings.HTTP_TIMEOUT,
                 follow_redirects=False,
@@ -114,7 +114,7 @@ class HTTPCollector(OSINTCollector):
                     if response.is_redirect and "location" in response.headers:
                         next_url = str(response.url.join(response.headers["location"]))
                         redirects.append({"url": str(response.url), "status": response.status_code})
-                        
+
                         try:
                             validate_url_not_internal(next_url)
                         except SSRFBlockedError as exc:
@@ -127,7 +127,7 @@ class HTTPCollector(OSINTCollector):
                                 status=ObservationStatus.ERROR,
                                 error_message=f"Redirect blocked (SSRF): {exc}",
                             )
-                        
+
                         current_url = next_url
                         continue
 
@@ -153,7 +153,9 @@ class HTTPCollector(OSINTCollector):
                         "name": c.name,
                         "domain": c.domain,
                         "secure": c.secure,
-                        "httponly": c.has_nonstandard_attr("httponly") if hasattr(c, "has_nonstandard_attr") else False,
+                        "httponly": c.has_nonstandard_attr("httponly")
+                        if hasattr(c, "has_nonstandard_attr")
+                        else False,
                     }
                     for c in client.cookies.jar
                 ]

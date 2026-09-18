@@ -2,7 +2,6 @@
 
 import logging
 import os
-import socket
 import sys
 import threading
 import time
@@ -25,12 +24,9 @@ log_dir.mkdir(parents=True, exist_ok=True)
 log_file = log_dir / "app.log"
 
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(log_file, encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.FileHandler(log_file, encoding="utf-8"), logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("osint.desktop")
 
@@ -44,7 +40,7 @@ class DesktopApi:
     def set_window(self, window: "webview.Window") -> None:
         """Set the webview window reference (called after window creation)."""
         self._window = window
-    
+
     def open_external(self, url: str) -> None:
         """Securely open external URLs in the system default browser."""
         # Simple safeguard: only open http/https links
@@ -114,9 +110,7 @@ class DesktopApi:
             logger.warning("select_folder_dialog called but no window reference set.")
             return None
         try:
-            result = self._window.create_file_dialog(
-                webview.FOLDER_DIALOG
-            )
+            result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
             if result and len(result) > 0:
                 selected = result[0]
                 logger.info("Folder dialog selected: %s", selected)
@@ -134,9 +128,7 @@ class DesktopApi:
         file_types = ("HTML Files (*.html)", "All Files (*.*)")
         try:
             result = self._window.create_file_dialog(
-                webview.SAVE_DIALOG,
-                save_filename=default_filename,
-                file_types=file_types
+                webview.SAVE_DIALOG, save_filename=default_filename, file_types=file_types
             )
             if result:
                 selected = result if isinstance(result, str) else result[0]
@@ -152,14 +144,16 @@ class DesktopApi:
         """Download a file from a local URL to a specific path."""
         try:
             import urllib.request
+
             logger.info("Downloading %s to %s", url, dest_path)
-            req = urllib.request.Request(url, headers={'User-Agent': 'OSINT-Nexus-Desktop'})
-            with urllib.request.urlopen(req) as response, open(dest_path, 'wb') as out_file:
+            req = urllib.request.Request(url, headers={"User-Agent": "OSINT-Nexus-Desktop"})
+            with urllib.request.urlopen(req) as response, open(dest_path, "wb") as out_file:
                 out_file.write(response.read())
             return True
         except Exception as exc:
             logger.error("Failed to download file: %s", exc)
             return False
+
 
 class DesktopApp:
     def __init__(self):
@@ -176,11 +170,7 @@ class DesktopApp:
         from app.main import app as fastapi_app
 
         config = uvicorn.Config(
-            fastapi_app,
-            host="127.0.0.1",
-            port=0,
-            log_level="info",
-            reload=False
+            fastapi_app, host="127.0.0.1", port=0, log_level="info", reload=False
         )
         self.server_thread = threading.Thread(target=self._run_server, args=(config,), daemon=True)
         self.server_thread.start()
@@ -237,12 +227,7 @@ class DesktopApp:
 
             api = DesktopApi()
             window = webview.create_window(
-                "OSINT Nexus",
-                start_url,
-                width=1280,
-                height=800,
-                min_size=(800, 600),
-                js_api=api
+                "OSINT Nexus", start_url, width=1280, height=800, min_size=(800, 600), js_api=api
             )
             # Give the API the window reference for native file dialogs
             api.set_window(window)
@@ -278,11 +263,13 @@ class DesktopApp:
             # Start the webview (blocks the main thread)
             webview.start(private_mode=False)
 
-            logger.info("Webview terminated. Waiting for background Uvicorn thread to terminate cleanly...")
+            logger.info(
+                "Webview terminated. Waiting for background Uvicorn thread to terminate cleanly..."
+            )
             if self.server_thread:
                 # Wait for the FastAPI lifespan to complete its teardown
                 self.server_thread.join(timeout=10.0)
-            
+
             logger.info("Application shutdown complete.")
             sys.exit(0)
 
@@ -296,7 +283,7 @@ if __name__ == "__main__":
     import sys
 
     # On Python 3.8+ Windows, DLLs must be explicitly added to the search path
-    if os.name == 'nt' and sys.version_info >= (3, 8):
+    if os.name == "nt" and sys.version_info >= (3, 8):
         gtk_paths = [
             r"C:\Program Files\GTK3-Runtime Win64\bin",
             r"C:\Program Files (x86)\GTK3-Runtime Win32\bin",

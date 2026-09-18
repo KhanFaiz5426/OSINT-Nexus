@@ -2,24 +2,25 @@
 
 Tasks 8.3-8.6: Renders investigation data into HTML (Jinja2).
 """
+
 from __future__ import annotations
 
-import json
 import logging
 import re
 import uuid
-import os
 from pathlib import Path
 from typing import Any
-import os
 
 logger = logging.getLogger(__name__)
 
+
 def _get_base_dir() -> Path:
     import sys
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS) / "app"
     return Path(__file__).resolve().parent.parent
+
 
 _REPORTS_DIR = _get_base_dir() / "reports_output"
 _TEMPLATES_DIR = _get_base_dir() / "templates"
@@ -52,7 +53,7 @@ def generate_html_report(data: dict[str, Any]) -> str:
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
         autoescape=True,
     )
-    
+
     is_workspace = data.get("is_workspace_report", False)
     template_name = "workspace_report.html" if is_workspace else "report.html"
     template = env.get_template(template_name)
@@ -74,7 +75,7 @@ def generate_html_report(data: dict[str, Any]) -> str:
             sources_used=data.get("sources_used", []),
             notes=data.get("notes", []),
         )
-    
+
     _ensure_reports_dir()
     filepath = _REPORTS_DIR / filename
     filepath.write_text(html_content, encoding="utf-8")

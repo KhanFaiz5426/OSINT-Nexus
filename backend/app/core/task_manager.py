@@ -19,7 +19,8 @@ import enum
 import logging
 import time
 from collections import OrderedDict
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -208,16 +209,12 @@ class TaskManager:
     @property
     def running_count(self) -> int:
         """Number of tasks that are currently RUNNING (holding semaphore)."""
-        return sum(
-            1 for t in self._active_tasks.values() if t.state == TaskState.RUNNING
-        )
+        return sum(1 for t in self._active_tasks.values() if t.state == TaskState.RUNNING)
 
     @property
     def pending_count(self) -> int:
         """Number of tasks that are currently PENDING (waiting for semaphore)."""
-        return sum(
-            1 for t in self._active_tasks.values() if t.state == TaskState.PENDING
-        )
+        return sum(1 for t in self._active_tasks.values() if t.state == TaskState.PENDING)
 
     def list_active(self) -> list[dict[str, Any]]:
         """List all active tasks."""
@@ -230,9 +227,7 @@ class TaskManager:
         termination within the given timeout. No orphaned tasks remain.
         """
         self._shutting_down = True
-        logger.info(
-            "TaskManager: shutting down (%d active tasks)", len(self._active_tasks)
-        )
+        logger.info("TaskManager: shutting down (%d active tasks)", len(self._active_tasks))
 
         tasks_to_cancel: list[asyncio.Task] = []
         for info in list(self._active_tasks.values()):
@@ -241,9 +236,7 @@ class TaskManager:
                 tasks_to_cancel.append(info._asyncio_task)
 
         if tasks_to_cancel:
-            done, pending = await asyncio.wait(
-                tasks_to_cancel, timeout=timeout
-            )
+            done, pending = await asyncio.wait(tasks_to_cancel, timeout=timeout)
             # Force-cancel anything still pending after timeout.
             for task in pending:
                 task.cancel()

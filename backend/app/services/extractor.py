@@ -294,7 +294,9 @@ def extract_from_dns(
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity | None:
+    def _add_entity(
+        etype: EntityType, value: str, confidence: float = 0.9
+    ) -> ExtractedEntity | None:
         norm = _normalize_entity_value(etype, value)
         if not norm:
             return None

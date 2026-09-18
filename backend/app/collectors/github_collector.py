@@ -47,7 +47,7 @@ class GitHubCollector(OSINTCollector):
 
     async def _collect(self, target: str, target_type: TargetType) -> RawResult:
         settings = get_settings()
-        
+
         # For email targets, search GitHub by email first
         if target_type == TargetType.EMAIL:
             return await self._collect_by_email(target, target_type, settings)

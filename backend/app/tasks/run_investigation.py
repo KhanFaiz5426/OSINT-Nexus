@@ -38,9 +38,7 @@ async def run_investigation_async(
         llm_fn = get_llm_call_fn()
         result = await run_investigation_loop(investigation_id, llm_call_fn=llm_fn)
     except Exception as exc:
-        logger.exception(
-            "Background task failed for investigation %s: %s", investigation_id, exc
-        )
+        logger.exception("Background task failed for investigation %s: %s", investigation_id, exc)
         # Update investigation status to error.
         try:
             await _set_investigation_error(investigation_id, str(exc))

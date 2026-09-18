@@ -1,14 +1,14 @@
 """Database client — aiosqlite wrapper for asyncpg migration compatibility."""
 
-from collections.abc import AsyncGenerator
 import functools
 import os
 import re
+from collections.abc import AsyncGenerator
+
 import aiosqlite
 
-from app.core.config import get_settings
-
 _db_path: str | None = None
+
 
 def set_db_path(path: str) -> None:
     global _db_path
@@ -29,6 +29,7 @@ def get_db_path() -> str:
 
 class AsyncpgCompatibleConnection:
     """Wraps an aiosqlite connection to mimic asyncpg's API and translate SQL."""
+
     def __init__(self, conn: aiosqlite.Connection):
         self._conn = conn
         self._conn.row_factory = aiosqlite.Row
@@ -37,7 +38,7 @@ class AsyncpgCompatibleConnection:
     @functools.lru_cache(maxsize=1024)
     def _translate_sql(sql: str) -> str:
         # Translate Postgres $1, $2 to SQLite ?1, ?2 to preserve order.
-        sql = re.sub(r'\$(\d+)', r'?\1', sql)
+        sql = re.sub(r"\$(\d+)", r"?\1", sql)
         sql = sql.replace("::text[]", "")
         sql = sql.replace("::uuid[]", "")
         sql = sql.replace("::jsonb", "")
@@ -45,13 +46,14 @@ class AsyncpgCompatibleConnection:
         sql = sql.replace("::uuid", "")
         sql = sql.replace("ILIKE", "LIKE")
         # Replace ANY(?N) with JSON each for SQLite array simulation
-        sql = re.sub(r'=\s*ANY\(\?(\d+)\)', r'IN (SELECT value FROM json_each(?\1))', sql)
+        sql = re.sub(r"=\s*ANY\(\?(\d+)\)", r"IN (SELECT value FROM json_each(?\1))", sql)
         sql = sql.replace("NOW()", "datetime('now', 'utc')")
         return sql
 
     def _prepare_args(self, args):
         """Serialize lists to JSON strings to support SQLite json_each for arrays."""
         import json
+
         prepared = []
         for arg in args:
             if isinstance(arg, (list, tuple)):
@@ -63,18 +65,23 @@ class AsyncpgCompatibleConnection:
     class RecordProxy:
         def __init__(self, row):
             import datetime
+
             self._row = row
             self._parsed = {}
             for k in row.keys():
                 val = row[k]
                 # Convert timestamp strings to datetime objects to mimic asyncpg
-                if isinstance(val, str) and (k.endswith('_at') or k == 'timestamp'):
+                if isinstance(val, str) and (k.endswith("_at") or k == "timestamp"):
                     try:
                         # SQLite datetime('now', 'utc') returns 'YYYY-MM-DD HH:MM:SS'
                         if len(val) == 19:
-                            self._parsed[k] = datetime.datetime.strptime(val, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+                            self._parsed[k] = datetime.datetime.strptime(
+                                val, "%Y-%m-%d %H:%M:%S"
+                            ).replace(tzinfo=datetime.UTC)
                         else:
-                            self._parsed[k] = datetime.datetime.fromisoformat(val.replace("Z", "+00:00"))
+                            self._parsed[k] = datetime.datetime.fromisoformat(
+                                val.replace("Z", "+00:00")
+                            )
                     except ValueError:
                         self._parsed[k] = val
                 else:
@@ -88,13 +95,13 @@ class AsyncpgCompatibleConnection:
 
         def keys(self):
             return self._parsed.keys()
-            
+
         def get(self, key, default=None):
             return self._parsed.get(key, default)
-            
+
         def __iter__(self):
             return iter(self._parsed)
-            
+
         def __len__(self):
             return len(self._parsed)
 
@@ -132,8 +139,8 @@ class AsyncpgCompatibleConnection:
     @contextlib.asynccontextmanager
     async def transaction(self):
         """Provide explicit BEGIN/COMMIT transaction blocks.
-        
-        Since isolation_level=None is used globally for autocommit, 
+
+        Since isolation_level=None is used globally for autocommit,
         this allows explicit atomic grouped writes.
         """
         await self._conn.execute("BEGIN")
@@ -168,7 +175,7 @@ class AsyncpgCompatiblePool:
 
     def acquire(self):
         return AsyncpgCompatiblePoolContext(self._conn)
-        
+
     async def close(self):
         await self._conn.close()
 
@@ -176,55 +183,63 @@ class AsyncpgCompatiblePool:
 _pool_conn: aiosqlite.Connection | None = None
 _pool: AsyncpgCompatiblePool | None = None
 
+
 async def _init_schema(conn: aiosqlite.Connection) -> None:
     import sys
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         schema_path = os.path.join(sys._MEIPASS, "app", "db", "schema.sql")
     else:
         schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
     if os.path.exists(schema_path):
-        with open(schema_path, "r", encoding="utf-8") as f:
+        with open(schema_path, encoding="utf-8") as f:
             schema_sql = f.read()
-            
+
             # Auto-heal edges_bidi if migrating from older schema
             try:
-                await conn.execute("ALTER TABLE edges_bidi ADD COLUMN investigation_id TEXT NOT NULL DEFAULT ''")
+                await conn.execute(
+                    "ALTER TABLE edges_bidi ADD COLUMN investigation_id TEXT NOT NULL DEFAULT ''"
+                )
                 await conn.commit()
             except Exception:
                 pass
-                
+
             try:
                 await conn.executescript(schema_sql)
             except Exception as e:
                 import logging
+
                 logging.warning(f"Schema init issue: {e}")
             await conn.commit()
+
 
 async def get_pool():
     global _pool_conn, _pool
     if _pool is None:
         db_path = get_db_path()
         is_new = not os.path.exists(db_path)
-        
+
         _pool_conn = await aiosqlite.connect(db_path, isolation_level=None)
-        
+
         # Register missing Postgres functions
         from uuid import uuid4
+
         await _pool_conn.create_function("gen_random_uuid", 0, lambda: str(uuid4()))
-        
+
         # Security and concurrency PRAGMAs
         await _pool_conn.execute("PRAGMA journal_mode=WAL")
         await _pool_conn.execute("PRAGMA busy_timeout=5000")
         await _pool_conn.execute("PRAGMA synchronous=NORMAL")
         await _pool_conn.execute("PRAGMA foreign_keys=ON")
         await _pool_conn.execute("PRAGMA trusted_schema=OFF")
-        
+
         # Always run schema to ensure new tables (like workspace_reports) are added
         # to existing databases. schema.sql uses IF NOT EXISTS safely.
         await _init_schema(_pool_conn)
-            
+
         _pool = AsyncpgCompatiblePool(_pool_conn)
     return _pool
+
 
 async def close_pool() -> None:
     global _pool, _pool_conn
@@ -233,11 +248,13 @@ async def close_pool() -> None:
         _pool_conn = None
         _pool = None
 
+
 def reset_pool() -> None:
     global _pool, _pool_conn, _db_path
     _pool = None
     _pool_conn = None
     _db_path = None
+
 
 async def get_db() -> AsyncGenerator[AsyncpgCompatibleConnection, None]:
     pool = await get_pool()

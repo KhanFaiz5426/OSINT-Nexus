@@ -224,9 +224,10 @@ async def download_report(investigation_id: str, report_id: str) -> FileResponse
 
         resolved = os.path.realpath(str(file_path))
         reports_dir = os.path.realpath(str(_REPORTS_DIR))
-        
+
         import os as _os
-        if _os.name == 'nt':
+
+        if _os.name == "nt":
             if not resolved.lower().startswith(reports_dir.lower()):
                 raise HTTPException(status_code=403, detail="Access denied")
         else:
