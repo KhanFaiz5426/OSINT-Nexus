@@ -11,6 +11,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
+ChangesAssociations=yes
 SetupIconFile=app\icon.ico
 UninstallDisplayIcon={app}\osint-nexus.exe
 
@@ -26,3 +27,9 @@ Filename: "{app}\osint-nexus.exe"; Description: "Launch OSINT Nexus"; Flags: now
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+
+[Registry]
+Root: HKCR; Subkey: ".osint"; ValueType: string; ValueName: ""; ValueData: "OSINTNexusFile"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "OSINTNexusFile"; ValueType: string; ValueName: ""; ValueData: "OSINT Nexus Workspace"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "OSINTNexusFile\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\osint-nexus.exe,0"
+Root: HKCR; Subkey: "OSINTNexusFile\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\osint-nexus.exe"" ""%1"""

@@ -916,16 +916,18 @@ function SystemSection({
   health: Record<string, any>;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-0">
       <SettingCard title="Application & Runtime" description="OSINT Nexus version and native architecture">
-        <InfoRow label="Version" value={`v${settings.version}`} />
-        <InfoRow label="Runtime" value="FastAPI + React (pywebview shell)" />
-        <InfoRow label="Storage Engine" value={health.database?.type || "SQLite"} />
-        <InfoRow label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
+        <div className="flex flex-col">
+          <InfoRow label="Version" value={`v${settings.version}`} />
+          <InfoRow label="Runtime" value="FastAPI + React (pywebview shell)" />
+          <InfoRow label="Storage Engine" value={health.database?.type || "SQLite"} />
+          <InfoRow label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
+        </div>
       </SettingCard>
 
       <SettingCard title="Workspace & Security" description="Current active workspace and credentials">
-        <div className="space-y-1.5">
+        <div className="flex flex-col">
           <InfoRow 
             label="Active Workspace" 
             value={health.database?.active_workspace || "None"} 
@@ -938,7 +940,7 @@ function SystemSection({
       </SettingCard>
 
       <SettingCard title="AI & Search Infrastructure" description="Configured providers and engines">
-        <div className="space-y-1.5">
+        <div className="flex flex-col">
           <InfoRow label="Active AI Provider" value={settings.llm.active_provider} />
           <InfoRow label="AI Model" value={settings.llm.model || "Not set"} />
           <InfoRow label="SearXNG Status" value={health.search?.searxng_enabled ? "Enabled" : "Disabled"} />
@@ -947,17 +949,17 @@ function SystemSection({
       </SettingCard>
 
       <SettingCard title="About" description="OSINT Nexus">
-        <p className="text-sm text-[var(--nx-text-secondary)] leading-relaxed">
+        <p className="text-[13px] text-[var(--nx-text-secondary)] leading-relaxed">
           OSINT Nexus is an AI-assisted OSINT investigation and correlation framework.
           It automatically collects publicly available information from open sources,
           normalizes data into a unified entity model, and uses AI to suggest investigation pivots.
         </p>
-        <div className="mt-3 space-y-1.5">
+        <div className="mt-4 flex flex-col">
           <InfoRow label="License" value="Academic / Research Use" />
           <InfoRow label="Version" value={`v${settings.version}`} />
         </div>
-        <div className="mt-3 rounded-md bg-[var(--nx-surface-2)] border border-[var(--nx-border)] px-3 py-2">
-          <p className="text-[11px] text-[var(--nx-text-muted)] leading-relaxed">
+        <div className="mt-6 rounded border border-[var(--nx-border)]/50 bg-[var(--nx-surface-2)]/30 px-3 py-2.5">
+          <p className="text-[12px] text-[var(--nx-text-muted)] leading-relaxed">
             Built with FastAPI, React, SQLite, and TanStack Query on a pywebview desktop shell.
             LLM integration natively supports Ollama, NVIDIA, OpenAI, Anthropic, and OpenCode providers.
           </p>
@@ -979,12 +981,12 @@ function SettingCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--nx-border)] bg-[var(--nx-surface-1)]">
-      <div className="border-b border-[var(--nx-border)] px-4 py-3">
-        <h3 className="text-sm font-medium text-[var(--nx-text-primary)]">{title}</h3>
-        <p className="text-xs text-[var(--nx-text-muted)] mt-0.5">{description}</p>
+    <div className="pb-8 mb-8 border-b border-[var(--nx-border)]/50 last:border-0 last:pb-0 last:mb-0">
+      <div className="mb-5">
+        <h3 className="text-[14px] font-medium text-[var(--nx-text-primary)]">{title}</h3>
+        <p className="text-[13px] text-[var(--nx-text-muted)] mt-1">{description}</p>
       </div>
-      <div className="p-4 space-y-4">{children}</div>
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }
@@ -1013,9 +1015,9 @@ function FormField({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-2">
-      <span className="text-xs text-[var(--nx-text-muted)]">{label}</span>
-      <span className="text-sm font-mono text-[var(--nx-text-primary)]">{value}</span>
+    <div className="flex items-start sm:items-center justify-between py-2.5 border-b border-[var(--nx-border)]/30 last:border-0">
+      <span className="text-[13px] text-[var(--nx-text-secondary)] pr-4">{label}</span>
+      <span className="text-[13px] text-[var(--nx-text-primary)] text-right break-words flex-1 justify-end">{value}</span>
     </div>
   );
 }

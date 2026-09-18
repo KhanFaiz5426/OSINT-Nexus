@@ -84,8 +84,13 @@ async def correlate_observations(
             )
             if obs_rels:
                 all_observation_rels.extend(obs_rels)
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning("Extraction failed for %s from %s due to malformed data: %s", target, collector, e)
+            continue
         except Exception as e:
-            logger.warning("Extraction failed for %s from %s: %s", target, collector, e)
+            logger.error(
+                "Unexpected extraction crash for %s from %s", target, collector, exc_info=True
+            )
             continue
 
         # Fix for email targets: explicitly inject Email entity

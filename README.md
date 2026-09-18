@@ -47,7 +47,7 @@ OSINT investigations today suffer from fragmented workflows across standalone to
 | **Entity extraction** | Identifies domains, IPs, emails, ASNs, URLs, technologies, and other entities from raw collector responses |
 | **Entity resolution** | Deduplicates entities across sources using exact and normalized-value matching |
 | **Relationship detection** | Identifies hosting, registration, certificate, mail, and other relationships between entities |
-| **Knowledge graph** | Interactive Neo4j-backed graph visualization with zoom, filter, and exploration |
+| **Knowledge graph** | Interactive SQLite-backed graph visualization with zoom, filter, and exploration |
 | **AI-assisted planning** | LLM-powered pivot suggestions and investigation analysis (optional; works without LLM) |
 | **Confidence scoring** | Automatic confidence scores for entities and relationships based on source reliability, data quality, and recency |
 | **Evidence provenance** | Every observation records its source adapter, collection timestamp, raw response, and method |
@@ -61,53 +61,52 @@ OSINT investigations today suffer from fragmented workflows across standalone to
 The investigation pipeline follows a deterministic collect → normalize → extract → resolve → correlate → analyze → report flow:
 
 ```
-Target Input
-     │
-     ▼
-┌─────────────────┐
-│  Classification  │  Determines target type (domain, IP, URL, etc.)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Collection    │  Dispatches relevant OSINT collectors in parallel
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Normalization   │  Standardizes raw data (lowercase, canonical IPs, ISO timestamps)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Extraction    │  Pulls entities (domains, IPs, emails, etc.) from responses
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Resolution    │  Deduplicates and merges entity records across sources
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Relationship    │  Detects structural relationships (hosted_on, registered_by, etc.)
-│    Detection     │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Correlation    │  Cross-references findings, scores confidence, builds graph
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  AI Analysis     │  (Optional) LLM summarizes findings, suggests next steps
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Reporting      │  Generates HTML/JSON/CSV reports with provenance
-└─────────────────┘
+   Target Input
+            │
+            ▼
+┌────────────────────────┐
+│     Classification     │  Determines target type (domain, IP, URL, etc.)
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│       Collection       │  Dispatches relevant OSINT collectors in parallel
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│     Normalization      │  Standardizes raw data (lowercase, canonical IPs, ISO timestamps)
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│       Extraction       │  Pulls entities (domains, IPs, emails, etc.) from responses
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│       Resolution       │  Deduplicates and merges entity records across sources
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│ Relationship Detection │  Detects structural relationships (hosted_on, registered_by, etc.)
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│      Correlation       │  Cross-references findings, scores confidence, builds graph
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│      AI Analysis       │  (Optional) LLM summarizes findings, suggests next steps
+└───────────┬────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│       Reporting        │  Generates HTML/JSON/CSV reports with provenance
+└────────────────────────┘
 ```
 
 The orchestrator manages the collection loop with configurable depth (shallow / standard / deep) and API budget limits. After each collection round, the AI planner may suggest additional pivot targets based on the current graph state, which the orchestrator evaluates and dispatches.
@@ -283,10 +282,11 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 │   │   │   ├── graph.py
 │   │   │   ├── activity.py
 │   │   │   └── reports.py
-│   │   ├── core/             # Configuration, security, Redis client
+│   │   ├── core/             # Configuration, security, task manager, workspace
 │   │   │   ├── config.py
 │   │   │   ├── security.py
-│   │   │   └── redis.py
+│   │   │   ├── task_manager.py
+│   │   │   └── workspace.py
 │   │   ├── services/         # Business logic pipeline
 │   │   │   ├── classifier.py
 │   │   │   ├── normalizer.py
@@ -318,7 +318,6 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 │   │   │   ├── analyzer.py
 │   │   │   └── validator.py
 │   │   ├── graph/            # Graph queries
-│   │   │   ├── client.py
 │   │   │   ├── reader.py
 │   │   │   ├── writer.py
 │   │   │   ├── queries.py
@@ -393,7 +392,7 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 
 **For End Users:**
 - Windows 10 or 11 (64-bit)
-- No additional software required (SQLite is bundled natively)
+- No additional software is required for the core application (SQLite is bundled natively). Optional integrations such as SearXNG and Ollama require their respective external software to be installed separately.
 
 **For Developers:**
 | Requirement | Version | Purpose |
@@ -408,7 +407,7 @@ Entities and relationships carry `confidence` fields (0.0–1.0) that are displa
 
 ## Configuration
 
-Copy `.env.example` to `.env` and adjust values. All settings have sensible defaults for local development.
+For developers running from source, copy `.env.example` to `.env` and adjust values. All settings have sensible defaults for local development. (End users configure supported application options directly through the Settings UI.)
 
 ### Required Settings
 
@@ -454,7 +453,7 @@ When `LLM_PROVIDER=none` (the default), the AI planner returns deterministic piv
 
 ## Setup and Running
 
-### End User Installation
+### Windows Application
 
 1. Download the `OSINT-Nexus-Setup.exe` installer from the latest release.
 2. Run the installer and follow the prompts. The application installs to your local user directory (e.g., `C:\Users\<Username>\AppData\Local\Programs\OSINT-Nexus`).
@@ -509,7 +508,34 @@ pyinstaller osint-nexus.spec --noconfirm
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" OSINT-Nexus.iss
 ```
 
-The final installer will be located in the `backend/Output/` directory.
+The final installer will be located in the `backend/Output/` directory. (Note: Inno Setup is only required for developers building the Windows installer themselves.)
+
+### Optional Search Provider — SearXNG
+
+SearXNG is an optional external search provider. OSINT Nexus connects to it but does not bundle it.
+
+#### For End Users
+- If you want to use SearXNG, you must install and run it separately.
+- You can also run it via Docker.
+- Configure OSINT Nexus to connect to it through the application Settings UI.
+
+#### For Developers
+- You can run SearXNG using the provided compose profile: `docker compose --profile searxng up -d`
+- Configure OSINT Nexus to connect to it by setting `SEARXNG_BASE_URL` in your `.env` (defaults to `http://localhost:8088`) and `SEARXNG_ENABLED=true`.
+
+### Optional Local AI — Ollama
+
+Ollama is optional.(Ollama is needed for AI Intelligence only if you dont have any API keys)
+
+#### For End Users
+- If you want local AI, you must install Ollama separately.
+- You must also install or pull an Ollama model.
+- Ollama and its models are NOT bundled with the OSINT Nexus installer.
+- Configure the Ollama provider and model through the application Settings UI.
+
+#### For Developers
+- Install Ollama separately and pull your desired model (e.g., `ollama pull llama3.1`).
+- Configure OSINT Nexus by setting `LLM_PROVIDER=ollama` and `LLM_MODEL=llama3.1` (or your chosen model) in your `.env`.
 
 ---
 
@@ -628,7 +654,7 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 | `POST` | `/api/v1/investigations` | Create a new investigation |
 | `GET` | `/api/v1/investigations` | List all investigations |
 | `GET` | `/api/v1/investigations/{id}` | Get investigation details |
-| `POST` | `/api/v1/investigations/{id}/start` | Start the investigation collection loop (launches Celery task) |
+| `POST` | `/api/v1/investigations/{id}/start` | Start the investigation collection loop (launches background task) |
 | `POST` | `/api/v1/investigations/{id}/stop` | Stop a running investigation |
 | `GET` | `/api/v1/investigations/{id}/status` | Get detailed status (budget, entity/relationship counts) |
 | **Entities** | | |
@@ -771,7 +797,7 @@ mkdir -p backend/reports_output
 | 2. Target Classification & Investigation Management | Complete | Classifier, normalizer, CRUD endpoints, frontend forms |
 | 3. OSINT Collectors | Complete | DNS, WHOIS, CT, IP-to-ASN, GitHub, HTTP, threat intel |
 | 4. Normalization, Extraction & Resolution | Complete | Entity extraction, deduplication, normalization pipeline |
-| 5. Knowledge Graph | Complete | Neo4j integration, graph reader/writer, subgraph queries |
+| 5. Knowledge Graph | Complete | SQLite graph integration, graph reader/writer, subgraph queries |
 | 6. Investigation Orchestration | Complete | Automated collection loop, AI planner, pivot selection |
 | 7. Dashboard & Visualization | Complete | React frontend, graph view, entity panels, timeline |
 | 8. Reporting & Export | Complete | HTML/JSON/CSV report generation with provenance |
@@ -780,6 +806,10 @@ mkdir -p backend/reports_output
 **Test coverage:** 285 backend tests + 13 frontend tests passing. Ruff lint and TypeScript type checks clean.
 
 ---
+
+## Distribution
+
+Windows installers are built using Inno Setup. Inno Setup is a separate third-party project and is subject to its own license terms. The OSINT Nexus source code is licensed under the MIT License.
 
 ## License
 

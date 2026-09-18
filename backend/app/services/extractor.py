@@ -245,8 +245,8 @@ def _normalize_entity_value(entity_type: EntityType, value: str) -> str | None:
             return normalize_ip(value)
         case EntityType.DOMAIN | EntityType.SUBDOMAIN:
             norm_dom = normalize_domain(value)
-            # Strict centralized validation: must be a valid domain with no spaces/paths
-            if not re.match(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", norm_dom):
+            # Strict centralized validation: must be a valid domain with no spaces/paths (allowing wildcard)
+            if not re.match(r"^(?:\*\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", norm_dom):
                 return None
             return norm_dom
         case EntityType.EMAIL:
@@ -599,8 +599,36 @@ def extract_from_whois(
     if isinstance(nameservers, str):
         nameservers = [nameservers]
     for ns in nameservers:
-        if ns and ns.lower() not in ("redacted", "privacy"):
-            ns_entity = _add_entity(EntityType.DOMAIN, ns, 0.9)
+        if not ns:
+            continue
+            
+        if isinstance(ns, dict):
+            ns_name = str(ns.get("name", "")).strip()
+            ns_ip = str(ns.get("ipv4", ns.get("ipv6", ""))).strip()
+            
+            ns_entity = None
+            if ns_name and ns_name.lower() not in ("redacted", "privacy"):
+                ns_entity = _add_entity(EntityType.DOMAIN, ns_name, 0.9)
+                if ns_entity:
+                    _add_rel(domain_entity.id, RelationshipType.USES_NAMESERVER, ns_entity.id, "whois_nameserver")
+            
+            if ns_ip:
+                from app.services.normalizer import is_valid_ip
+                if is_valid_ip(ns_ip):
+                    ip_entity = _add_entity(EntityType.IP, ns_ip, 0.9)
+                    if ip_entity and ns_entity:
+                        _add_rel(ns_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "whois_nameserver_ip")
+            continue
+
+        ns_str = str(ns).strip()
+        if ns_str and ns_str.lower() not in ("redacted", "privacy"):
+            # A nameserver might be returned as an IP address
+            from app.services.normalizer import is_valid_ip
+            if is_valid_ip(ns_str):
+                ns_entity = _add_entity(EntityType.IP, ns_str, 0.9)
+            else:
+                ns_entity = _add_entity(EntityType.DOMAIN, ns_str, 0.9)
+            
             if ns_entity:
                 _add_rel(
                     domain_entity.id,
@@ -754,16 +782,29 @@ def extract_from_ct(
                         "ct_issuer",
                     )
 
-        # Names in SANs → subdomains
+        # Names in SANs → subdomains or IPs
         name_value = cert.get("name_value", "")
         if name_value:
             for name in name_value.split("\n"):
                 name = name.strip().lower()
-                if name.startswith("*."):
-                    name = name[2:]
+                if not name:
+                    continue
                 
-                if name and name != source_domain:
-                    # Subdomain if it ends with source_domain
+                from app.services.normalizer import is_valid_ip
+                if is_valid_ip(name):
+                    ip_entity = _add_entity(EntityType.IP, name, 0.9)
+                    if ip_entity:
+                        _add_rel(
+                            domain_entity.id,
+                            RelationshipType.HOSTED_ON,
+                            ip_entity.id,
+                            "ct_san_ip",
+                            confidence=0.8,
+                        )
+                    continue
+                
+                if name != source_domain:
+                    # Subdomain if it ends with source_domain (including wildcard match)
                     if name.endswith(f".{source_domain}") or name == source_domain:
                         sub_entity = _add_entity(EntityType.SUBDOMAIN, name, 0.9)
                         if sub_entity:
