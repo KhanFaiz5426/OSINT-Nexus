@@ -113,10 +113,10 @@ class TestCollectorEnabledSetting:
 class TestCollectorCacheTTL:
     """Verify that collectors.cache_ttl from settings affects collector instances."""
 
-    def test_per_collector_ttl_override(self, tmp_path: Path) -> None:
-        """Per-collector rate_limits entry should override the class default."""
+    def test_global_ttl_override(self, tmp_path: Path) -> None:
+        """Global cache_ttl entry should override the class default."""
         settings_file = tmp_path / "settings.json"
-        _write_settings(settings_file, {"collectors": {"rate_limits": {"dns": 3600}}})
+        _write_settings(settings_file, {"collectors": {"cache_ttl": 3600}})
 
         with patch("app.core.settings_store.SETTINGS_FILE", settings_file):
             import app.core.settings_store as store

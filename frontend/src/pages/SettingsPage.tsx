@@ -916,55 +916,78 @@ function SystemSection({
   health: Record<string, any>;
 }) {
   return (
-    <div className="space-y-0">
-      <SettingCard title="Application & Runtime" description="OSINT Nexus version and native architecture">
-        <div className="flex flex-col">
-          <InfoRow label="Version" value={`v${settings.version}`} />
-          <InfoRow label="Runtime" value="FastAPI + React (pywebview shell)" />
-          <InfoRow label="Storage Engine" value={health.database?.type || "SQLite"} />
-          <InfoRow label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
+    <div className="max-w-4xl pb-10">
+      <div className="mb-8">
+        <h2 className="text-[18px] font-medium text-[var(--nx-text-primary)]">System & Data</h2>
+        <p className="text-[13px] text-[var(--nx-text-muted)] mt-1">Application identity, local environment, and infrastructure status.</p>
+      </div>
+      
+      {/* Application & Runtime */}
+      <section className="mb-10">
+        <h3 className="text-[11px] font-semibold tracking-wider text-[var(--nx-text-secondary)] uppercase mb-4 border-b border-[var(--nx-border)]/50 pb-2">
+          Application & Runtime
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+          <SystemDataBlock label="Version" value={`v${settings.version}`} />
+          <SystemDataBlock label="Runtime" value="FastAPI + React" />
+          <SystemDataBlock label="Storage Engine" value={health.database?.type || "SQLite"} />
+          <SystemDataBlock label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
         </div>
-      </SettingCard>
+      </section>
 
-      <SettingCard title="Workspace & Security" description="Current active workspace and credentials">
-        <div className="flex flex-col">
-          <InfoRow 
-            label="Active Workspace" 
-            value={health.database?.active_workspace || "None"} 
-          />
-          <InfoRow 
-            label="Credential Storage" 
-            value="Windows Credential Manager (Native Keyring)" 
-          />
+      {/* Workspace & Security */}
+      <section className="mb-10">
+        <h3 className="text-[11px] font-semibold tracking-wider text-[var(--nx-text-secondary)] uppercase mb-4 border-b border-[var(--nx-border)]/50 pb-2">
+          Workspace & Security
+        </h3>
+        <div className="flex flex-col gap-6">
+          <div>
+            <span className="block text-[11px] font-medium text-[var(--nx-text-muted)] mb-2">Active Workspace</span>
+            <div className="font-mono text-[12px] text-[var(--nx-text-primary)] bg-[var(--nx-surface-2)]/50 px-3 py-2 border-l-[3px] border-[var(--nx-accent)] break-all select-all inline-block max-w-full">
+              {health.database?.active_workspace || "None"}
+            </div>
+          </div>
+          <div>
+            <span className="block text-[11px] font-medium text-[var(--nx-text-muted)] mb-1">Credential Storage</span>
+            <span className="block text-[13px] text-[var(--nx-text-primary)]">
+              Windows Credential Manager (Native Keyring)
+            </span>
+          </div>
         </div>
-      </SettingCard>
+      </section>
 
-      <SettingCard title="AI & Search Infrastructure" description="Configured providers and engines">
-        <div className="flex flex-col">
-          <InfoRow label="Active AI Provider" value={settings.llm.active_provider} />
-          <InfoRow label="AI Model" value={settings.llm.model || "Not set"} />
-          <InfoRow label="SearXNG Status" value={health.search?.searxng_enabled ? "Enabled" : "Disabled"} />
-          <InfoRow label="Search Provider Limit" value={String(health.search?.provider_limit || 40)} />
+      {/* AI & Search Infrastructure */}
+      <section className="mb-10">
+        <h3 className="text-[11px] font-semibold tracking-wider text-[var(--nx-text-secondary)] uppercase mb-4 border-b border-[var(--nx-border)]/50 pb-2">
+          Infrastructure Configuration
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+          <SystemDataBlock label="Active AI Provider" value={settings.llm.active_provider} />
+          <SystemDataBlock label="AI Model" value={settings.llm.model || "Provider Default"} />
+          <SystemDataBlock label="SearXNG Status" value={settings.search?.searxng_enabled ? "Enabled" : "Disabled"} />
+          <SystemDataBlock label="Search Provider Limit" value={String(settings.search?.max_results_per_provider || 40)} />
         </div>
-      </SettingCard>
+      </section>
 
-      <SettingCard title="About" description="OSINT Nexus">
-        <p className="text-[13px] text-[var(--nx-text-secondary)] leading-relaxed">
-          OSINT Nexus is an AI-assisted OSINT investigation and correlation framework.
-          It automatically collects publicly available information from open sources,
-          normalizes data into a unified entity model, and uses AI to suggest investigation pivots.
+      {/* About */}
+      <section className="mt-12 pt-6 text-[12px] text-[var(--nx-text-muted)] leading-relaxed">
+        <p className="mb-2 text-[var(--nx-text-secondary)]">
+          <strong>OSINT Nexus</strong> is an AI-assisted OSINT investigation framework.
         </p>
-        <div className="mt-4 flex flex-col">
-          <InfoRow label="License" value="Academic / Research Use" />
-          <InfoRow label="Version" value={`v${settings.version}`} />
-        </div>
-        <div className="mt-6 rounded border border-[var(--nx-border)]/50 bg-[var(--nx-surface-2)]/30 px-3 py-2.5">
-          <p className="text-[12px] text-[var(--nx-text-muted)] leading-relaxed">
-            Built with FastAPI, React, SQLite, and TanStack Query on a pywebview desktop shell.
-            LLM integration natively supports Ollama, NVIDIA, OpenAI, Anthropic, and OpenCode providers.
-          </p>
-        </div>
-      </SettingCard>
+        <p className="mb-1">
+          Built with FastAPI, React, SQLite, and TanStack Query on a pywebview desktop shell.
+        </p>
+        <p>License: Academic / Research Use</p>
+      </section>
+    </div>
+  );
+}
+
+function SystemDataBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] font-medium text-[var(--nx-text-muted)] mb-1">{label}</span>
+      <span className="text-[13px] text-[var(--nx-text-primary)] truncate" title={value}>{value}</span>
     </div>
   );
 }

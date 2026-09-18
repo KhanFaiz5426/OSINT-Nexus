@@ -1007,8 +1007,15 @@ async def _expand_username_searches(
                 logger.debug("Real name search failed: %s", exc)
 
     # ── Step 4: Search top username variations ────────────────────────────
+    try:
+        from app.core.settings_store import SETTINGS_FILE, get_app_settings
+        _app = get_app_settings() if SETTINGS_FILE.exists() else None
+        max_variations = _app.investigation.probe.max_variations if _app else 10
+    except Exception:
+        max_variations = 10
+
     if search_collector and state.budget_remaining > 1:
-        variations = generate_username_variations(state.target, max_variations=3)
+        variations = generate_username_variations(state.target, max_variations=max_variations)
         for var in variations[1:]:  # Try generated variations
             if state.budget_exhausted:
                 break
@@ -1067,14 +1074,17 @@ async def _run_username_probe_engine(
             _app = get_app_settings()
             max_variations = _app.investigation.probe.max_variations
             max_platforms = _app.investigation.probe.max_platforms
+            max_total_requests = _app.investigation.probe.max_total_requests
             probe_timeout = _app.investigation.probe.timeout
         else:
             max_variations = 10
             max_platforms = 20
+            max_total_requests = 200
             probe_timeout = 5.0
     except Exception:
         max_variations = 10
         max_platforms = 20
+        max_total_requests = 200
         probe_timeout = 5.0
 
     # Generate probe variations (confidence-ranked, limited).
@@ -1084,7 +1094,7 @@ async def _run_username_probe_engine(
     budget = ProbeBudget(
         max_variations=max_variations,
         max_platforms=max_platforms,
-        max_total_requests=min(state.budget_remaining, 200),
+        max_total_requests=min(state.budget_remaining, max_total_requests),
         timeout=probe_timeout,
     )
     engine = UsernameProbeEngine(budget=budget)

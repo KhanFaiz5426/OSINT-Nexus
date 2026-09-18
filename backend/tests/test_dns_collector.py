@@ -22,7 +22,7 @@ class TestDNSCollector:
         assert TargetType.DOMAIN in self.collector.supported_target_types
         assert TargetType.IP in self.collector.supported_target_types
         assert self.collector.requires_api_key is False
-        assert self.collector.cache_ttl == 3600
+        assert self.collector.cache_ttl == 86400
         assert self.collector.rate_limit_rpm == 600
 
     def test_is_ip_address(self):
