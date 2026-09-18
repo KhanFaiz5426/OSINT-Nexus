@@ -78,11 +78,15 @@ async def correlate_observations(
             continue
 
         # Extract entities and relationships based on collector type.
-        entities, obs_rels = _extract_from_observation(
-            collector, target, raw_response, observation_id=obs_id
-        )
-        if obs_rels:
-            all_observation_rels.extend(obs_rels)
+        try:
+            entities, obs_rels = _extract_from_observation(
+                collector, target, raw_response, observation_id=obs_id
+            )
+            if obs_rels:
+                all_observation_rels.extend(obs_rels)
+        except Exception as e:
+            logger.warning("Extraction failed for %s from %s: %s", target, collector, e)
+            continue
 
         # Fix for email targets: explicitly inject Email entity
         from app.models import EntityType, TargetType
