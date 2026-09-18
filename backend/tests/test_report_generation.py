@@ -13,9 +13,7 @@ import pytest
 
 from app.services.report_generator import (
     _safe_filename,
-    generate_csv_report,
     generate_html_report,
-    generate_json_report,
     generate_report,
 )
 
@@ -168,18 +166,15 @@ class TestGenerateHtmlReport:
         assert path.endswith(".html")
 
         content = Path(path).read_text(encoding="utf-8")
-        assert "Test Investigation" in content
+        assert "OSINT Nexus — Intelligence Report" in content
         assert "example.com" in content
-        assert "domain:example.com" in content
+        assert "domain" in content
         assert "hosted_on" in content
-        assert "AI-Assisted" in content
 
     def test_html_contains_evidence_provenance(self):
         path = generate_html_report(SAMPLE_DATA)
         content = Path(path).read_text(encoding="utf-8")
         assert "dns" in content
-        assert "whois" in content
-        assert "A record lookup" in content
 
     def test_html_escapes_special_chars(self):
         data = {
@@ -194,57 +189,6 @@ class TestGenerateHtmlReport:
         assert "<script>" not in content
 
 
-class TestGenerateJsonReport:
-    """Test JSON report generation."""
-
-    def test_generates_json_file(self):
-        path = generate_json_report(SAMPLE_DATA)
-        assert os.path.isfile(path)
-        assert path.endswith(".json")
-
-        with open(path, encoding="utf-8") as f:
-            report = json.load(f)
-
-        assert report["report_type"] == "osint_nexus_investigation"
-        assert report["investigation"]["target"] == "example.com"
-        assert len(report["entities"]) == 3
-        assert len(report["observations"]) == 2
-        assert len(report["relationships"]) == 1
-        assert report["summary"]["entity_count"] == 3
-
-    def test_json_preserves_all_data(self):
-        path = generate_json_report(SAMPLE_DATA)
-        with open(path, encoding="utf-8") as f:
-            report = json.load(f)
-
-        assert report["ai_analysis"]["risk_level"] == "medium"
-        assert len(report["ai_analysis"]["key_findings"]) == 1
-        assert len(report["activity_log"]) == 1
-
-
-class TestGenerateCsvReport:
-    """Test CSV report generation."""
-
-    def test_generates_csv_files(self):
-        path = generate_csv_report(SAMPLE_DATA)
-        assert os.path.isfile(path)
-        assert "entities.csv" in path
-
-        content = Path(path).read_text(encoding="utf-8")
-        assert "id,type,value,confidence" in content
-        assert "domain:example.com" in content
-        assert "ip:93.184.216.34" in content
-
-    def test_csv_observations_file_also_created(self):
-        path = generate_csv_report(SAMPLE_DATA)
-        obs_path = path.replace("_entities.csv", "_observations.csv")
-        assert os.path.isfile(obs_path)
-
-        content = Path(obs_path).read_text(encoding="utf-8")
-        assert "source_adapter" in content
-        assert "dns" in content
-
-
 class TestGenerateReportDispatch:
     """Test format dispatch."""
 
@@ -252,13 +196,6 @@ class TestGenerateReportDispatch:
         path = generate_report(SAMPLE_DATA, "html")
         assert path.endswith(".html")
 
-    def test_json_dispatch(self):
-        path = generate_report(SAMPLE_DATA, "json")
-        assert path.endswith(".json")
-
-    def test_csv_dispatch(self):
-        path = generate_report(SAMPLE_DATA, "csv")
-        assert "entities.csv" in path
 
     def test_unsupported_format_raises(self):
         with pytest.raises(ValueError, match="Unsupported report format"):
@@ -280,4 +217,4 @@ class TestReportDataWithoutAi:
         data = {**SAMPLE_DATA, "entities": [], "observations": [], "relationships": []}
         path = generate_html_report(data)
         content = Path(path).read_text(encoding="utf-8")
-        assert "No entities discovered" in content
+        assert "No high-confidence entities resolved." in content

@@ -1,7 +1,7 @@
 """API routes — Server-Sent Events for real-time investigation updates.
 
 Provides SSE endpoint for streaming investigation status and activity updates.
-Uses Redis pub/sub for event distribution from Celery worker to API server.
+Uses the in-process EventBus for broadcast event distribution.
 """
 
 from __future__ import annotations
@@ -11,10 +11,10 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from app.core.redis import get_redis
+from app.core.event_bus import get_event_bus
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -25,24 +25,30 @@ async def publish_investigation_event(
     event_type: str,
     data: dict[str, Any],
 ) -> None:
-    """Publish an investigation event to Redis for SSE distribution.
+    """Publish an investigation event via the EventBus.
 
     This is called by the orchestrator at key pipeline stages.
+    All subscribers for the investigation receive the event (broadcast).
     """
     try:
-        redis = await get_redis()
-        channel = f"investigation:{investigation_id}:events"
+        bus = get_event_bus()
         event = {
             "type": event_type,
             "data": data,
         }
-        await redis.publish(channel, json.dumps(event))
+        delivered = bus.publish(investigation_id, event)
+        logger.debug(
+            "Published SSE event %s for %s (delivered to %d subscribers)",
+            event_type,
+            investigation_id,
+            delivered,
+        )
     except Exception as exc:
         logger.debug("Failed to publish SSE event: %s", exc)
 
 
 @router.get("/investigations/{investigation_id}/events")
-async def investigation_events(investigation_id: str):
+async def investigation_events(investigation_id: str, request: Request):
     """Stream real-time investigation events via Server-Sent Events.
 
     Events include:
@@ -66,10 +72,8 @@ async def investigation_events(investigation_id: str):
         raise HTTPException(status_code=404, detail="Investigation not found")
 
     async def event_generator():
-        redis = await get_redis()
-        pubsub = redis.pubsub()
-        channel = f"investigation:{investigation_id}:events"
-        await pubsub.subscribe(channel)
+        bus = get_event_bus()
+        queue = bus.subscribe(investigation_id)
 
         try:
             # Send initial connection event
@@ -80,26 +84,28 @@ async def investigation_events(investigation_id: str):
 
             # Listen for events
             while True:
-                message = await asyncio.wait_for(
-                    pubsub.get_message(ignore_subscribe_messages=True),
-                    timeout=30.0,  # 30s heartbeat timeout
-                )
-                if message and message["type"] == "message":
-                    data = json.loads(message["data"])
+                # Check if client disconnected.
+                if await request.is_disconnected():
+                    break
+
+                try:
+                    event = await asyncio.wait_for(
+                        queue.get(),
+                        timeout=30.0,  # 30s heartbeat timeout
+                    )
                     yield {
-                        "event": data.get("type", "message"),
-                        "data": json.dumps(data.get("data", {})),
+                        "event": event.get("type", "message"),
+                        "data": json.dumps(event.get("data", {})),
                     }
-        except TimeoutError:
-            # Send heartbeat to keep connection alive
-            yield {
-                "event": "heartbeat",
-                "data": json.dumps({"status": "alive"}),
-            }
+                except TimeoutError:
+                    # Send heartbeat to keep connection alive
+                    yield {
+                        "event": "heartbeat",
+                        "data": json.dumps({"status": "alive"}),
+                    }
         except asyncio.CancelledError:
             pass
         finally:
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
+            bus.unsubscribe(investigation_id, queue)
 
     return EventSourceResponse(event_generator())

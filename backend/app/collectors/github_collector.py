@@ -14,6 +14,7 @@ import httpx
 
 from app.collectors.base import OSINTCollector
 from app.core.config import get_settings
+from app.core.secrets import get_secret
 from app.models import ObservationStatus, RawResult, TargetType
 
 logger = logging.getLogger(__name__)
@@ -22,27 +23,26 @@ GITHUB_API_BASE = "https://api.github.com"
 
 
 class GitHubCollector(OSINTCollector):
-    """GitHub API collector for user profiles and repositories."""
+    """GitHub OSINT collector for users and organizations."""
 
     name = "github"
     version = "1.0.0"
-    supported_target_types = [TargetType.USERNAME, TargetType.EMAIL]
+    supported_target_types = [TargetType.USERNAME, TargetType.ORGANIZATION]
     requires_api_key = False  # Works without token, but rate limited
-    cache_ttl = 3600  # 1 hour
-    rate_limit_rpm = 30  # Conservative: 30 req/min
+    cache_ttl = 86400  # 1 day
+    rate_limit_rpm = 60  # Default unauthenticated rate limit
 
     def _is_api_key_available(self) -> bool:
-        settings = get_settings()
-        return bool(settings.GITHUB_TOKEN)
+        return bool(get_secret("github"))
 
     def _get_headers(self) -> dict[str, str]:
-        settings = get_settings()
         headers = {
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "OSINT-Nexus/1.0 (research)",
         }
-        if settings.GITHUB_TOKEN:
-            headers["Authorization"] = f"token {settings.GITHUB_TOKEN}"
+        api_key = get_secret("github")
+        if api_key:
+            headers["Authorization"] = f"token {api_key}"
         return headers
 
     async def _collect(self, target: str, target_type: TargetType) -> RawResult:

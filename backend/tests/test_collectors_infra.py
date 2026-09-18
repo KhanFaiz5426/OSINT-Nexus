@@ -19,20 +19,16 @@ from app.models import ObservationStatus, RawResult, TargetType
 
 
 class TestCollectorCache:
-    """Tests for Redis-based collector cache."""
+    """Tests for TTLCache-based collector cache."""
 
     @pytest.mark.anyio
     async def test_cache_miss(self):
-        mock_redis = AsyncMock()
-        mock_redis.get = AsyncMock(return_value=None)
-        cache = CollectorCache(mock_redis)
-
+        cache = CollectorCache()
         result = await cache.get("dns:example.com:domain")
         assert result is None
 
     @pytest.mark.anyio
     async def test_cache_hit(self):
-        mock_redis = AsyncMock()
         raw_result = RawResult(
             collector_name="dns",
             collector_version="1.0.0",
@@ -43,21 +39,17 @@ class TestCollectorCache:
             normalized_value="1.2.3.4",
             confidence=0.95,
         )
-        mock_redis.get = AsyncMock(return_value=raw_result.model_dump_json())
+        cache = CollectorCache()
+        await cache.set("dns:example.com:domain", raw_result)
 
-        cache = CollectorCache(mock_redis)
         result = await cache.get("dns:example.com:domain")
-
         assert result is not None
         assert result.target == "example.com"
         assert result.confidence == 0.95
 
     @pytest.mark.anyio
     async def test_cache_set(self):
-        mock_redis = AsyncMock()
-        mock_redis.set = AsyncMock()
-        cache = CollectorCache(mock_redis)
-
+        cache = CollectorCache()
         raw_result = RawResult(
             collector_name="dns",
             target="example.com",
@@ -65,29 +57,32 @@ class TestCollectorCache:
         )
         await cache.set("dns:example.com:domain", raw_result, ttl=3600)
 
-        mock_redis.set.assert_called_once()
+        result = await cache.get("dns:example.com:domain")
+        assert result is not None
 
     @pytest.mark.anyio
     async def test_cache_invalidate(self):
-        mock_redis = AsyncMock()
-        mock_redis.delete = AsyncMock(return_value=1)
-        cache = CollectorCache(mock_redis)
-
+        cache = CollectorCache()
+        raw_result = RawResult(
+            collector_name="dns",
+            target="example.com",
+            target_type=TargetType.DOMAIN,
+        )
+        await cache.set("dns:example.com:domain", raw_result)
         result = await cache.invalidate("dns:example.com:domain")
         assert result is True
-        mock_redis.delete.assert_called_once()
+        assert await cache.get("dns:example.com:domain") is None
 
     @pytest.mark.anyio
     async def test_cache_clear_collector(self):
-        mock_redis = AsyncMock()
-
-        async def mock_scan_iter(match):
-            yield "osint:cache:dns:a.com:domain"
-            yield "osint:cache:dns:b.com:domain"
-
-        mock_redis.scan_iter = mock_scan_iter
-        mock_redis.delete = AsyncMock()
-        cache = CollectorCache(mock_redis)
+        cache = CollectorCache()
+        for domain in ["a.com", "b.com"]:
+            raw = RawResult(
+                collector_name="dns",
+                target=domain,
+                target_type=TargetType.DOMAIN,
+            )
+            await cache.set(f"dns:{domain}:domain", raw)
 
         count = await cache.clear_collector("dns")
         assert count == 2

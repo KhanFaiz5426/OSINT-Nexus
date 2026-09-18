@@ -17,7 +17,14 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_FILE = Path(os.getenv("SETTINGS_FILE", "/app/data/settings.json"))
+SETTINGS_FILE = Path(
+    os.getenv(
+        "SETTINGS_FILE",
+        os.path.join(os.environ.get("APPDATA", ""), "osint-nexus", "config.json")
+        if os.name == "nt"
+        else str(Path.home() / ".config" / "osint-nexus" / "config.json"),
+    )
+)
 
 
 class GeneralSettings(BaseModel):
@@ -49,6 +56,13 @@ class ProbeSettings(BaseModel):
     timeout: float = Field(default=5.0, ge=1.0, le=30.0)
 
 
+class SearchSettings(BaseModel):
+    searxng_enabled: bool = True
+    searxng_base_url: str = ""
+    provider_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    max_results_per_provider: int = Field(default=40, ge=1, le=100)
+
+
 class InvestigationDefaults(BaseModel):
     api_budget: int = Field(default=100, ge=10, le=1000)
     probe: ProbeSettings = Field(default_factory=ProbeSettings)
@@ -57,6 +71,7 @@ class InvestigationDefaults(BaseModel):
 class AppSettings(BaseModel):
     general: GeneralSettings = Field(default_factory=GeneralSettings)
     llm: LLMProviderSettings = Field(default_factory=LLMProviderSettings)
+    search: SearchSettings = Field(default_factory=SearchSettings)
     collectors: CollectorSettings = Field(default_factory=CollectorSettings)
     investigation: InvestigationDefaults = Field(default_factory=InvestigationDefaults)
     version: str = "0.1.0"
@@ -121,41 +136,30 @@ def _deep_merge(base: dict, override: dict) -> None:
             base[key] = value
 
 
-def get_masked_api_keys() -> dict[str, bool]:
-    """Check which API keys are configured (never return actual values)."""
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    return {
-        "github": bool(settings.GITHUB_TOKEN),
-        "abuseipdb": bool(settings.ABUSEIPDB_API_KEY),
-        "urlhaus": bool(settings.URLHAUS_API_KEY),
-        "youtube": bool(settings.YOUTUBE_API_KEY),
-        "nvidia": bool(settings.NVIDIA_API_KEY),
-        "openai": bool(settings.OPENAI_API_KEY),
-        "anthropic": bool(settings.ANTHROPIC_API_KEY),
-        "opencode": bool(settings.OPENCODE_API_KEY),
-    }
-
-
 def get_service_health() -> dict[str, Any]:
-    """Check health of all backend services."""
+    """Check health of backend services (native architecture)."""
     from app.core.config import get_settings
+    from app.core.settings_store import get_app_settings
+    from app.core.workspace import get_workspace_manager
 
     settings = get_settings()
+    app_settings = get_app_settings()
+    wm = get_workspace_manager()
+    active = wm.current_workspace
+
     return {
         "database": {
-            "host": settings.POSTGRES_HOST,
-            "port": settings.POSTGRES_PORT,
-            "name": settings.POSTGRES_DB,
+            "type": "SQLite",
+            "active_workspace": str(active) if active else None,
+            "wal_mode": True,
+            "busy_timeout": 5000,
         },
-        "neo4j": {
-            "uri": settings.NEO4J_URI,
-            "user": settings.NEO4J_USER,
+        "search": {
+            "searxng_enabled": app_settings.search.searxng_enabled,
+            "provider_limit": app_settings.search.max_results_per_provider,
         },
-        "redis": {
-            "host": settings.REDIS_HOST,
-            "port": settings.REDIS_PORT,
-            "db": settings.REDIS_DB,
+        "graph_engine": {
+            "type": "SQLite Recursive CTE",
+            "neo4j_fallback": False,
         },
     }

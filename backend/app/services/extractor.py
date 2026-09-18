@@ -244,7 +244,11 @@ def _normalize_entity_value(entity_type: EntityType, value: str) -> str | None:
         case EntityType.IP:
             return normalize_ip(value)
         case EntityType.DOMAIN | EntityType.SUBDOMAIN:
-            return normalize_domain(value)
+            norm_dom = normalize_domain(value)
+            # Strict centralized validation: must be a valid domain with no spaces/paths
+            if not re.match(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", norm_dom):
+                return None
+            return norm_dom
         case EntityType.EMAIL:
             return normalize_email(value)
         case EntityType.URL:
@@ -290,10 +294,12 @@ def extract_from_dns(
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity:
+    def _add_entity(
+        etype: EntityType, value: str, confidence: float = 0.9
+    ) -> ExtractedEntity | None:
         norm = _normalize_entity_value(etype, value)
         if not norm:
-            raise ValueError("empty entity value")
+            return None
         eid = f"{etype.value.lower()}:{norm}"
         if eid not in entities:
             entities[eid] = ExtractedEntity(
@@ -348,42 +354,62 @@ def extract_from_dns(
     for record in raw_response.get("A", []):
         ip_val = _record_value(record)
         ip_entity = _add_entity(EntityType.IP, ip_val)
-        _add_rel(domain_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "dns_a_record")
+        if ip_entity:
+            _add_rel(domain_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "dns_a_record")
 
     # AAAA records
     for record in raw_response.get("AAAA", []):
         ip_val = _record_value(record)
         ip_entity = _add_entity(EntityType.IP, ip_val)
-        _add_rel(domain_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "dns_aaaa_record")
+        if ip_entity:
+            _add_rel(domain_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "dns_aaaa_record")
 
     # MX records → sends_mail_via
     for record in raw_response.get("MX", []):
+        priority = ""
         if isinstance(record, dict):
-            exchange = record.get("exchange", _record_value(record))
-            priority = record.get("priority", "")
+            exchange = str(record.get("exchange", record.get("value", record.get("data", ""))))
+            priority = str(record.get("priority", ""))
+            # Some APIs embed priority inside the string like "10 in1-smtp.messagingengine.com"
+            if " " in exchange:
+                parts = exchange.split(" ", 1)
+                if not priority and parts[0].isdigit():
+                    priority = parts[0]
+                exchange = parts[1]
         else:
-            exchange = str(record)
-            priority = ""
+            raw_val = str(record)
+            parts = raw_val.split()
+            if len(parts) == 2 and parts[0].isdigit():
+                priority = parts[0]
+                exchange = parts[1]
+            else:
+                exchange = raw_val
+                priority = ""
+
+        if not exchange:
+            continue
         mx_entity = _add_entity(EntityType.DOMAIN, exchange)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.SENDS_MAIL_VIA,
-            mx_entity.id,
-            "dns_mx_record",
-        )
-        if priority:
-            mx_entity.properties["mx_priority"] = priority
+        if mx_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.SENDS_MAIL_VIA,
+                mx_entity.id,
+                "dns_mx_record",
+            )
+            if priority:
+                mx_entity.properties["mx_priority"] = priority
 
     # NS records → uses_nameserver
     for record in raw_response.get("NS", []):
         ns_val = _record_value(record)
         ns_entity = _add_entity(EntityType.DOMAIN, ns_val)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.USES_NAMESERVER,
-            ns_entity.id,
-            "dns_ns_record",
-        )
+        if ns_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.USES_NAMESERVER,
+                ns_entity.id,
+                "dns_ns_record",
+            )
 
     # SOA → nameserver + admin email
     soa = raw_response.get("SOA", {})
@@ -392,12 +418,13 @@ def extract_from_dns(
         rname = soa.get("rname", "")
         if mname:
             ns_entity = _add_entity(EntityType.DOMAIN, mname)
-            _add_rel(
-                domain_entity.id,
-                RelationshipType.USES_NAMESERVER,
-                ns_entity.id,
-                "dns_soa_mname",
-            )
+            if ns_entity:
+                _add_rel(
+                    domain_entity.id,
+                    RelationshipType.USES_NAMESERVER,
+                    ns_entity.id,
+                    "dns_soa_mname",
+                )
         if rname:
             # SOA rname is in DNS format (user.host → user@host)
             email_str = rname.replace(".", "@", 1)
@@ -406,13 +433,14 @@ def extract_from_dns(
                 if len(parts) == 2:
                     admin_email = f"{parts[0]}@{parts[1].replace('.', '.', 1)}"
                     email_entity = _add_entity(EntityType.EMAIL, admin_email)
-                    _add_rel(
-                        domain_entity.id,
-                        RelationshipType.REGISTERED_BY,
-                        email_entity.id,
-                        "dns_soa_rname",
-                        confidence=0.7,
-                    )
+                    if email_entity:
+                        _add_rel(
+                            domain_entity.id,
+                            RelationshipType.REGISTERED_BY,
+                            email_entity.id,
+                            "dns_soa_rname",
+                            confidence=0.7,
+                        )
 
     # TXT records → extract embedded entities
     for record in raw_response.get("TXT", []):
@@ -429,12 +457,13 @@ def extract_from_dns(
     for record in raw_response.get("PTR", []):
         ptr_val = _record_value(record)
         ptr_entity = _add_entity(EntityType.DOMAIN, ptr_val)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.HAS_PTR,
-            ptr_entity.id,
-            "dns_ptr_record",
-        )
+        if ptr_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.HAS_PTR,
+                ptr_entity.id,
+                "dns_ptr_record",
+            )
 
     return list(entities.values()), relationships
 

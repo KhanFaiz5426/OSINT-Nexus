@@ -18,6 +18,10 @@ from urllib.parse import urlparse
 
 from app.models import TargetType
 
+# ── Regex patterns for validation ──────────────────────────────────────────────
+
+_DOMAIN_RE = re.compile(r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,18}$")
+
 # ── Timestamp patterns (ordered most specific → least specific) ──
 
 _TIMESTAMP_PATTERNS: list[tuple[str, str]] = [
@@ -90,6 +94,11 @@ def normalize_domain(domain: str) -> str:
     # Punycode decode if IDN
     with contextlib.suppress(UnicodeError, UnicodeDecodeError):
         result = result.encode("idna").decode("ascii")
+
+    # Validate against strict domain pattern
+    if not _DOMAIN_RE.match(result):
+        return ""
+
     return result
 
 

@@ -2,7 +2,7 @@
 
 This package contains:
 - base.py: OSINTCollector abstract base class
-- cache.py: Redis-based response caching
+- cache.py: In-memory TTLCache response caching
 - rate_limiter.py: Token bucket rate limiting
 - retry.py: Exponential backoff retry logic
 - registry.py: Collector registration and discovery

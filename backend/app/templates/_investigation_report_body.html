@@ -1,0 +1,280 @@
+<!-- 1. Investigation Overview -->
+<div class="section">
+  <h2>1. Investigation Overview</h2>
+  <table class="meta-table">
+    <tr>
+      <td class="meta-label">Target</td>
+      <td><span class="code-val">{{ investigation.target }}</span> ({{ investigation.target_type }})</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Status</td>
+      <td>{{ investigation.status|capitalize }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Investigation Depth</td>
+      <td>{{ investigation.depth|capitalize }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Date Created</td>
+      <td>{{ investigation.created_at }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Report Generated</td>
+      <td>{{ generated_at }}</td>
+    </tr>
+  </table>
+</div>
+
+<!-- 2. Executive Summary -->
+{% if ai_analysis and ai_analysis.summary %}
+<div class="section">
+  <h2>2. Executive Summary</h2>
+  <div class="ai-block">
+    <p><span class="badge-ai">AI Assessment</span> {{ ai_analysis.summary }}</p>
+    {% if ai_analysis.risk_level %}
+    <p style="margin-top: 12px; font-weight: 600;">Assessed Risk Level: <span style="text-transform: uppercase;">{{ ai_analysis.risk_level }}</span></p>
+    <p style="font-size: 12px;">{{ ai_analysis.risk_reasoning }}</p>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="section">
+  <h2>2. Executive Summary</h2>
+  <p style="color: var(--color-text-secondary); font-style: italic;">No automated executive summary available for this investigation. No potentially relevant indicators were synthesized.</p>
+</div>
+{% endif %}
+
+<!-- 3. Key Findings -->
+<div class="section">
+  <h2>3. Key Findings</h2>
+  {% if ai_analysis and ai_analysis.key_findings %}
+    {% for finding in ai_analysis.key_findings %}
+    <div class="finding-card">
+      <div class="finding-title">
+        <span class="badge-ai">AI Finding</span>
+        {{ finding.title }}
+      </div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px;">{{ finding.description }}</p>
+      <div>
+        <span class="badge-confidence {% if finding.confidence >= 0.7 %}conf-high{% elif finding.confidence >= 0.4 %}conf-medium{% else %}conf-low{% endif %}">
+          {{ "%.0f"|format(finding.confidence * 100) }}% AI Confidence
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color: var(--color-text-secondary); font-style: italic;">No potentially relevant indicators were identified within the collected evidence to form key findings.</p>
+  {% endif %}
+</div>
+
+<!-- 4. Analyst Notes -->
+<div class="section">
+  <h2>4. Analyst Notes</h2>
+  {% if notes %}
+    {% for note in notes %}
+    <div class="note-card">
+      <p>{{ note.content }}</p>
+      <div style="font-size: 11px; margin-top: 8px; color: var(--color-text-muted);">
+        Logged at: {{ note.created_at }} 
+        {% if note.entity_id %} | Related Entity ID: <span class="code-val">{{ note.entity_id[:8] }}</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color: var(--color-text-secondary); font-style: italic;">No manual analyst notes recorded for this investigation.</p>
+  {% endif %}
+</div>
+
+<!-- 5. Resolved Identities & Infrastructure -->
+<div class="section">
+  <h2>5. Resolved Identities & Infrastructure</h2>
+  
+  {% set high_conf_entities = entities | selectattr("confidence", ">=", 0.3) | sort(attribute="confidence", reverse=True) %}
+  
+  {% if high_conf_entities %}
+    <p style="margin-bottom: 16px; font-size: 12px; color: var(--color-text-secondary);">
+      Showing primary discovered entities (confidence ≥ 30%). 
+      <span class="badge-evidence" style="margin-right: 0;">Evidence Observed</span> indicates deterministic discovery via collection modules.
+    </p>
+
+    {# Group entities by type #}
+    {% set types = high_conf_entities | map(attribute='type') | unique | list %}
+    
+    {% for etype in types %}
+    <div class="entity-group">
+      <h4>{{ etype }}</h4>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 45%;">Value</th>
+            <th style="width: 15%;">Confidence</th>
+            <th style="width: 40%;">Provenance / Sources</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ent in high_conf_entities if ent.type == etype %}
+          <tr>
+            <td>
+              {% if ent.type == 'url' %}
+                <a href="{{ ent.value }}" target="_blank" style="color: var(--color-primary); text-decoration: none; border-bottom: 1px dotted;" class="code-val">{{ ent.value }}</a>
+              {% else %}
+                <span class="code-val">{{ ent.value }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge-confidence {% if ent.confidence >= 0.7 %}conf-high{% elif ent.confidence >= 0.4 %}conf-medium{% else %}conf-low{% endif %}">
+                {{ "%.0f"|format(ent.confidence * 100) }}%
+              </span>
+            </td>
+            <td style="font-size: 11px; color: var(--color-text-secondary);">
+              {% if ent.provenance %}
+                <ul style="margin: 0; padding-left: 14px;">
+                {% for prov in ent.provenance %}
+                  <li style="margin-bottom: 4px;">
+                    <strong>{{ prov.source_adapter }}</strong> 
+                    <span style="opacity: 0.7;">({{ prov.method }})</span><br>
+                    {% if prov.source_url %}
+                      <a href="{{ prov.source_url }}" target="_blank" style="color: var(--color-primary); text-decoration: none;">View Source ↗</a>
+                    {% else %}
+                      Ref: <span class="code-val">{{ prov.observation_id[:8] }}</span>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+                </ul>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color: var(--color-text-secondary); font-style: italic;">No high-confidence entities resolved.</p>
+  {% endif %}
+</div>
+
+<!-- 6. Key Relationships & Correlations -->
+<div class="section">
+  <h2>6. Key Relationships & Correlations</h2>
+  
+  {% set high_conf_rels = relationships | selectattr("confidence", ">=", 0.3) | sort(attribute="confidence", reverse=True) %}
+  
+  {% if high_conf_rels %}
+    <p style="margin-bottom: 16px; font-size: 12px; color: var(--color-text-secondary);">
+      Showing primary correlated relationships (confidence ≥ 30%).
+    </p>
+    
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 30%;">Source Entity</th>
+          <th style="width: 20%;">Relationship</th>
+          <th style="width: 30%;">Target Entity</th>
+          <th style="width: 20%;">Evidence / Method</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rel in high_conf_rels %}
+        <tr>
+          <td><span class="code-val">{{ rel.source }}</span></td>
+          <td style="font-weight: 600; color: var(--color-primary-light); font-size: 10px; text-transform: uppercase;">
+            {{ rel.type }}<br>
+            <span class="badge-confidence {% if rel.confidence >= 0.7 %}conf-high{% elif rel.confidence >= 0.4 %}conf-medium{% else %}conf-low{% endif %}" style="margin-top: 4px;">
+              {{ "%.0f"|format(rel.confidence * 100) }}%
+            </span>
+          </td>
+          <td><span class="code-val">{{ rel.target }}</span></td>
+          <td style="font-size: 11px; color: var(--color-text-secondary);">
+            {% if rel.method %}
+              Method: {{ rel.method }}<br>
+            {% else %}
+              —<br>
+            {% endif %}
+            {% if rel.evidence_ids %}
+              Ref: <span class="code-val">{{ rel.evidence_ids[0][:8] }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color: var(--color-text-secondary); font-style: italic;">No high-confidence relationships established.</p>
+  {% endif %}
+</div>
+
+<!-- 7. Collection Scope & Methodology -->
+<div class="section">
+  <h2>7. Collection Scope & Methodology</h2>
+  <p style="margin-bottom: 12px;">This investigation utilized deterministic OSINT collection modules to gather publicly available information.</p>
+  
+  {% if sources_used %}
+    <p style="font-weight: 600; font-size: 13px; margin-bottom: 8px;">Sources queried during this investigation:</p>
+    <ul class="methodology-list">
+      {% for source in sources_used %}
+      <li><span class="code-val">{{ source }}</span></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p style="color: var(--color-text-secondary); font-style: italic;">No specific external sources were successfully queried or recorded.</p>
+  {% endif %}
+  
+  <p style="font-size: 12px; color: var(--color-text-secondary); margin-top: 12px;">
+    Evidence was collected automatically via the OSINT Nexus framework. Findings marked as "AI Assessment" were generated 
+    by analyzing the underlying evidence graph using a large language model and represent synthesized conclusions rather than direct factual observations.
+  </p>
+</div>
+
+<!-- 8. Evidence / Source Details -->
+<div class="section">
+  <h2>8. Evidence / Source Details</h2>
+  {% if observations %}
+    <p style="margin-bottom: 16px; font-size: 12px; color: var(--color-text-secondary);">
+      Detailed provenance for raw observations collected during this investigation.
+    </p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 25%;">Observation ID</th>
+          <th style="width: 20%;">Collector</th>
+          <th style="width: 55%;">Source URL / Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obs in observations %}
+        <tr>
+          <td><span class="code-val">{{ obs.id[:12] }}...</span></td>
+          <td>{{ obs.source_adapter }}</td>
+          <td>
+            {% set url = None %}
+            {% if obs.raw_data is mapping %}
+              {% set url = obs.raw_data.get("url") or obs.raw_data.get("source_url") or obs.raw_data.get("link") %}
+            {% endif %}
+            
+            {% if url %}
+              <a href="{{ url }}" target="_blank" style="color: var(--color-primary); word-break: break-all;">{{ url }}</a>
+            {% else %}
+              <span style="color: var(--color-text-muted);">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color: var(--color-text-secondary); font-style: italic;">No observations were recorded for this investigation.</p>
+  {% endif %}
+</div>
+
+<!-- 9. Limitations & Caveats -->
+<div class="section">
+  <h2>9. Limitations & Caveats</h2>
+  <ul class="caveats-list">
+    <li><strong>Open Source Data:</strong> All evidence is derived from publicly accessible infrastructure, registries, and platforms. Information may be incomplete, delayed, or historically inaccurate.</li>
+    <li><strong>AI Analysis:</strong> AI-generated summaries and findings are advisory. They are synthesized from evidence but may contain hallucinations or misinterpretations. Always corroborate AI findings with the listed evidence.</li>
+    <li><strong>Temporal Validity:</strong> Digital infrastructure changes rapidly. IP addresses, DNS records, and account statuses were accurate only at the exact time of collection ({{ investigation.created_at }}).</li>
+  </ul>
+</div>

@@ -1,6 +1,7 @@
 """Tests for activity log and observations API endpoints (Phase 7)."""
 
 import json
+import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -68,12 +69,13 @@ async def _insert_observation(
         row = await conn.fetchrow(
             """
             INSERT INTO observations
-                (investigation_id, source_adapter, source_version,
+                (id, investigation_id, source_adapter, source_version,
                  collected_at, method, target, raw_response,
                  normalized_value, confidence, status)
-            VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7, $8, $9, $10)
             RETURNING id::text
             """,
+            str(uuid.uuid4()),
             investigation_id,
             source_adapter,
             "1.0.0",

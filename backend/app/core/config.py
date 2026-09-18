@@ -34,38 +34,16 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-    # Neo4j
-    NEO4J_URI: str = "bolt://localhost:7687"
-    NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str = "osintnexus_dev"
-
-    # Redis
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-
-    @property
-    def REDIS_URL(self) -> str:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
-
-    # Celery
-    CELERY_BROKER_URL: str = ""
-    CELERY_RESULT_BACKEND: str = ""
-
-    # OSINT Collector API Keys
-    GITHUB_TOKEN: str = ""
-    ABUSEIPDB_API_KEY: str = ""
-    URLHAUS_API_KEY: str = ""
-    YOUTUBE_API_KEY: str = ""
-
-    # Supported providers: nvidia, openai, anthropic, ollama, none
-    # When "none" or empty, AI planner/analyzer return deterministic defaults.
-    LLM_PROVIDER: str = "none"
+    # API Keys (Optional)
+    LLM_API_KEY: str = ""
     NVIDIA_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     OPENCODE_API_KEY: str = ""
-    LLM_API_KEY: str = ""  # fallback
+
+    # Supported providers: nvidia, openai, anthropic, ollama, none
+    # When "none" or empty, AI planner/analyzer return deterministic defaults.
+    LLM_PROVIDER: str = "ollama"
     LLM_MODEL: str = ""
     LLM_BASE_URL: str = ""
     LLM_MAX_TOKENS: int = 2048
@@ -82,18 +60,12 @@ class Settings(BaseSettings):
     SEARXNG_BASE_URL: str = ""  # e.g. "http://searxng:8080"
     SEARXNG_ENABLED: bool = True  # Enable SearXNG when base URL is set
     SEARCH_PROVIDER_TIMEOUT: float = 10.0  # Per-provider timeout (seconds)
-    SEARCH_MAX_RESULTS_PER_PROVIDER: int = 10  # Max results per provider
+    SEARCH_MAX_RESULTS_PER_PROVIDER: int = 40  # Max results per provider
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
     model_config = {"env_file": ".env", "extra": "ignore"}
-
-    def model_post_init(self, __context: object) -> None:
-        if not self.CELERY_BROKER_URL:
-            object.__setattr__(self, "CELERY_BROKER_URL", self.REDIS_URL)
-        if not self.CELERY_RESULT_BACKEND:
-            object.__setattr__(self, "CELERY_RESULT_BACKEND", self.REDIS_URL)
 
 
 @lru_cache

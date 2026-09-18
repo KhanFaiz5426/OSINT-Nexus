@@ -6,17 +6,25 @@ import { WorkstationHeader } from "../components/WorkstationHeader";
 import { InvestigationTabBar } from "../components/InvestigationTabBar";
 import { WorkstationStatusBar } from "../components/WorkstationStatusBar";
 import { BlankCanvas } from "../components/BlankCanvas";
+import { LandingCanvas } from "../components/LandingCanvas";
 import { GraphView } from "../components/GraphView";
 import { GraphLegend } from "../components/GraphLegend";
 import { EntityListPanel } from "../components/EntityListPanel";
 import { BottomDrawer } from "../components/BottomDrawer";
 import { NewInvestigationModal } from "../components/NewInvestigationModal";
+import { NewWorkspaceModal } from "../components/NewWorkspaceModal";
 import { OpenInvestigationModal } from "../components/OpenInvestigationModal";
+import { WorkspaceModals } from "../components/WorkspaceModals";
+import { useWorkspaceActions } from "../hooks/useWorkspaceActions";
+import { useWorkspaceStatus } from "../hooks/useWorkspaceApi";
 
 export function WorkstationPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const workspaceStatus = useWorkspaceStatus();
+  const activeFile = workspaceStatus.data?.active_workspace ?? null;
 
   const theme = useWorkspaceStore((s) => s.theme);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
@@ -28,6 +36,8 @@ export function WorkstationPage() {
   const leftPanelOpen = useWorkspaceStore((s) => s.leftPanelOpen);
   const selectEntity = useWorkspaceStore((s) => s.selectEntity);
   const triggerFit = useWorkspaceStore((s) => s.triggerFit);
+
+  const { handleNewWorkspace, handleNewInvestigation, handleOpenWorkspace } = useWorkspaceActions();
 
   // Sync theme with DOM
   useEffect(() => {
@@ -82,10 +92,14 @@ export function WorkstationPage() {
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
-        setNewModalOpen(true);
+        if (!activeFile) {
+          void handleNewWorkspace();
+        } else {
+          void handleNewInvestigation();
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
         e.preventDefault();
-        setOpenModalOpen(true);
+        void handleOpenWorkspace();
       } else if (!isInput && e.key === " " && activeTabId) {
         e.preventDefault();
         triggerFit();
@@ -96,7 +110,13 @@ export function WorkstationPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTabId, setNewModalOpen, setOpenModalOpen, triggerFit, selectEntity]);
+  }, [
+    activeTabId,
+    triggerFit,
+    selectEntity,
+    handleNewInvestigation,
+    handleOpenWorkspace,
+  ]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--nx-base)] text-[var(--nx-text-primary)] font-sans antialiased">
@@ -104,7 +124,7 @@ export function WorkstationPage() {
       <WorkstationHeader />
 
       {/* 2. Investigation Workspace Tabs Bar */}
-      <InvestigationTabBar />
+      {activeFile && <InvestigationTabBar />}
 
       {/* 3. Central Workspace Canvas */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
@@ -117,13 +137,15 @@ export function WorkstationPage() {
 
         {/* Right Area: Graph + Bottom Drawer */}
         <div className="flex flex-1 flex-col min-w-0 min-h-0 relative">
-          {/* Center Canvas: Knowledge Graph or Blank Canvas */}
+          {/* Center Canvas: Knowledge Graph or Blank Canvas or Landing Canvas */}
           <main className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-[var(--nx-base)]">
             {activeTabId ? (
               <>
                 <GraphLegend investigationId={activeTabId} />
                 <GraphView investigationId={activeTabId} />
               </>
+            ) : !activeFile ? (
+              <LandingCanvas />
             ) : (
               <BlankCanvas />
             )}
@@ -138,8 +160,10 @@ export function WorkstationPage() {
       <WorkstationStatusBar />
 
       {/* 5. Modals */}
+      <NewWorkspaceModal />
       <NewInvestigationModal />
       <OpenInvestigationModal />
+      <WorkspaceModals />
     </div>
   );
 }

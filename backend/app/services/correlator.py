@@ -16,7 +16,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from app.graph.client import get_driver
 from app.graph.writer import write_graph
 from app.models import RelationshipType
 from app.models.processing import ExtractedEntity, ExtractedRelationship
@@ -174,12 +173,10 @@ async def correlate_observations(
     edges_written = 0
     if write_to_graph and (scored_entities or scored_relationships):
         try:
-            driver = await get_driver()
             nodes_written, edges_written = await write_graph(
                 scored_entities,
                 scored_relationships,
                 investigation_id=investigation_id,
-                driver=driver,
             )
         except Exception:
             logger.exception("Failed to write graph for investigation %s", investigation_id)
@@ -1136,10 +1133,11 @@ async def _write_entity_provenance(
                 try:
                     await conn.execute(
                         """
-                        INSERT INTO entity_provenance (entity_id, observation_id, investigation_id)
-                        VALUES ($1, $2, $3)
+                        INSERT INTO entity_provenance (id, entity_id, observation_id, investigation_id)
+                        VALUES ($1, $2, $3, $4)
                         ON CONFLICT (entity_id, observation_id) DO NOTHING
                         """,
+                        str(_uuid.uuid4()),
                         entity.id,
                         obs_id,
                         investigation_id,

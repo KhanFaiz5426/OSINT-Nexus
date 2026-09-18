@@ -184,7 +184,6 @@ async def create_entity(
 
     # Write to Neo4j
     try:
-        from app.graph.client import get_driver
         from app.graph.writer import write_nodes
         from app.models.processing import ExtractedEntity
 
@@ -198,8 +197,7 @@ async def create_entity(
             sources=["manual"],
             properties=body.properties,
         )
-        driver = await get_driver()
-        await write_nodes([entity], investigation_id=investigation_id, driver=driver)
+        await write_nodes([entity], investigation_id=investigation_id)
     except Exception:
         pass  # Best effort for graph write
 
@@ -274,41 +272,33 @@ async def create_relationship(
 
     from uuid import uuid4
 
-    from app.graph.client import get_driver
-    from app.graph.models import relationship_type_to_cypher
-
     rel_id = str(uuid4())
     now = datetime.now(UTC)
 
-    # Write to Neo4j
-    driver = await get_driver()
-    rel_type_cypher = relationship_type_to_cypher(body.rel_type)
+    # Write to SQLite
+    from app.db.client import get_pool
 
-    async with driver.session() as session:
-        query = f"""
-        MATCH (src {{id: $source_id, investigation_id: $investigation_id}})
-        MATCH (tgt {{id: $target_id, investigation_id: $investigation_id}})
-        CREATE (src)-[r:{rel_type_cypher} {{
-            id: $rel_id,
-            investigation_id: $investigation_id,
-            confidence: $confidence,
-            evidence: [],
-            discovered_at: $discovered_at,
-            method: $method
-        }}]->(tgt)
-        RETURN r.id AS rel_id
-        """
-        result = await session.run(
-            query,
-            source_id=body.source_entity_id,
-            target_id=body.target_entity_id,
-            investigation_id=investigation_id,
-            rel_id=rel_id,
-            confidence=body.confidence,
-            discovered_at=now.isoformat(),
-            method=body.method,
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO relationships (
+                id, source_id, target_id, relationship_type,
+                investigation_id, confidence, evidence,
+                discovered_at, method
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            """,
+            rel_id,
+            body.source_entity_id,
+            body.target_entity_id,
+            body.rel_type.value.upper(),
+            investigation_id,
+            body.confidence,
+            "[]",
+            now.isoformat(),
+            body.method,
         )
-        await result.single()
 
     return RelationshipResponse(
         id=rel_id,

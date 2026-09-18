@@ -103,23 +103,6 @@ async def validate_entity_ids(
         return []
 
     try:
-        from app.graph.client import get_driver
-
-        driver = await get_driver()
-        query = """
-        MATCH (n)
-        WHERE n.investigation_id = $investigation_id
-          AND n.id IN $entity_ids
-        RETURN n.id AS entity_id
-        """
-        async with driver.session() as session:
-            result = await session.run(
-                query, investigation_id=investigation_id, entity_ids=clean_ids
-            )
-            valid_ids = {record["entity_id"] async for record in result}
-    except Exception:
-        # If Neo4j is unavailable, fall back to PostgreSQL entities table.
-        logger.debug("Neo4j unavailable for entity validation, falling back to PostgreSQL")
         pool = await get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
@@ -131,7 +114,10 @@ async def validate_entity_ids(
                 clean_ids,
                 investigation_id,
             )
-        valid_ids = {row["id"] for row in rows}
+            valid_ids = {row["id"] for row in rows}
+    except Exception as e:
+        logger.error(f"Failed to validate entity IDs: {e}")
+        valid_ids = set()
 
     validated = [eid for eid in clean_ids if eid in valid_ids]
     hallucinated = set(clean_ids) - valid_ids

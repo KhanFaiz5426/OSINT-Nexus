@@ -14,9 +14,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from cachetools import TTLCache
 
 from app.collectors.rate_limiter import TokenBucketRateLimiter
-from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -56,25 +56,22 @@ def map_http_status(status_code: int, is_redirect: bool = False) -> str:
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 
-CACHE_PREFIX = "osint:source_check"
 CACHE_TTL = 3600  # 1 hour
+
+# In-memory TTL cache for source availability results.
+_source_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=1000, ttl=CACHE_TTL)
 
 
 def _cache_key(url: str) -> str:
     """Deterministic cache key from URL."""
     url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
-    return f"{CACHE_PREFIX}:{url_hash}"
+    return f"source_check:{url_hash}"
 
 
 async def _get_cached(url: str) -> dict[str, Any] | None:
     """Retrieve cached availability result."""
     try:
-        redis_client = await get_redis()
-        raw = await redis_client.get(_cache_key(url))
-        if raw is not None:
-            import json
-
-            return json.loads(raw)
+        return _source_cache.get(_cache_key(url))
     except Exception:
         logger.debug("Cache get failed for source check: %s", url, exc_info=True)
     return None
@@ -83,10 +80,7 @@ async def _get_cached(url: str) -> dict[str, Any] | None:
 async def _set_cached(url: str, result: dict[str, Any]) -> None:
     """Store availability result in cache."""
     try:
-        import json
-
-        redis_client = await get_redis()
-        await redis_client.set(_cache_key(url), json.dumps(result), ex=CACHE_TTL)
+        _source_cache[_cache_key(url)] = result
     except Exception:
         logger.debug("Cache set failed for source check: %s", url, exc_info=True)
 

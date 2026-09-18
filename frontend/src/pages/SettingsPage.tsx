@@ -14,6 +14,8 @@ import {
   ChevronRight,
   Loader2,
   Server,
+  Key,
+  Database,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -32,6 +34,12 @@ interface AppSettings {
     max_tokens: number;
     temperature: number;
     api_keys_configured: Record<string, boolean>;
+  };
+  search: {
+    searxng_enabled: boolean;
+    searxng_base_url: string;
+    provider_timeout: number;
+    max_results_per_provider: number;
   };
   collectors: {
     enabled: Record<string, boolean>;
@@ -64,12 +72,14 @@ interface SettingsUpdateResponse {
   restart_required: string[];
 }
 
-type Section = "general" | "llm" | "collectors" | "investigation" | "system";
+type Section = "general" | "llm" | "search" | "credentials" | "collectors" | "investigation" | "system";
 
 const SECTIONS: { key: Section; label: string; icon: React.ElementType }[] = [
   { key: "general", label: "General", icon: Settings },
-  { key: "llm", label: "AI / Providers", icon: Brain },
-  { key: "collectors", label: "OSINT / Collectors", icon: Search },
+  { key: "llm", label: "AI / Intelligence", icon: Brain },
+  { key: "search", label: "Search", icon: Search },
+  { key: "credentials", label: "API Credentials", icon: Key },
+  { key: "collectors", label: "Collection", icon: Database },
   { key: "investigation", label: "Investigation", icon: Shield },
   { key: "system", label: "System & Data", icon: Server },
 ];
@@ -102,6 +112,7 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<Section>("general");
   const [editState, setEditState] = useState<AppSettings | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [apiKeysUpdate, setApiKeysUpdate] = useState<Record<string, string>>({});
   const [saveMessage, setSaveMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -131,6 +142,7 @@ export default function SettingsPage() {
         restartRequired: resp.restart_required,
       });
       setHasChanges(false);
+      setApiKeysUpdate({});
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       setTimeout(() => setSaveMessage(null), 5000);
     },
@@ -149,11 +161,19 @@ export default function SettingsPage() {
 
   const handleSave = () => {
     if (!editState) return;
-    const update: Partial<AppSettings> = {};
+    const update: Partial<AppSettings> & { api_keys?: Record<string, string> } = {};
     if (activeSection === "general") update.general = editState.general;
     if (activeSection === "llm") update.llm = editState.llm;
+    if (activeSection === "search") update.search = editState.search;
     if (activeSection === "collectors") update.collectors = editState.collectors;
     if (activeSection === "investigation") update.investigation = editState.investigation;
+    if (activeSection === "credentials") {
+      if (Object.keys(apiKeysUpdate).length > 0) {
+        update.api_keys = apiKeysUpdate;
+      } else {
+        return;
+      }
+    }
     saveMutation.mutate(update);
   };
 
@@ -161,6 +181,7 @@ export default function SettingsPage() {
     if (data?.settings) {
       setEditState(structuredClone(data.settings));
       setHasChanges(false);
+      setApiKeysUpdate({});
     }
   };
 
@@ -294,7 +315,20 @@ export default function SettingsPage() {
             <GeneralSection settings={editState} onChange={updateField} />
           )}
           {activeSection === "llm" && (
-            <LLMSection settings={editState} apiKeys={data.api_keys} onChange={updateField} />
+            <LLMSection settings={editState} onChange={updateField} />
+          )}
+          {activeSection === "search" && (
+            <SearchSection settings={editState} onChange={updateField} />
+          )}
+          {activeSection === "credentials" && (
+            <CredentialsSection 
+              apiKeysStatus={data.api_keys} 
+              apiKeysUpdate={apiKeysUpdate} 
+              onChange={(k, v) => {
+                setApiKeysUpdate(p => ({ ...p, [k]: v }));
+                setHasChanges(true);
+              }} 
+            />
           )}
           {activeSection === "collectors" && (
             <CollectorsSection settings={editState} onChange={updateField} />
@@ -375,23 +409,23 @@ function GeneralSection({
 
 function LLMSection({
   settings,
-  apiKeys,
   onChange,
 }: {
   settings: AppSettings;
-  apiKeys: Record<string, boolean>;
   onChange: (path: string, value: any) => void;
 }) {
-  const providers = ["ollama", "nvidia", "openai", "anthropic", "opencode"];
+  const providers = ["ollama", "nvidia", "openai", "anthropic", "opencode", "none"];
   const activeProvider = settings.llm.active_provider;
   const showBaseUrl = activeProvider === "ollama" || !PROVIDER_BASE_URLS[activeProvider];
+  // Hide settings if none is selected
+  const isNone = activeProvider === "none";
 
   return (
     <div className="space-y-6">
       <SettingCard title="Active Provider" description="Select the LLM provider for AI-assisted analysis">
         <FormField
           label="Provider"
-          hint="Restart required after changing. The provider must have a valid API key configured."
+          hint={isNone ? "" : "Restart required after changing. The provider must have a valid API key configured in API Credentials."}
         >
           <select
             value={settings.llm.active_provider}
@@ -400,33 +434,36 @@ function LLMSection({
           >
             {providers.map((p) => (
               <option key={p} value={p}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-                {apiKeys[p] ? " — key configured" : " — no key"}
+                {p === "none" ? "None (Disable AI)" : p.charAt(0).toUpperCase() + p.slice(1)}
               </option>
             ))}
           </select>
         </FormField>
-        <FormField
-          label="Model"
-          hint="The specific model to use. Leave empty to use the provider's default."
-        >
-          <input
-            type="text"
-            value={settings.llm.model}
-            onChange={(e) => onChange("llm.model", e.target.value)}
-            placeholder={
-              activeProvider === "ollama"
-                ? "e.g. llama3.1, mistral, codellama"
-                : activeProvider === "nvidia"
-                  ? "e.g. nvidia/nemotron-3.5-lightning-30b-a3b"
-                  : activeProvider === "anthropic"
-                    ? "e.g. claude-sonnet-4-20250514"
-                    : "e.g. gpt-4o, gpt-4o-mini"
-            }
-            className="w-full rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-1.5 text-sm text-[var(--nx-text-primary)] placeholder:text-[var(--nx-text-muted)]"
-          />
-        </FormField>
-        {showBaseUrl && (
+        
+        {!isNone && (
+          <FormField
+            label="Model"
+            hint="The specific model to use. Leave empty to use the provider's default."
+          >
+            <input
+              type="text"
+              value={settings.llm.model}
+              onChange={(e) => onChange("llm.model", e.target.value)}
+              placeholder={
+                activeProvider === "ollama"
+                  ? "e.g. llama3.1, gemma4:31b-cloud"
+                  : activeProvider === "nvidia"
+                    ? "e.g. nvidia/nemotron-3.5-lightning-30b-a3b"
+                    : activeProvider === "anthropic"
+                      ? "e.g. claude-sonnet-4-20250514"
+                      : "e.g. gpt-4o, gpt-4o-mini"
+              }
+              className="w-full rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-1.5 text-sm text-[var(--nx-text-primary)] placeholder:text-[var(--nx-text-muted)]"
+            />
+          </FormField>
+        )}
+        
+        {!isNone && showBaseUrl && (
           <FormField
             label="Base URL"
             hint="API endpoint URL. Pre-filled for known providers. Change only for custom/local endpoints."
@@ -442,80 +479,207 @@ function LLMSection({
         )}
       </SettingCard>
 
-      <SettingCard title="Generation Parameters" description="Controls for LLM output length and creativity">
-        <FormField
-          label="Max Tokens"
-          hint="Maximum number of tokens the model can generate in a single response. Higher values allow longer outputs but cost more."
-        >
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={256}
-              max={16384}
-              step={256}
-              value={settings.llm.max_tokens}
-              onChange={(e) => onChange("llm.max_tokens", parseInt(e.target.value))}
-              className="flex-1 accent-[var(--nx-accent)]"
-            />
-            <span className="w-16 text-right text-sm font-mono text-[var(--nx-text-primary)]">
-              {settings.llm.max_tokens.toLocaleString()}
-            </span>
-          </div>
-          <p className="text-[11px] text-[var(--nx-text-muted)]">256 – 16,384 tokens (default: 2,048)</p>
+      {!isNone && (
+        <SettingCard title="Generation Parameters" description="Controls for LLM output length and creativity">
+          <FormField
+            label="Max Tokens"
+            hint="Maximum number of tokens the model can generate in a single response. Higher values allow longer outputs but cost more."
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={256}
+                max={16384}
+                step={256}
+                value={settings.llm.max_tokens}
+                onChange={(e) => onChange("llm.max_tokens", parseInt(e.target.value))}
+                className="flex-1 accent-[var(--nx-accent)]"
+              />
+              <span className="w-16 text-right text-sm font-mono text-[var(--nx-text-primary)]">
+                {settings.llm.max_tokens.toLocaleString()}
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--nx-text-muted)]">256 – 16,384 tokens (default: 2,048)</p>
+          </FormField>
+          <FormField
+            label="Temperature"
+            hint="Controls randomness. Lower = more focused and deterministic. Higher = more creative and varied."
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.05}
+                value={settings.llm.temperature}
+                onChange={(e) => onChange("llm.temperature", parseFloat(e.target.value))}
+                className="flex-1 accent-[var(--nx-accent)]"
+              />
+              <span className="w-12 text-right text-sm font-mono text-[var(--nx-text-primary)]">
+                {settings.llm.temperature.toFixed(2)}
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--nx-text-muted)]">0.00 (deterministic) – 2.00 (creative, default: 0.30)</p>
+          </FormField>
+        </SettingCard>
+      )}
+    </div>
+  );
+}
+
+
+/* ── Search Section ─────────────────────────────────────────────────────── */
+
+function SearchSection({
+  settings,
+  onChange,
+}: {
+  settings: AppSettings;
+  onChange: (path: string, value: any) => void;
+}) {
+  const searchSettings = settings.search || {
+    searxng_enabled: true,
+    searxng_base_url: "",
+    provider_timeout: 10.0,
+    max_results_per_provider: 40,
+  };
+
+  return (
+    <div className="space-y-6">
+      <SettingCard title="SearXNG Engine" description="Configure the optional multi-provider meta-search engine">
+        <FormField label="Enable SearXNG" hint="When enabled, uses SearXNG for web searches instead of directly using DuckDuckGo. Optional natively.">
+          <Toggle
+            checked={searchSettings.searxng_enabled}
+            onChange={(v) => onChange("search.searxng_enabled", v)}
+          />
         </FormField>
-        <FormField
-          label="Temperature"
-          hint="Controls randomness. Lower = more focused and deterministic. Higher = more creative and varied."
-        >
-          <div className="flex items-center gap-3">
+        
+        {searchSettings.searxng_enabled && (
+            <FormField label="SearXNG Base URL" hint="URL to your SearXNG instance (e.g. http://localhost:8088)">
+              <input
+                type="text"
+                value={searchSettings.searxng_base_url}
+                onChange={(e) => onChange("search.searxng_base_url", e.target.value)}
+                placeholder="http://localhost:8088"
+                className="w-full mt-2 rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-1.5 text-sm text-[var(--nx-text-primary)]"
+              />
+            </FormField>
+        )}
+      </SettingCard>
+
+      <SettingCard title="Search Constraints" description="Limits for search execution">
+         <FormField label="Provider Timeout" hint="How long to wait (in seconds) for each search provider before giving up.">
+          <div className="flex items-center gap-3 mt-2">
             <input
               type="range"
-              min={0}
-              max={2}
-              step={0.05}
-              value={settings.llm.temperature}
-              onChange={(e) => onChange("llm.temperature", parseFloat(e.target.value))}
+              min={1}
+              max={60}
+              step={1}
+              value={searchSettings.provider_timeout}
+              onChange={(e) => onChange("search.provider_timeout", parseFloat(e.target.value))}
               className="flex-1 accent-[var(--nx-accent)]"
             />
             <span className="w-12 text-right text-sm font-mono text-[var(--nx-text-primary)]">
-              {settings.llm.temperature.toFixed(2)}
+              {searchSettings.provider_timeout.toFixed(1)}s
             </span>
           </div>
-          <p className="text-[11px] text-[var(--nx-text-muted)]">0.00 (deterministic) – 2.00 (creative, default: 0.30)</p>
+          <p className="text-[11px] text-[var(--nx-text-muted)] mt-1">1.0 – 60.0 seconds (default: 10.0)</p>
         </FormField>
-      </SettingCard>
-
-      <SettingCard title="API Key Status" description="Keys are managed via environment variables for security">
-        <div className="space-y-1.5">
-          {Object.entries(apiKeys).map(([provider, configured]) => (
-            <div
-              key={provider}
-              className="flex items-center justify-between rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-2"
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className={cn(
-                    "h-2 w-2 rounded-full",
-                    configured ? "bg-emerald-400" : "bg-[var(--nx-text-muted)]",
-                  )}
-                />
-                <span className="text-sm text-[var(--nx-text-primary)] capitalize">{provider}</span>
-              </div>
-              <span className="text-xs text-[var(--nx-text-muted)]">
-                {configured ? "Key configured" : "No key set"}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3 rounded-md bg-[var(--nx-surface-2)] border border-[var(--nx-border)] px-3 py-2">
-          <p className="text-xs text-[var(--nx-text-muted)] leading-relaxed">
-            API keys are set via environment variables (<code className="text-[var(--nx-accent)]">.env</code> file) and are never stored in the settings file. After changing keys, restart the backend for changes to take effect.
+        
+        <div className="mt-4 pt-4 border-t border-[var(--nx-border)]">
+          <InfoRow label="Max Results Per Provider" value={searchSettings.max_results_per_provider.toString()} />
+          <p className="text-[11px] text-[var(--nx-text-muted)] mt-1.5">
+            The maximum number of search results retrieved per provider is securely locked to {searchSettings.max_results_per_provider} for system stability and analysis quality.
           </p>
         </div>
       </SettingCard>
     </div>
   );
 }
+
+/* ── Credentials Section ────────────────────────────────────────────────── */
+
+function CredentialsSection({
+  apiKeysStatus,
+  apiKeysUpdate,
+  onChange,
+}: {
+  apiKeysStatus: Record<string, boolean>;
+  apiKeysUpdate: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+}) {
+  const aiCredentials = [
+    { key: "nvidia", label: "NVIDIA API Key" },
+    { key: "openai", label: "OpenAI API Key" },
+    { key: "anthropic", label: "Anthropic API Key" },
+    { key: "opencode", label: "OpenCode API Key" },
+  ];
+  const osintCredentials = [
+    { key: "github", label: "GitHub Token" },
+    { key: "abuseipdb", label: "AbuseIPDB Key" },
+    { key: "urlhaus", label: "URLhaus Key" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <SettingCard title="AI Provider Credentials" description="Securely configure API keys for AI providers. Keys are encrypted in the native Windows Credential Manager.">
+        <div className="space-y-4">
+          {aiCredentials.map(c => (
+             <CredentialField 
+               key={c.key} 
+               label={c.label} 
+               configured={apiKeysStatus[c.key]}
+               value={apiKeysUpdate[c.key]}
+               onChange={(v) => onChange(c.key, v)} 
+             />
+          ))}
+        </div>
+      </SettingCard>
+      
+      <SettingCard title="OSINT API Credentials" description="API keys for specialized data collection sources.">
+        <div className="space-y-4">
+          {osintCredentials.map(c => (
+             <CredentialField 
+               key={c.key} 
+               label={c.label} 
+               configured={apiKeysStatus[c.key]}
+               value={apiKeysUpdate[c.key]}
+               onChange={(v) => onChange(c.key, v)} 
+             />
+          ))}
+        </div>
+      </SettingCard>
+    </div>
+  );
+}
+
+function CredentialField({ label, configured, value, onChange }: { label: string, configured: boolean, value?: string, onChange: (v: string) => void }) {
+  const willClear = value === "";
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-[var(--nx-text-secondary)]">{label}</label>
+        {configured && value === undefined && (
+           <div className="flex items-center gap-2">
+             <span className="text-[10px] text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Configured</span>
+             <button onClick={() => onChange("")} className="text-[10px] text-red-400 hover:underline">Clear</button>
+           </div>
+        )}
+        {willClear && (
+           <span className="text-[10px] text-red-400 font-medium bg-red-400/10 px-1.5 py-0.5 rounded">Will be cleared on save</span>
+        )}
+      </div>
+      <input
+        type="password"
+        value={value === undefined ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={configured && !willClear ? "•••••••••••••••• (Set new key to replace)" : "Enter API key"}
+        className="w-full rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-1.5 text-sm text-[var(--nx-text-primary)] placeholder:text-[var(--nx-text-muted)] focus:outline-none focus:border-[var(--nx-accent)] transition-colors"
+      />
+    </div>
+  );
+}
+
 
 /* ── Collectors Section ─────────────────────────────────────────────────── */
 
@@ -753,38 +917,32 @@ function SystemSection({
 }) {
   return (
     <div className="space-y-6">
-      <SettingCard title="Application" description="OSINT Nexus version and runtime information">
+      <SettingCard title="Application & Runtime" description="OSINT Nexus version and native architecture">
         <InfoRow label="Version" value={`v${settings.version}`} />
-        <InfoRow label="Active LLM Provider" value={settings.llm.active_provider} />
-        <InfoRow label="Default Investigation Depth" value={settings.general.default_depth} />
-        <InfoRow
-          label="Enabled Collectors"
-          value={
-            Object.entries(settings.collectors.enabled)
-              .filter(([, v]) => v !== false)
-              .map(([k]) => k.replace(/_/g, " "))
-              .join(", ") || "All enabled"
-          }
-        />
+        <InfoRow label="Runtime" value="FastAPI + React (pywebview shell)" />
+        <InfoRow label="Storage Engine" value={health.database?.type || "SQLite"} />
+        <InfoRow label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
       </SettingCard>
 
-      <SettingCard title="Services" description="Backend service connectivity">
+      <SettingCard title="Workspace & Security" description="Current active workspace and credentials">
         <div className="space-y-1.5">
-          <ServiceStatus
-            name="PostgreSQL"
-            status={health.database ? "connected" : "unavailable"}
-            detail={health.database ? `${health.database.host}:${health.database.port}` : ""}
+          <InfoRow 
+            label="Active Workspace" 
+            value={health.database?.active_workspace || "None"} 
           />
-          <ServiceStatus
-            name="Neo4j"
-            status={health.neo4j ? "connected" : "unavailable"}
-            detail={health.neo4j?.uri || ""}
+          <InfoRow 
+            label="Credential Storage" 
+            value="Windows Credential Manager (Native Keyring)" 
           />
-          <ServiceStatus
-            name="Redis"
-            status={health.redis ? "connected" : "unavailable"}
-            detail={health.redis ? `${health.redis.host}:${health.redis.port}` : ""}
-          />
+        </div>
+      </SettingCard>
+
+      <SettingCard title="AI & Search Infrastructure" description="Configured providers and engines">
+        <div className="space-y-1.5">
+          <InfoRow label="Active AI Provider" value={settings.llm.active_provider} />
+          <InfoRow label="AI Model" value={settings.llm.model || "Not set"} />
+          <InfoRow label="SearXNG Status" value={health.search?.searxng_enabled ? "Enabled" : "Disabled"} />
+          <InfoRow label="Search Provider Limit" value={String(health.search?.provider_limit || 40)} />
         </div>
       </SettingCard>
 
@@ -800,8 +958,8 @@ function SystemSection({
         </div>
         <div className="mt-3 rounded-md bg-[var(--nx-surface-2)] border border-[var(--nx-border)] px-3 py-2">
           <p className="text-[11px] text-[var(--nx-text-muted)] leading-relaxed">
-            Built with FastAPI, React, PostgreSQL, Neo4j, Redis, and TanStack Query.
-            LLM integration supports NVIDIA, OpenAI, Anthropic, Ollama, and OpenCode providers.
+            Built with FastAPI, React, SQLite, and TanStack Query on a pywebview desktop shell.
+            LLM integration natively supports Ollama, NVIDIA, OpenAI, Anthropic, and OpenCode providers.
           </p>
         </div>
       </SettingCard>
@@ -887,34 +1045,4 @@ function Toggle({
   );
 }
 
-function ServiceStatus({
-  name,
-  status,
-  detail,
-}: {
-  name: string;
-  status: "connected" | "unavailable";
-  detail: string;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <span
-          className={cn(
-            "h-2 w-2 rounded-full",
-            status === "connected" ? "bg-emerald-400" : "bg-red-400",
-          )}
-        />
-        <span className="text-sm text-[var(--nx-text-primary)]">{name}</span>
-      </div>
-      <div className="text-right">
-        <span className="text-xs text-[var(--nx-text-muted)]">
-          {status === "connected" ? "Connected" : "Unavailable"}
-        </span>
-        {detail && (
-          <p className="text-[10px] font-mono text-[var(--nx-text-muted)]">{detail}</p>
-        )}
-      </div>
-    </div>
-  );
-}
+

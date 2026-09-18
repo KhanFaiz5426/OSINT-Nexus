@@ -289,7 +289,7 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     },
     "ollama": {
         "base_url": "http://localhost:11434",
-        "model": "llama3.1",
+        "model": "gemma4:31b-cloud",
     },
     "opencode": {
         "base_url": "https://opencode.ai/zen/v1",
@@ -323,17 +323,29 @@ def _build_provider_config(
     defaults = PROVIDER_DEFAULTS.get(provider, {})
     overrides = runtime_overrides or {}
 
-    # Resolve API key
-    if provider == "nvidia":
-        api_key = settings.NVIDIA_API_KEY or settings.LLM_API_KEY
-    elif provider == "openai":
-        api_key = settings.OPENAI_API_KEY or settings.LLM_API_KEY
-    elif provider == "anthropic":
-        api_key = settings.ANTHROPIC_API_KEY or settings.LLM_API_KEY
-    elif provider == "opencode":
-        api_key = settings.OPENCODE_API_KEY or settings.LLM_API_KEY
-    else:
-        api_key = settings.LLM_API_KEY
+    from app.core.secrets import get_secret
+
+    settings_dict = (
+        settings.model_dump()
+        if hasattr(settings, "model_dump")
+        else getattr(settings, "__dict__", {})
+    )
+
+    # 1. Native secure keyring
+    api_key = get_secret(provider)
+
+    # 2. Fallback to environment variables (for Docker / developer compatibility)
+    if not api_key:
+        if provider == "nvidia":
+            api_key = settings_dict.get("NVIDIA_API_KEY") or settings_dict.get("LLM_API_KEY")
+        elif provider == "openai":
+            api_key = settings_dict.get("OPENAI_API_KEY") or settings_dict.get("LLM_API_KEY")
+        elif provider == "anthropic":
+            api_key = settings_dict.get("ANTHROPIC_API_KEY") or settings_dict.get("LLM_API_KEY")
+        elif provider == "opencode":
+            api_key = settings_dict.get("OPENCODE_API_KEY") or settings_dict.get("LLM_API_KEY")
+        else:
+            api_key = settings_dict.get("LLM_API_KEY")
 
     if provider in ("nvidia", "openai", "anthropic", "opencode") and not api_key:
         return None

@@ -172,7 +172,7 @@ export function InvestigationHeader({ investigationId }: Props) {
               className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)] transition-colors"
               aria-label="Refresh status"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className={cn("h-3.5 w-3.5", (investigation.isFetching || status.isFetching) && "animate-spin")} />
             </button>
           </div>
         </>

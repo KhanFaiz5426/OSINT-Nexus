@@ -95,32 +95,69 @@ class HTTPCollector(OSINTCollector):
             )
 
         try:
+            redirects = []
+            current_url = url
+
             async with httpx.AsyncClient(
                 timeout=settings.HTTP_TIMEOUT,
-                follow_redirects=True,
-                max_redirects=5,
+                follow_redirects=False,
             ) as client:
-                response = await client.get(
-                    url,
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (compatible; OSINT-Nexus/1.0; research)",
-                        "Accept": "text/html,application/xhtml+xml,*/*",
-                    },
-                )
+                for _ in range(6):  # 1 initial + up to 5 redirects
+                    response = await client.get(
+                        current_url,
+                        headers={
+                            "User-Agent": "Mozilla/5.0 (compatible; OSINT-Nexus/1.0; research)",
+                            "Accept": "text/html,application/xhtml+xml,*/*",
+                        },
+                    )
+
+                    if response.is_redirect and "location" in response.headers:
+                        next_url = str(response.url.join(response.headers["location"]))
+                        redirects.append({"url": str(response.url), "status": response.status_code})
+
+                        try:
+                            validate_url_not_internal(next_url)
+                        except SSRFBlockedError as exc:
+                            return RawResult(
+                                collector_name=self.name,
+                                collector_version=self.version,
+                                target=target,
+                                target_type=target_type,
+                                query=f"http:{url}",
+                                status=ObservationStatus.ERROR,
+                                error_message=f"Redirect blocked (SSRF): {exc}",
+                            )
+
+                        current_url = next_url
+                        continue
+
+                    # Stop if not a redirect
+                    break
+                else:
+                    return RawResult(
+                        collector_name=self.name,
+                        collector_version=self.version,
+                        target=target,
+                        target_type=target_type,
+                        query=f"http:{url}",
+                        status=ObservationStatus.ERROR,
+                        error_message="Too many redirects",
+                    )
 
                 # Parse response
                 headers_dict = dict(response.headers)
                 title = self._extract_title(response.text)
-                technologies = self._detect_technologies(headers_dict, response.cookies)
-                redirects = [{"url": str(r.url), "status": r.status_code} for r in response.history]
+                technologies = self._detect_technologies(headers_dict, client.cookies)
                 cookies = [
                     {
                         "name": c.name,
                         "domain": c.domain,
                         "secure": c.secure,
-                        "httponly": c.has_nonstandard_attr("httponly"),
+                        "httponly": c.has_nonstandard_attr("httponly")
+                        if hasattr(c, "has_nonstandard_attr")
+                        else False,
                     }
-                    for c in response.cookies.jar
+                    for c in client.cookies.jar
                 ]
 
                 raw_response = {

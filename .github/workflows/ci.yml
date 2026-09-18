@@ -27,30 +27,6 @@ jobs:
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: osintnexus
-          POSTGRES_USER: osintnexus
-          POSTGRES_PASSWORD: osintnexus_dev
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-      neo4j:
-        image: neo4j:5
-        env:
-          NEO4J_AUTH: neo4j/osintnexus_dev
-        ports:
-          - 7687:7687
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -63,15 +39,10 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          alembic upgrade head
           python -m pytest tests/ -v --tb=short -x \
             --ignore=tests/test_investigations_api.py \
             --ignore=tests/test_activity_api.py \
             -k "not test_phase5 and not test_phase6"
-        env:
-          POSTGRES_HOST: localhost
-          NEO4J_URI: bolt://localhost:7687
-          REDIS_HOST: localhost
 
   frontend-lint:
     name: Frontend Lint
@@ -103,4 +74,4 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm ci
       - name: Run tests
-        run: cd frontend && npx vitest run
+        run: cd frontend && npm run test

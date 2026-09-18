@@ -53,7 +53,7 @@ class TestCollectorEnabledSetting:
 
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(initialize_collectors(cache=None))
+            asyncio.run(initialize_collectors(cache=None))
 
             assert "dns" not in _collectors, (
                 "DNS collector should be excluded when disabled in settings"
@@ -79,7 +79,7 @@ class TestCollectorEnabledSetting:
 
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(initialize_collectors(cache=None))
+            asyncio.run(initialize_collectors(cache=None))
 
             assert "dns" in _collectors
             _collectors.clear()
@@ -99,7 +99,7 @@ class TestCollectorEnabledSetting:
 
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(initialize_collectors(cache=None))
+            asyncio.run(initialize_collectors(cache=None))
 
             assert "dns" in _collectors
             assert "whois" in _collectors
@@ -271,14 +271,15 @@ class TestAISettingsOverlay:
             from app.ai.client import _build_provider_config
 
             class FakeEnv:
-                LLM_PROVIDER = "openai"
-                NVIDIA_API_KEY = ""
-                OPENAI_API_KEY = "test-key"
-                ANTHROPIC_API_KEY = ""
-                OPENCODE_API_KEY = ""
-                LLM_API_KEY = ""
-                LLM_MODEL = ""
-                LLM_BASE_URL = ""
+                def __init__(self):
+                    self.LLM_PROVIDER = "openai"
+                    self.NVIDIA_API_KEY = ""
+                    self.OPENAI_API_KEY = "test-key"
+                    self.ANTHROPIC_API_KEY = ""
+                    self.OPENCODE_API_KEY = ""
+                    self.LLM_API_KEY = ""
+                    self.LLM_MODEL = ""
+                    self.LLM_BASE_URL = ""
 
             cfg = _build_provider_config(
                 "openai",

@@ -444,7 +444,7 @@ export const aiApi = {
 
 // ── Reports ─────────────────────────────────────────────────────────────────
 
-export type ReportFormat = "html" | "pdf" | "json" | "csv";
+export type ReportFormat = "html" | "json" | "csv";
 
 export interface Report {
   id: string;

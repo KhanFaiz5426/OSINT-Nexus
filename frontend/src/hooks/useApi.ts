@@ -98,10 +98,25 @@ export function useStopInvestigation(): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => investigationsApi.stop(id),
-    onSuccess: (data) => {
+    onMutate: async (id) => {
+      // Optimistically update status to 'stopped'
+      await qc.cancelQueries({ queryKey: ["investigation-status", id] });
+      const previousStatus = qc.getQueryData(["investigation-status", id]);
+      qc.setQueryData(["investigation-status", id], (old: any) => {
+        if (!old) return old;
+        return { ...old, status: "stopped" };
+      });
+      return { previousStatus };
+    },
+    onError: (_err, id, context) => {
+      if (context?.previousStatus) {
+        qc.setQueryData(["investigation-status", id], context.previousStatus);
+      }
+    },
+    onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: ["investigations"] });
-      qc.invalidateQueries({ queryKey: ["investigation", data.id] });
-      qc.invalidateQueries({ queryKey: ["investigation-status", data.id] });
+      qc.invalidateQueries({ queryKey: ["investigation", id] });
+      qc.invalidateQueries({ queryKey: ["investigation-status", id] });
     },
   });
 }
@@ -114,6 +129,21 @@ export function useStartInvestigation(): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => investigationsApi.start(id),
+    onMutate: async (id) => {
+      // Optimistically update status to 'running'
+      await qc.cancelQueries({ queryKey: ["investigation-status", id] });
+      const previousStatus = qc.getQueryData(["investigation-status", id]);
+      qc.setQueryData(["investigation-status", id], (old: any) => {
+        if (!old) return old;
+        return { ...old, status: "running" };
+      });
+      return { previousStatus };
+    },
+    onError: (_err, id, context) => {
+      if (context?.previousStatus) {
+        qc.setQueryData(["investigation-status", id], context.previousStatus);
+      }
+    },
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: ["investigation", id] });
       qc.invalidateQueries({ queryKey: ["investigation-status", id] });
@@ -339,7 +369,7 @@ export function useInvestigationSSE(investigationId: string | undefined) {
     };
 
     const handleStarted = () => {
-      invalidate("investigation-status", "investigation");
+      invalidate("investigation-status", "investigation", "investigations");
     };
 
     const handleRoundCompleted = () => {
@@ -348,6 +378,7 @@ export function useInvestigationSSE(investigationId: string | undefined) {
         "graph",
         "activity",
         "entity-list",
+        "investigations"
       );
     };
 
@@ -360,13 +391,14 @@ export function useInvestigationSSE(investigationId: string | undefined) {
         "activity",
         "entity-list",
         "ai-analysis",
+        "investigations"
       );
       cleanup();
     };
 
     const handleError = () => {
       terminalStates.current.add(invId);
-      invalidate("investigation-status", "investigation");
+      invalidate("investigation-status", "investigation", "investigations");
       cleanup();
     };
 
@@ -397,6 +429,7 @@ export function useInvestigationSSE(investigationId: string | undefined) {
             "graph",
             "activity",
             "entity-list",
+            "investigations"
           );
           cleanup();
         }

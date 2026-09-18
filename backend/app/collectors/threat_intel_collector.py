@@ -13,6 +13,7 @@ import httpx
 
 from app.collectors.base import OSINTCollector
 from app.core.config import get_settings
+from app.core.secrets import get_secret
 from app.models import ObservationStatus, RawResult, TargetType
 
 logger = logging.getLogger(__name__)
@@ -88,14 +89,14 @@ class ThreatIntelCollector(OSINTCollector):
 
     async def _query_abuseipdb(self, ip: str) -> dict[str, Any] | None:
         """Query AbuseIPDB for an IP address."""
-        settings = get_settings()
-        if not settings.ABUSEIPDB_API_KEY:
+        api_key = get_secret("abuseipdb")
+        if not api_key:
             return None
 
         url = f"{ABUSEIPDB_BASE}/check"
         headers = {
             "Accept": "application/json",
-            "Key": settings.ABUSEIPDB_API_KEY,
+            "Key": api_key,
         }
         params = {"ipAddress": ip, "maxAgeInDays": 90, "verbose": ""}
 

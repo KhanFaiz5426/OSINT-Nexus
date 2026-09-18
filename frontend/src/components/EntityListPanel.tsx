@@ -117,14 +117,16 @@ export function EntityListPanel({
           <button
             onClick={() => setFilterOpen(!filterOpen)}
             className={cn(
-              "rounded p-1 transition-colors",
-              filterOpen
-                ? "bg-[var(--nx-accent-subtle)] text-[var(--nx-accent)]"
-                : "text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)]",
+              "rounded p-1 transition-colors flex items-center justify-center",
+              filtersActive
+                ? "bg-[var(--nx-surface-4)] text-[var(--nx-accent)] ring-1 ring-[var(--nx-accent)]"
+                : filterOpen
+                  ? "bg-[var(--nx-surface-3)] text-[var(--nx-text-primary)]"
+                  : "text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-secondary)]",
             )}
             aria-label="Toggle filters"
           >
-            <Filter className="h-3.5 w-3.5" />
+            <Filter className={cn("h-3.5 w-3.5", filtersActive && "fill-current")} />
           </button>
         </div>
       }
@@ -153,55 +155,62 @@ export function EntityListPanel({
 
       {/* Expandable filters */}
       {filterOpen && (
-        <div className="space-y-3 border-b border-[var(--nx-border)] bg-[var(--nx-surface-3)]/50 px-3 py-3">
+        <div className="space-y-3 border-b border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-2.5">
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)] mb-1.5">
-              Type
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {TYPE_OPTIONS.map((t) => {
-                const color = entityTypeColor(t);
-                const active = typeFilter.has(t);
-                return (
-                  <button
-                    key={t}
-                    onClick={() => toggleType(t)}
-                    className={cn(
-                      "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ring-1 transition-opacity",
-                      color.bg,
-                      color.text,
-                      color.ring,
-                      active ? "opacity-100" : "opacity-30 hover:opacity-60",
-                    )}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)]">
+                Type
+              </label>
               {typeFilter.size > 0 && (
                 <button
                   onClick={clearTypeFilter}
-                  className="rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80"
+                  className="text-[9px] font-medium text-[var(--nx-text-muted)] hover:text-[var(--nx-text-primary)]"
                 >
                   Clear
                 </button>
               )}
             </div>
+            <div className="flex flex-wrap gap-1">
+              {TYPE_OPTIONS.map((t) => {
+                const color = entityTypeColor(t);
+                const active = typeFilter.has(t);
+                // Extract base color string for a solid dot, e.g., "bg-red-500"
+                const dotColor = color.bg.replace("/15", "");
+                return (
+                  <button
+                    key={t}
+                    onClick={() => toggleType(t)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide border transition-colors",
+                      active
+                        ? "bg-[var(--nx-surface-4)] border-[var(--nx-text-primary)] text-[var(--nx-text-primary)]"
+                        : "bg-[var(--nx-surface-3)] border-[var(--nx-border)] text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-4)] hover:text-[var(--nx-text-secondary)]",
+                    )}
+                  >
+                    <span className={cn("w-1.5 h-1.5 rounded-full", dotColor)} />
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)] mb-1">
-              Min Confidence: {formatPercent(minConfidence, 0)}
+            <label className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[var(--nx-text-muted)] mb-1">
+              <span>Min Confidence</span>
+              <span className="text-[var(--nx-text-primary)] font-mono">{formatPercent(minConfidence, 0)}</span>
             </label>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={minConfidence}
-              onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
-              className="mt-1 w-full accent-[var(--nx-accent)]"
-            />
+            <div className="flex items-center h-4 w-full">
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={minConfidence}
+                onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
+                className="w-full h-1 bg-[var(--nx-border)] rounded-full appearance-none cursor-pointer accent-[var(--nx-accent)] focus:outline-none"
+              />
+            </div>
           </div>
 
           <div>
@@ -213,7 +222,7 @@ export function EntityListPanel({
               onChange={(e) =>
                 setSortBy(e.target.value as typeof sortBy)
               }
-              className="block w-full rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] px-2 py-1 text-xs text-[var(--nx-text-primary)] focus:border-[var(--nx-accent-dim)] focus:outline-none"
+              className="block w-full rounded-md border border-[var(--nx-border)] bg-[var(--nx-surface-3)] px-2 py-1.5 text-xs text-[var(--nx-text-primary)] focus:border-[var(--nx-accent-dim)] focus:outline-none transition-colors"
             >
               <option value="confidence">Confidence (high → low)</option>
               <option value="source_count">Source count</option>
@@ -229,7 +238,7 @@ export function EntityListPanel({
                 setSearch("");
                 setMinConfidence(0);
               }}
-              className="text-[10px] font-medium text-[var(--nx-accent)] hover:text-[var(--nx-accent)]/80"
+              className="mt-1 block w-full rounded border border-[var(--nx-border)] bg-[var(--nx-surface-3)] py-1 text-xs text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-4)] hover:text-[var(--nx-text-primary)] transition-colors"
             >
               Reset all filters
             </button>

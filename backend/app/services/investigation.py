@@ -6,9 +6,10 @@ Uses asyncpg for PostgreSQL operations.
 
 import json
 import logging
+import uuid
 from datetime import UTC, datetime
 
-import asyncpg
+import aiosqlite
 
 from app.db.client import get_pool
 from app.models import (
@@ -34,8 +35,12 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     default ``STANDARD``), the runtime setting ``general.default_depth``
     is applied instead.
     """
+    from app.core.security import validate_target_for_collector
+
     target_type = classify_target(data.target)
     normalized_target = normalize_target(data.target, target_type)
+    validate_target_for_collector(normalized_target, target_type.value)
+
     now = datetime.now(UTC)
 
     # Apply default depth from settings store when not explicitly overridden.
@@ -64,12 +69,13 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
         row = await conn.fetchrow(
             """
             INSERT INTO investigations
-                (name, target, target_type, status, depth, api_budget, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (id, name, target, target_type, status, depth, api_budget, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id, name, target, target_type, status, depth,
                       created_at, updated_at, api_calls_used, api_budget,
                       entity_count, relationship_count, observation_count
             """,
+            str(uuid.uuid4()),
             data.name,
             normalized_target,
             target_type.value,
@@ -170,7 +176,7 @@ async def stop_investigation(investigation_id: str) -> InvestigationResponse | N
     return _row_to_response(row)
 
 
-def _row_to_response(row: asyncpg.Record) -> InvestigationResponse:
+def _row_to_response(row: aiosqlite.Row) -> InvestigationResponse:
     """Convert a database row to an InvestigationResponse."""
     return InvestigationResponse(
         id=str(row["id"]),
@@ -193,7 +199,7 @@ async def delete_investigation(investigation_id: str) -> bool:
     Deletion order (safe and transactional):
     1. Verify investigation exists and is not running.
     2. Capture report file paths before DB deletion.
-    3. Delete Neo4j investigation-scoped data.
+    3. Delete graph investigation-scoped data.
     4. Delete PostgreSQL investigation data (cascades to all child tables).
     5. Delete report files from disk after successful DB/graph deletion.
 
@@ -236,14 +242,14 @@ async def delete_investigation(investigation_id: str) -> bool:
     except Exception:
         logger.warning("Failed to capture report file paths for %s", investigation_id)
 
-    # Step 3: Delete Neo4j investigation-scoped data.
+    # Step 3: Delete graph investigation-scoped data.
     try:
         from app.graph.writer import delete_investigation_graph
 
         await delete_investigation_graph(investigation_id)
     except Exception as exc:
         logger.warning(
-            "Failed to delete Neo4j data for %s (proceeding with DB deletion): %s",
+            "Failed to delete graph data for %s (proceeding with DB deletion): %s",
             investigation_id,
             exc,
         )
@@ -480,7 +486,7 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                     (id, investigation_id, type, value, confidence, first_seen,
                      last_seen, source_count, properties)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT (id) DO UPDATE SET
+                ON CONFLICT (id, investigation_id) DO UPDATE SET
                     confidence = EXCLUDED.confidence,
                     last_seen = EXCLUDED.last_seen,
                     source_count = EXCLUDED.source_count
@@ -523,11 +529,10 @@ async def import_investigation(data: dict) -> InvestigationResponse:
             new_id,
         )
 
-    # Import graph to Neo4j
+    # Import graph data
     graph_data = data.get("graph", {})
     if graph_data.get("nodes") or graph_data.get("edges"):
         try:
-            from app.graph.client import get_driver
             from app.graph.writer import write_graph
             from app.models.processing import ExtractedEntity, ExtractedRelationship
 
@@ -584,13 +589,10 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                         method=data_edge.get("method", "import"),
                     )
                 )
-
-            driver = await get_driver()
             await write_graph(
                 entities,
                 relationships,
                 investigation_id=new_id,
-                driver=driver,
             )
         except Exception:
             pass  # Graph import is best-effort

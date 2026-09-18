@@ -1,5 +1,13 @@
-with open("app/api/entity_ai.py", "r") as f:
-    lines = f.readlines()
-lines[220] = '        \'  "connection_to_target": "<string: how this entity connects to the investigation target>",\\n\'  # noqa: E501\n'
-with open("app/api/entity_ai.py", "w") as f:
-    f.writelines(lines)
+import sqlite3
+import os
+
+db_path = os.path.join("app", "data", "osint_nexus_dev.osint")
+if os.path.exists(db_path):
+    print("Fixing db:", db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE investigations SET status='running' WHERE status='active'")
+    conn.commit()
+    conn.close()
+    print("Done")
+else:
+    print("DB not found")

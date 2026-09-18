@@ -75,7 +75,7 @@ class TestCacheKey:
 
     def test_prefix(self):
         key = _cache_key("https://example.com")
-        assert key.startswith("osint:source_check:")
+        assert key.startswith("source_check:")
 
 
 class TestCheckSourceAvailability:

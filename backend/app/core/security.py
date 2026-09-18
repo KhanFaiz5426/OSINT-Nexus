@@ -103,7 +103,19 @@ def validate_target_for_collector(target: str, target_type: str) -> str:
     # Strip null bytes and control characters
     cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", target)
 
-    # For URLs, validate the scheme
+    # Universal SSRF check on the raw target (prevents bypassing via classification)
+    try:
+        ip = ipaddress.ip_address(cleaned)
+        for network in _BLOCKED_NETWORKS:
+            if ip in network:
+                raise SSRFBlockedError(f"SSRF blocked: IP {cleaned} is in blocked range {network}")
+    except ValueError:
+        pass
+
+    if _BLOCKED_HOSTNAMES.match(cleaned):
+        raise SSRFBlockedError(f"SSRF blocked: hostname '{cleaned}' targets internal network")
+
+    # For URLs, validate the scheme and SSRF
     if target_type == "url":
         parsed = urlparse(cleaned)
         if parsed.scheme not in ("http", "https"):
@@ -114,8 +126,9 @@ def validate_target_for_collector(target: str, target_type: str) -> str:
         validate_url_not_internal(cleaned)
 
     # For domains/IPs, basic character validation
-    if target_type in ("domain", "ip") and not re.match(r"^[a-zA-Z0-9.\-:\/\[\]]+$", cleaned):
-        raise ValueError(f"Target contains invalid characters: {cleaned}")
+    if target_type in ("domain", "ip"):
+        if not re.match(r"^[a-zA-Z0-9.\-:\/\[\]]+$", cleaned):
+            raise ValueError(f"Target contains invalid characters: {cleaned}")
 
     return cleaned
 
@@ -143,7 +156,6 @@ def sanitize_error_message(exc: Exception) -> str:
 
     # Remove connection strings
     msg = re.sub(r"postgresql://[^\s\"']+", "[db]", msg)
-    msg = re.sub(r"redis://[^\s\"']+", "[redis]", msg)
     msg = re.sub(r"bolt://[^\s\"']+", "[neo4j]", msg)
 
     # Truncate very long messages

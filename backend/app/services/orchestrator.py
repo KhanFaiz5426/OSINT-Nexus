@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -192,11 +193,12 @@ async def collect_and_store(
             row = await conn.fetchrow(
                 """
                 INSERT INTO observations
-                    (investigation_id, source_adapter, source_version, collected_at,
+                    (id, investigation_id, source_adapter, source_version, collected_at,
                      method, target, raw_response, normalized_value, confidence, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING id::text
                 """,
+                str(uuid.uuid4()),
                 investigation_id,
                 result.collector_name,
                 result.collector_version,
@@ -415,17 +417,12 @@ async def run_investigation_loop(
         return {"error": "Investigation not found"}
 
     # Initialize collectors if needed.
-    from app.collectors.cache import CollectorCache
+    from app.collectors.cache import get_collector_cache
     from app.collectors.registry import get_all_collectors
-    from app.core.redis import get_redis
 
     if not get_all_collectors():
-        try:
-            redis_client = await get_redis()
-            cache = CollectorCache(redis_client)
-            await initialize_collectors(cache=cache)
-        except Exception:
-            await initialize_collectors(cache=None)
+        cache = get_collector_cache()
+        await initialize_collectors(cache=cache)
 
     # Set status to running.
     await update_investigation_status(investigation_id, InvestigationStatus.RUNNING)
@@ -765,7 +762,12 @@ async def _load_investigation_state(
         return None
 
     status = row["status"]
-    if status not in (InvestigationStatus.CREATED.value, InvestigationStatus.RUNNING.value):
+    if status not in (
+        InvestigationStatus.CREATED.value,
+        InvestigationStatus.RUNNING.value,
+        InvestigationStatus.STOPPED.value,
+        InvestigationStatus.ERROR.value,
+    ):
         return None
 
     budget_used = row["api_calls_used"]
@@ -870,15 +872,12 @@ async def _write_username_correlation(
         return
 
     try:
-        from app.graph.client import get_driver
         from app.graph.writer import write_graph
 
-        driver = await get_driver()
         nodes_written, edges_written = await write_graph(
             entities,
             relationships,
             investigation_id=investigation_id,
-            driver=driver,
         )
         logger.info(
             "Username correlation graph write: %d nodes, %d edges",
