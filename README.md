@@ -504,7 +504,8 @@ npm run build
 cd ../backend
 pyinstaller osint-nexus.spec --noconfirm
 
-# Compile the installer using Inno Setup (requires Inno Setup installed)
+# Compile the installer using Inno Setup (requires Inno Setup 6)
+# Alternatively, you may open the OSINT-Nexus.iss file directly in the Inno Setup GUI and select "Compile" from the "Build" menu at the top of the interface.
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" OSINT-Nexus.iss
 ```
 
