@@ -1,10 +1,14 @@
+<div align="center">
+
+![Status](https://img.shields.io/badge/status-stable-green) ![License](https://img.shields.io/badge/license-MIT-blue) ![Platform](https://img.shields.io/badge/platform-Windows-0078d4) ![Python](https://img.shields.io/badge/python-3.12+-3776ab) ![React](https://img.shields.io/badge/react-19-61dafb) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
+
 # OSINT Nexus
 
 **AI-Assisted, Evidence-Backed OSINT Investigation and Correlation Workstation**
 
 A native Windows desktop application for structured open-source intelligence investigations. A single target triggers automated multi-source collection, normalization, entity extraction, relationship detection, confidence scoring, knowledge graph construction, and evidence-backed reporting -- with full source attribution at every step.
 
-![Status](https://img.shields.io/badge/status-stable-green) ![License](https://img.shields.io/badge/license-MIT-blue) ![Platform](https://img.shields.io/badge/platform-Windows-0078d4) ![Python](https://img.shields.io/badge/python-3.12+-3776ab) ![React](https://img.shields.io/badge/react-19-61dafb) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
+</div>
 
 ---
 
@@ -12,11 +16,27 @@ A native Windows desktop application for structured open-source intelligence inv
 
 An investigation follows a deterministic pipeline. AI is advisory and never controls collection, validation, budgets, or persistence.
 
-```
-Target -> Classify -> Collect -> Normalize -> Extract -> Resolve -> Correlate -> Graph -> Report
-                                ^                                         |
-                                +---- AI Planner suggests pivots --------+
-```
+<div align="center">
+
+| Step | Stage |
+|---|---|
+| 1 | **Target** |
+| 2 | **Classify** |
+| 3 | **Collect** |
+| 4 | **Normalize** |
+| 5 | **Extract** |
+| 6 | **Resolve** |
+| 7 | **Correlate** |
+| 8 | **Graph** |
+| 9 | **Report** |
+
+</div>
+
+<div align="center">
+
+**AI Planner** — advisory only; suggests pivots that flow through deterministic validation, budgets, and dispatch controls before execution
+
+</div>
 
 1. **Create or open a workspace** -- a portable `.osint` file (SQLite database).
 2. **Create an investigation** -- enter a target (domain, IP, URL, email, username, or organization).
@@ -32,29 +52,19 @@ Target -> Classify -> Collect -> Normalize -> Extract -> Resolve -> Correlate ->
 
 OSINT Nexus is distributed as a standalone Windows desktop application. A Python FastAPI backend and a React/Vite frontend are packaged into a single executable using PyInstaller and pywebview.
 
-```
-+------------------------------------------------------------+
-|              Desktop Shell (pywebview)                      |
-| +--------------------------------------------------------+ |
-| |                  Frontend (React)                       | |
-| |   Dashboard / Graph / Entities / Reports / AI / Notes   | |
-| +---------------------------+----------------------------+ |
-|                             | HTTP (localhost)              |
-|                             v                               |
-| +--------------------------------------------------------+ |
-| |              FastAPI Backend (Python)                   | |
-| |   API Routes / Pipeline / Collectors / AI / Workspace   | |
-| +---------------------------+----------------------------+ |
-+-----------------------------+------------------------------+
-                              | SQLite (local file)
-                              v
-                    +-------------------+
-                    |  .osint Workspace |
-                    |  Entities & Rels  |
-                    |  Observations     |
-                    |  Activity Log     |
-                    +-------------------+
-```
+<div align="center">
+
+| Layer | Technology |
+|---|---|
+| **Desktop Shell** | pywebview |
+| **Frontend** | React / Vite — Workstation, Graph, Entities, Reports, AI, Notes |
+| **Transport** | HTTP (localhost) |
+| **Backend** | FastAPI (Python) — API Routes, Pipeline, Collectors, AI, Workspace, Tasks |
+| **Persistence** | SQLite (.osint workspace) — Entities, Relationships, Observations, Activity Log |
+
+</div>
+
+The frontend communicates with the backend over localhost HTTP. The backend manages all SQLite persistence; the frontend does not access the database directly. No PostgreSQL, Neo4j, Redis, Celery, or Docker required at runtime.
 
 ---
 
