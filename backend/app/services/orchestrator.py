@@ -189,6 +189,7 @@ async def collect_and_store(
     # Store observation.
     try:
         from app.core.security import sanitize_collector_error
+
         pool = await get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -1047,6 +1048,7 @@ async def _expand_username_searches(
     # ── Step 4: Search top username variations ────────────────────────────
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
+
         _app = get_app_settings() if SETTINGS_FILE.exists() else None
         max_variations = _app.investigation.probe.max_variations if _app else 10
     except Exception:
@@ -1153,6 +1155,7 @@ async def _run_username_probe_engine(
             break
         try:
             from app.core.security import sanitize_collector_error
+
             pool = await get_pool()
             async with pool.acquire() as conn:
                 row = await conn.fetchrow(

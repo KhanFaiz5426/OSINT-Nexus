@@ -226,10 +226,9 @@ async def _init_schema(conn: aiosqlite.Connection) -> None:
     # Any investigation persisted as RUNNING has no live task backing it.
     try:
         import logging
+
         logger = logging.getLogger(__name__)
-        cursor = await conn.execute(
-            "SELECT id FROM investigations WHERE status = 'running'"
-        )
+        cursor = await conn.execute("SELECT id FROM investigations WHERE status = 'running'")
         rows = await cursor.fetchall()
         orphaned = [row[0] for row in rows]
         if orphaned:
@@ -248,9 +247,11 @@ async def _init_schema(conn: aiosqlite.Connection) -> None:
                         INSERT INTO activity_log (investigation_id, event_type, details)
                         VALUES (?, ?, ?)
                         """,
-                        (inv_id,
-                         "investigation_reconciled",
-                         '{"stop_reason": "process_restart", "message": "Investigation was running when the application started. TaskManager state does not survive restart."}'),
+                        (
+                            inv_id,
+                            "investigation_reconciled",
+                            '{"stop_reason": "process_restart", "message": "Investigation was running when the application started. TaskManager state does not survive restart."}',
+                        ),
                     )
                 except Exception:
                     pass

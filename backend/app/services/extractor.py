@@ -301,9 +301,7 @@ def extract_from_dns(
     # Never force an IP through domain-only normalization: normalize_domain
     # returns "" for IPs, which would discard the whole observation.
     is_ip_target = is_valid_ip(actual_target)
-    source_domain = (
-        normalize_ip(actual_target) if is_ip_target else normalize_domain(actual_target)
-    )
+    source_domain = normalize_ip(actual_target) if is_ip_target else normalize_domain(actual_target)
 
     def _add_entity(
         etype: EntityType, value: str, confidence: float = 0.9
@@ -516,7 +514,9 @@ def extract_from_whois(
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity | None:
+    def _add_entity(
+        etype: EntityType, value: str, confidence: float = 0.9
+    ) -> ExtractedEntity | None:
         norm = _normalize_entity_value(etype, value)
         if not norm:
             return None
@@ -567,11 +567,11 @@ def extract_from_whois(
         if email_entity:
             _add_rel(
                 domain_entity.id,
-            RelationshipType.ASSOCIATED_WITH_EMAIL,
-            email_entity.id,
-            "email_domain",
-            confidence=1.0,
-        )
+                RelationshipType.ASSOCIATED_WITH_EMAIL,
+                email_entity.id,
+                "email_domain",
+                confidence=1.0,
+            )
 
     # Registrar → Organization
     registrar = raw_response.get("registrar", "")
@@ -617,34 +617,46 @@ def extract_from_whois(
     for ns in nameservers:
         if not ns:
             continue
-            
+
         if isinstance(ns, dict):
             ns_name = str(ns.get("name", "")).strip()
             ns_ip = str(ns.get("ipv4", ns.get("ipv6", ""))).strip()
-            
+
             ns_entity = None
             if ns_name and ns_name.lower() not in ("redacted", "privacy"):
                 ns_entity = _add_entity(EntityType.DOMAIN, ns_name, 0.9)
                 if ns_entity:
-                    _add_rel(domain_entity.id, RelationshipType.USES_NAMESERVER, ns_entity.id, "whois_nameserver")
-            
+                    _add_rel(
+                        domain_entity.id,
+                        RelationshipType.USES_NAMESERVER,
+                        ns_entity.id,
+                        "whois_nameserver",
+                    )
+
             if ns_ip:
                 from app.services.normalizer import is_valid_ip
+
                 if is_valid_ip(ns_ip):
                     ip_entity = _add_entity(EntityType.IP, ns_ip, 0.9)
                     if ip_entity and ns_entity:
-                        _add_rel(ns_entity.id, RelationshipType.HOSTED_ON, ip_entity.id, "whois_nameserver_ip")
+                        _add_rel(
+                            ns_entity.id,
+                            RelationshipType.HOSTED_ON,
+                            ip_entity.id,
+                            "whois_nameserver_ip",
+                        )
             continue
 
         ns_str = str(ns).strip()
         if ns_str and ns_str.lower() not in ("redacted", "privacy"):
             # A nameserver might be returned as an IP address
             from app.services.normalizer import is_valid_ip
+
             if is_valid_ip(ns_str):
                 ns_entity = _add_entity(EntityType.IP, ns_str, 0.9)
             else:
                 ns_entity = _add_entity(EntityType.DOMAIN, ns_str, 0.9)
-            
+
             if ns_entity:
                 _add_rel(
                     domain_entity.id,
@@ -709,7 +721,9 @@ def extract_from_ct(
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity | None:
+    def _add_entity(
+        etype: EntityType, value: str, confidence: float = 0.9
+    ) -> ExtractedEntity | None:
         norm = _normalize_entity_value(etype, value)
         if not norm:
             return None
@@ -760,11 +774,11 @@ def extract_from_ct(
         if email_entity:
             _add_rel(
                 domain_entity.id,
-            RelationshipType.ASSOCIATED_WITH_EMAIL,
-            email_entity.id,
-            "email_domain",
-            confidence=1.0,
-        )
+                RelationshipType.ASSOCIATED_WITH_EMAIL,
+                email_entity.id,
+                "email_domain",
+                confidence=1.0,
+            )
 
     # Certificates — cap extraction to prevent graph explosion
     certificates = raw_response.get("certificates", [])
@@ -809,8 +823,9 @@ def extract_from_ct(
                 name = name.strip().lower()
                 if not name:
                     continue
-                
+
                 from app.services.normalizer import is_valid_ip
+
                 if is_valid_ip(name):
                     ip_entity = _add_entity(EntityType.IP, name, 0.9)
                     if ip_entity:
@@ -822,7 +837,7 @@ def extract_from_ct(
                             confidence=0.8,
                         )
                     continue
-                
+
                 if name != source_domain:
                     # Subdomain if it ends with source_domain (including wildcard match)
                     if name.endswith(f".{source_domain}") or name == source_domain:

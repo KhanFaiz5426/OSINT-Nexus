@@ -254,6 +254,7 @@ def get_task_manager() -> TaskManager:
     global _task_manager
     if _task_manager is None:
         from app.core.settings_store import get_app_settings
+
         settings = get_app_settings()
         _task_manager = TaskManager(max_concurrent=settings.general.max_concurrent_investigations)
     return _task_manager

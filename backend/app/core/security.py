@@ -190,7 +190,9 @@ def sanitize_collector_error(msg: str | None) -> str:
         return ""
 
     # Redact secrets/tokens
-    msg = _SECRET_RE.sub(lambda m: m.group(0).split("=")[0].split(":")[0].strip() + "=[REDACTED]", msg)
+    msg = _SECRET_RE.sub(
+        lambda m: m.group(0).split("=")[0].split(":")[0].strip() + "=[REDACTED]", msg
+    )
 
     # Remove file paths (Windows and Unix)
     msg = re.sub(r"[A-Za-z]:\\[^\s\"']+", "[path]", msg)

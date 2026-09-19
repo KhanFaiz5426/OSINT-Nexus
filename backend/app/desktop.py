@@ -231,15 +231,18 @@ class DesktopApp:
                 try:
                     import json
                     import urllib.request
+
                     req = urllib.request.Request(
                         f"http://127.0.0.1:{port}/api/v1/workspace/open",
                         data=json.dumps({"path": target_path}).encode("utf-8"),
                         headers={"Content-Type": "application/json"},
-                        method="POST"
+                        method="POST",
                     )
                     with urllib.request.urlopen(req, timeout=5.0) as response:
                         if response.status == 200:
-                            logger.info("Successfully opened workspace from command line: %s", target_path)
+                            logger.info(
+                                "Successfully opened workspace from command line: %s", target_path
+                            )
                 except Exception as e:
                     logger.error("Failed to open workspace from command line: %s", e)
 

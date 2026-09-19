@@ -49,11 +49,11 @@ def _resolve_rate_limit_rpm(collector_name: str, class_default: int) -> int:
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()
-        
+
         # Search rate limit is explicitly exposed in the UI as search_rate_limit_rpm
         if collector_name == "search":
             return settings.collectors.search_rate_limit_rpm
-            
+
         return settings.collectors.rate_limits.get(collector_name, class_default)
     except Exception:
         return class_default
