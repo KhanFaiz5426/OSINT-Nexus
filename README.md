@@ -182,10 +182,11 @@ Entities and relationships carry confidence fields (0.0-1.0) displayed in the UI
 
 ### End Users
 
-1. Download the `OSINT-Nexus-Setup.exe` installer from the latest release.
-2. Run the installer. The application installs to your local user directory.
-3. Launch "OSINT Nexus" from your Start Menu.
-4. No additional software is required for core functionality. SQLite is bundled natively. Optional integrations (SearXNG, Ollama) require separate installation.
+**[⬇️ Download OSINT Nexus for Windows](../../releases/latest)**
+
+1.Download `OSINT-Nexus-Setup.exe` from the latest release and run the installer.
+2.Launch "OSINT Nexus" from your Start Menu.
+3.No additional software is required for core functionality. SQLite is bundled natively. Optional integrations such as SearXNG and Ollama require separate installation.
 
 ### Developers
 
