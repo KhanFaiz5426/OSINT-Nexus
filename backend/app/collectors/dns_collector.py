@@ -32,7 +32,7 @@ class DNSCollector(OSINTCollector):
     version = "1.0.0"
     supported_target_types = [TargetType.DOMAIN, TargetType.IP, TargetType.EMAIL]
     requires_api_key = False
-    cache_ttl = 3600  # 1 hour
+    cache_ttl = 86400  # 24 hours
     rate_limit_rpm = 600  # 10 req/s
 
     def _is_ip_address(self, target: str) -> bool:
