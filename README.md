@@ -17,27 +17,14 @@ A native Windows desktop application for structured open-source intelligence inv
 
 An investigation follows a deterministic pipeline. AI is advisory and never controls collection, validation, budgets, or persistence.
 
-<div align="center">
+```mermaid
+flowchart TB
+    A[Target] --> B[Classify] --> C[Collect] --> D[Normalize] --> E[Extract] --> F[Resolve] --> G[Correlate] --> H[Graph] --> I[Report]
+    J[AI Planner] -.->|suggests pivots| C
+    J -.->|advisory only| B
+```
 
-| Step |Stage |
-|---|---|
-| 1 | **Target** |
-| 2 | **Classify** |
-| 3 | **Collect** |
-| 4 | **Normalize** |
-| 5 | **Extract** |
-| 6 | **Resolve** |
-| 7 | **Correlate** |
-| 8 | **Graph** |
-| 9 | **Report** |
-
-</div>
-
-<div align="center">
-
-**AI Planner** — advisory only; suggests pivots that flow through deterministic validation, budgets, and dispatch controls before execution
-
-</div>
+The AI Planner is advisory only; suggested pivots flow through deterministic validation, budgets, depth, rate limits, and dispatch controls before execution.
 
 1. **Create or open a workspace** -- a portable `.osint` file (SQLite database).
 2. **Create an investigation** -- enter a target (domain, IP, URL, email, username, or organization).
@@ -53,17 +40,12 @@ An investigation follows a deterministic pipeline. AI is advisory and never cont
 
 OSINT Nexus is distributed as a standalone Windows desktop application. A Python FastAPI backend and a React/Vite frontend are packaged into a single executable using PyInstaller and pywebview.
 
-<div align="center">
-
-| Layer | Technology |
-|---|---|
-| **Desktop Shell** | pywebview |
-| **Frontend** | React / Vite — Workstation, Graph, Entities, Reports, AI, Notes |
-| **Transport** | HTTP (localhost) |
-| **Backend** | FastAPI (Python) — API Routes, Pipeline, Collectors, AI, Workspace, Tasks |
-| **Persistence** | SQLite (.osint workspace) — Entities, Relationships, Observations, Activity Log |
-
-</div>
+```mermaid
+flowchart TB
+    A[Desktop Shell<br/>pywebview] --> B[React / Vite Frontend<br/>Workstation · Graph · Entities · Reports · AI · Notes]
+    B -->|HTTP \(localhost\)| C[FastAPI Backend<br/>API Routes · Pipeline · Collectors · AI · Workspace · Tasks]
+    C --> D[SQLite Workspace<br/>.osint file<br/>Entities · Relationships · Observations · Activity Log]
+```
 
 The frontend communicates with the backend over localhost HTTP. The backend manages all SQLite persistence; the frontend does not access the database directly. No PostgreSQL, Neo4j, Redis, Celery, or Docker required at runtime.
 
