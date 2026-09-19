@@ -17,6 +17,47 @@ import { OpenInvestigationModal } from "../components/OpenInvestigationModal";
 import { WorkspaceModals } from "../components/WorkspaceModals";
 import { useWorkspaceActions } from "../hooks/useWorkspaceActions";
 import { useWorkspaceStatus } from "../hooks/useWorkspaceApi";
+import { AlertCircle, X } from "lucide-react";
+
+function GlobalErrorModal() {
+  const globalError = useWorkspaceStore((s) => s.globalError);
+  const setGlobalError = useWorkspaceStore((s) => s.setGlobalError);
+
+  if (!globalError) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div
+        className="w-full max-w-md rounded-lg border border-[var(--nx-border-strong)] bg-[var(--nx-surface-1)] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[var(--nx-border)] px-4 py-3 bg-[var(--nx-surface-2)]">
+          <div className="flex items-center gap-2 text-rose-500">
+            <AlertCircle className="h-4 w-4" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider">Error</h2>
+          </div>
+          <button
+            onClick={() => setGlobalError(null)}
+            className="rounded p-1 text-[var(--nx-text-muted)] hover:bg-[var(--nx-surface-3)] hover:text-[var(--nx-text-primary)] transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-5">
+          <p className="whitespace-pre-wrap text-sm text-[var(--nx-text-secondary)]">{globalError}</p>
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => setGlobalError(null)}
+              className="rounded-md bg-[var(--nx-surface-3)] hover:bg-[var(--nx-surface-4)] px-4 py-2 text-xs font-medium text-[var(--nx-text-primary)] transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function WorkstationPage() {
   const { id } = useParams<{ id?: string }>();
@@ -164,6 +205,7 @@ export function WorkstationPage() {
       <NewInvestigationModal />
       <OpenInvestigationModal />
       <WorkspaceModals />
+      <GlobalErrorModal />
     </div>
   );
 }

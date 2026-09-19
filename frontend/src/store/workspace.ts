@@ -121,6 +121,10 @@ interface WorkspaceState {
 
   // Reset current tab workspace
   resetWorkspaceUiState: () => void;
+
+  // Global Error Modal
+  globalError: string | null;
+  setGlobalError: (err: string | null) => void;
 }
 
 const initialFilters = {
@@ -292,4 +296,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       openTabs: [],
       activeTabId: null,
     }),
+
+  // Global Error Modal
+  globalError: null,
+  setGlobalError: (err) => set({ globalError: err }),
 }));

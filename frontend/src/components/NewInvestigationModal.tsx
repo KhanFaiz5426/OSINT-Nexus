@@ -65,6 +65,8 @@ export function NewInvestigationModal() {
     staleTime: 60000,
   });
 
+  const setGlobalError = useWorkspaceStore((s) => s.setGlobalError);
+
   useEffect(() => {
     if (newModalOpen) {
       // eslint-disable-next-line react/set-state-in-effect
@@ -116,7 +118,7 @@ export function NewInvestigationModal() {
         // Automatically start the investigation
         startMutation.mutate(result.id, {
           onError: (err) => {
-            alert(`Investigation created, but failed to start:\n${err.message}`);
+            setGlobalError(`Investigation created, but failed to start:\n${err.message}`);
           }
         });
 
