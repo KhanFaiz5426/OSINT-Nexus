@@ -21,7 +21,7 @@ An investigation follows a deterministic pipeline. AI is advisory and never cont
 flowchart TB
     A[Target] --> B[Classify] --> C[Collect] --> D[Normalize] --> E[Extract] --> F[Resolve] --> G[Correlate] --> H[Graph] --> I[Report]
     J[AI Planner] -.->|suggests pivots| C
-    J -.->|advisory only| B
+    J -.->|advisory| B
 ```
 
 The AI Planner is advisory only; suggested pivots flow through deterministic validation, budgets, depth, rate limits, and dispatch controls before execution.
@@ -42,9 +42,9 @@ OSINT Nexus is distributed as a standalone Windows desktop application. A Python
 
 ```mermaid
 flowchart TB
-    A[Desktop Shell<br/>pywebview] --> B[React / Vite Frontend<br/>Workstation · Graph · Entities · Reports · AI · Notes]
-    B -->|HTTP \(localhost\)| C[FastAPI Backend<br/>API Routes · Pipeline · Collectors · AI · Workspace · Tasks]
-    C --> D[SQLite Workspace<br/>.osint file<br/>Entities · Relationships · Observations · Activity Log]
+    A[Desktop Shell\npywebview] --> B[React / Vite Frontend\nWorkstation | Graph | Entities | Reports | AI | Notes]
+    B -->|"HTTP (localhost)"| C[FastAPI Backend\nAPI Routes | Pipeline | Collectors | AI | Workspace | Tasks]
+    C --> D[SQLite Workspace\n.osint file\nEntities | Relationships | Observations | Activity Log]
 ```
 
 The frontend communicates with the backend over localhost HTTP. The backend manages all SQLite persistence; the frontend does not access the database directly. No PostgreSQL, Neo4j, Redis, Celery, or Docker required at runtime.
