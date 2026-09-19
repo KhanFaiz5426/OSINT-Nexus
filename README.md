@@ -1,8 +1,9 @@
 <div align="center">
 
+# OSINT Nexus
+
 ![Status](https://img.shields.io/badge/status-stable-green) ![License](https://img.shields.io/badge/license-MIT-blue) ![Platform](https://img.shields.io/badge/platform-Windows-0078d4) ![Python](https://img.shields.io/badge/python-3.12+-3776ab) ![React](https://img.shields.io/badge/react-19-61dafb) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
 
-# OSINT Nexus
 
 **AI-Assisted, Evidence-Backed OSINT Investigation and Correlation Workstation**
 
@@ -18,7 +19,7 @@ An investigation follows a deterministic pipeline. AI is advisory and never cont
 
 <div align="center">
 
-| Step | Stage |
+| Step |Stage |
 |---|---|
 | 1 | **Target** |
 | 2 | **Classify** |
