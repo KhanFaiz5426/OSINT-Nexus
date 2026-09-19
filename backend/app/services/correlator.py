@@ -449,8 +449,12 @@ def _extract_from_ip_asn(
         )
     )
 
-    # ASN entity.
-    asn = raw_response.get("asn", "")
+    # ASN entity (canonical AS<number> form so extractor, detector, and
+    # seed data agree on the entity id).
+    asn_raw = str(raw_response.get("asn", "") or "").strip().upper()
+    if asn_raw.startswith("AS"):
+        asn_raw = asn_raw[2:].strip()
+    asn = f"AS{asn_raw}" if asn_raw.isdigit() else ""
     if asn:
         entities.append(
             ExtractedEntity(

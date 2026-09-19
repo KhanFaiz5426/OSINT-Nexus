@@ -188,14 +188,16 @@ async def collect_and_store(
 
     # Store observation.
     try:
+        from app.core.security import sanitize_collector_error
         pool = await get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
                 INSERT INTO observations
                     (id, investigation_id, source_adapter, source_version, collected_at,
-                     method, target, raw_response, normalized_value, confidence, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     method, target, raw_response, normalized_value, confidence, status,
+                     error_message)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING id::text
                 """,
                 str(uuid.uuid4()),
@@ -209,6 +211,7 @@ async def collect_and_store(
                 result.normalized_value,
                 result.confidence,
                 result.status.value,
+                sanitize_collector_error(result.error_message),
             )
             return {
                 "id": row["id"],
@@ -216,6 +219,7 @@ async def collect_and_store(
                 "target": result.target,
                 "raw_response": result.raw_response,
                 "status": result.status.value,
+                "error_message": sanitize_collector_error(result.error_message),
             }
     except Exception as exc:
         logger.error("Failed to store observation for %s/%s: %s", action.value, target, exc)
@@ -333,6 +337,35 @@ async def update_investigation_status(
                 now,
                 investigation_id,
             )
+
+
+async def _sync_investigation_counts(investigation_id: str) -> None:
+    """Refresh persisted investigation counters from the storage source of truth.
+
+    Entity/relationship totals come from the knowledge graph (deduplicated by
+    construction); the observation total is counted from the observations
+    table. This keeps the investigation summary consistent no matter how many
+    rounds ran or how small a single round's correlation result was.
+    """
+    graph_summary = await get_graph_summary(investigation_id)
+    observation_count = 0
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT COUNT(*) AS c FROM observations WHERE investigation_id = $1",
+                investigation_id,
+            )
+            if row:
+                observation_count = int(row["c"])
+    except Exception as exc:
+        logger.warning("Failed to count observations for %s: %s", investigation_id, exc)
+    await update_investigation_counts(
+        investigation_id,
+        graph_summary.get("entity_count", 0),
+        graph_summary.get("relationship_count", 0),
+        observation_count,
+    )
 
 
 async def increment_api_calls(investigation_id: str, count: int = 1) -> None:
@@ -460,15 +493,10 @@ async def run_investigation_loop(
 
         # Phase 1b: Correlate initial observations.
         if initial_observations:
-            corr_result = await correlate_observations(investigation_id, initial_observations)
+            await correlate_observations(investigation_id, initial_observations)
             await increment_api_calls(investigation_id, len(initial_observations))
-            # Update PostgreSQL counts from correlation results.
-            await update_investigation_counts(
-                investigation_id,
-                corr_result.get("entities_resolved", 0),
-                corr_result.get("relationships_detected", 0),
-                len(initial_observations),
-            )
+            # Persist totals from the storage source of truth (graph + tables).
+            await _sync_investigation_counts(investigation_id)
 
         # Phase 1c: Username cross-platform correlation (for USERNAME targets).
         if state.target_type == TargetType.USERNAME and initial_observations:
@@ -496,14 +524,9 @@ async def run_investigation_loop(
             if expansion_obs:
                 initial_observations.extend(expansion_obs)
                 # Correlate expansion observations.
-                corr_result = await correlate_observations(investigation_id, expansion_obs)
+                await correlate_observations(investigation_id, expansion_obs)
                 await increment_api_calls(investigation_id, len(expansion_obs))
-                await update_investigation_counts(
-                    investigation_id,
-                    corr_result.get("entities_resolved", 0),
-                    corr_result.get("relationships_detected", 0),
-                    state.total_observations_collected + len(expansion_obs),
-                )
+                await _sync_investigation_counts(investigation_id)
                 # Re-run username correlation with new observations.
                 try:
                     username_result = correlate_username_accounts(expansion_obs)
@@ -518,14 +541,9 @@ async def run_investigation_loop(
             if probe_obs:
                 initial_observations.extend(probe_obs)
                 # Correlate probe observations.
-                corr_result = await correlate_observations(investigation_id, probe_obs)
+                await correlate_observations(investigation_id, probe_obs)
                 await increment_api_calls(investigation_id, len(probe_obs))
-                await update_investigation_counts(
-                    investigation_id,
-                    corr_result.get("entities_resolved", 0),
-                    corr_result.get("relationships_detected", 0),
-                    state.total_observations_collected + len(probe_obs),
-                )
+                await _sync_investigation_counts(investigation_id)
 
         # Phase 2: AI-guided pivot loop.
         while True:
@@ -601,17 +619,11 @@ async def run_investigation_loop(
 
             # Correlate round observations.
             if round_observations:
-                corr_result = await correlate_observations(investigation_id, round_observations)
+                await correlate_observations(investigation_id, round_observations)
                 await increment_api_calls(investigation_id, len(round_observations))
-                # Accumulate counts across rounds.
                 total_obs = state.total_observations_collected + len(round_observations)
                 state.total_observations_collected = total_obs
-                await update_investigation_counts(
-                    investigation_id,
-                    corr_result.get("entities_resolved", 0),
-                    corr_result.get("relationships_detected", 0),
-                    total_obs,
-                )
+                await _sync_investigation_counts(investigation_id)
 
                 # Username cross-platform correlation for pivot observations.
                 if state.target_type == TargetType.USERNAME:
@@ -666,15 +678,12 @@ async def run_investigation_loop(
         )
 
         # Final status update.
-        final_status = (
-            InvestigationStatus.STOPPED
-            if state.stop_reason in ("external_stop", "budget_exhausted", "depth_reached")
-            else InvestigationStatus.COMPLETED
-        )
+        # NOTE: api_calls_used is NOT overwritten here. increment_api_calls()
+        # maintains the correct cumulative count in the DB across all runs.
+        final_status = _final_status_for_stop_reason(state.stop_reason)
         await update_investigation_status(
             investigation_id,
             final_status,
-            extra_fields={"api_calls_used": state.initial_budget - state.budget_remaining},
         )
 
         await log_activity(
@@ -741,6 +750,18 @@ async def run_investigation_loop(
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
+
+
+def _final_status_for_stop_reason(stop_reason: str) -> InvestigationStatus:
+    """Map a terminal stop reason to its persisted investigation status.
+
+    Depth-limit, budget, and external stops persist as STOPPED; all other
+    (natural-exhaustion) reasons persist as COMPLETED. The exact reason is
+    preserved separately in the activity log (investigation_completed event).
+    """
+    if stop_reason in ("external_stop", "budget_exhausted"):
+        return InvestigationStatus.STOPPED
+    return InvestigationStatus.COMPLETED
 
 
 async def _load_investigation_state(
@@ -829,6 +850,13 @@ async def _dispatch_pivots(
             observations.append(obs)
             state.consume_budget()
             state.record_dispatch(pivot.action, pivot.target)
+            # Record the dispatch in the activity log so _get_recent_pivots()
+            # can surface it as planner context in later rounds.
+            await log_activity(
+                state.investigation_id,
+                "pivot_dispatched",
+                {"target": pivot.target, "action": pivot.action.value},
+            )
 
     return observations
 
@@ -849,13 +877,23 @@ async def _get_recent_pivots(investigation_id: str) -> list[dict[str, Any]]:
                 """,
                 investigation_id,
             )
-        return [
-            {
-                "target": dict(r["details"]).get("target", ""),
-                "action": dict(r["details"]).get("action", ""),
-            }
-            for r in rows
-        ]
+        pivots: list[dict[str, Any]] = []
+        for r in rows:
+            details = r["details"]
+            if isinstance(details, str):
+                try:
+                    details = json.loads(details)
+                except Exception:
+                    continue
+            if not isinstance(details, dict):
+                continue
+            pivots.append(
+                {
+                    "target": details.get("target", ""),
+                    "action": details.get("action", ""),
+                }
+            )
+        return pivots
     except Exception:
         return []
 
@@ -1114,14 +1152,16 @@ async def _run_username_probe_engine(
         if state.budget_exhausted:
             break
         try:
+            from app.core.security import sanitize_collector_error
             pool = await get_pool()
             async with pool.acquire() as conn:
                 row = await conn.fetchrow(
                     """
                     INSERT INTO observations
                         (investigation_id, source_adapter, source_version, collected_at,
-                         method, target, raw_response, normalized_value, confidence, status)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                         method, target, raw_response, normalized_value, confidence, status,
+                         error_message)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING id::text
                     """,
                     investigation_id,
@@ -1134,6 +1174,7 @@ async def _run_username_probe_engine(
                     result.normalized_value,
                     result.confidence,
                     result.status.value,
+                    sanitize_collector_error(result.error_message),
                 )
                 if row:
                     extra_observations.append(
@@ -1143,6 +1184,7 @@ async def _run_username_probe_engine(
                             "target": result.target,
                             "raw_response": result.raw_response,
                             "status": result.status.value,
+                            "error_message": sanitize_collector_error(result.error_message),
                         }
                     )
                     state.consume_budget()

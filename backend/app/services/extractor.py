@@ -23,6 +23,10 @@ from app.services.normalizer import (
     normalize_url,
 )
 
+# ── CT extraction limit ─────────────────────────────────────────────────────
+
+MAX_CT_CERTS = 100
+
 # ── Regex patterns (Task 4.5) ────────────────────────────────────────────────
 
 _IPV4_RE = re.compile(
@@ -278,13 +282,15 @@ def extract_from_dns(
     """Parse DNS collector output into entities and relationships (Task 4.6).
 
     Handles A, AAAA, MX, NS, TXT, SOA, CAA, and PTR records.
+    IP targets (reverse-DNS observations) anchor on the IP entity and expose
+    PTR hostnames as Domain entities.
 
     Returns:
         (entities, relationships) tuple.
     """
     from app.models import TargetType
     from app.services.classifier import classify_target
-    from app.services.normalizer import normalize_email
+    from app.services.normalizer import is_valid_ip, normalize_email, normalize_ip
 
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
@@ -292,7 +298,12 @@ def extract_from_dns(
 
     is_email = classify_target(target) == TargetType.EMAIL
     actual_target = target.split("@")[-1].strip() if is_email else target
-    source_domain = normalize_domain(actual_target)
+    # Never force an IP through domain-only normalization: normalize_domain
+    # returns "" for IPs, which would discard the whole observation.
+    is_ip_target = is_valid_ip(actual_target)
+    source_domain = (
+        normalize_ip(actual_target) if is_ip_target else normalize_domain(actual_target)
+    )
 
     def _add_entity(
         etype: EntityType, value: str, confidence: float = 0.9
@@ -337,7 +348,12 @@ def extract_from_dns(
             )
         )
 
-    domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
+    # Anchor: IP entity for IP targets, Domain entity otherwise.
+    domain_entity = _add_entity(
+        EntityType.IP if is_ip_target else EntityType.DOMAIN,
+        source_domain,
+        0.95,
+    )
     if not domain_entity:
         return list(entities.values()), relationships
 
@@ -750,9 +766,13 @@ def extract_from_ct(
             confidence=1.0,
         )
 
-    # Certificates
+    # Certificates — cap extraction to prevent graph explosion
     certificates = raw_response.get("certificates", [])
-    for cert in certificates:
+    total_certs = len(certificates)
+    certs_to_process = certificates[:MAX_CT_CERTS]
+    truncated = total_certs > MAX_CT_CERTS
+
+    for cert in certs_to_process:
         if not isinstance(cert, dict):
             continue
 
@@ -825,6 +845,12 @@ def extract_from_ct(
                                 "ct_san",
                                 confidence=0.8,
                             )
+
+    # Attach CT extraction metadata for downstream observability
+    if domain_entity:
+        domain_entity.properties["_ct_total_certs"] = total_certs
+        domain_entity.properties["_ct_processed_certs"] = len(certs_to_process)
+        domain_entity.properties["_ct_truncated"] = truncated
 
     return list(entities.values()), relationships
 

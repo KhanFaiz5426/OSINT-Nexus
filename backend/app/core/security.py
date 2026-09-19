@@ -163,3 +163,48 @@ def sanitize_error_message(exc: Exception) -> str:
         msg = msg[:200] + "..."
 
     return msg
+
+
+# Pattern for secrets/tokens that must never be persisted
+_SECRET_RE = re.compile(
+    r"(?:api[_-]?key|token|secret|password|authorization|bearer|credential)"
+    r"\s*[=:]\s*\S+(?:\s+\S+)?",
+    re.IGNORECASE,
+)
+
+
+def sanitize_collector_error(msg: str | None) -> str:
+    """Sanitize a collector error message for safe persistence.
+
+    Removes secrets, API keys, internal paths, connection strings, and
+    other sensitive details. Used before persisting error_message to the
+    observations table.
+
+    Args:
+        msg: Raw error message from a collector.
+
+    Returns:
+        Safe, truncated error message suitable for storage.
+    """
+    if not msg:
+        return ""
+
+    # Redact secrets/tokens
+    msg = _SECRET_RE.sub(lambda m: m.group(0).split("=")[0].split(":")[0].strip() + "=[REDACTED]", msg)
+
+    # Remove file paths (Windows and Unix)
+    msg = re.sub(r"[A-Za-z]:\\[^\s\"']+", "[path]", msg)
+    msg = re.sub(r"\/(?:usr|etc|var|home|tmp|opt|proc|sys)\/[^\s\"']+", "[path]", msg)
+
+    # Remove internal IP addresses
+    msg = re.sub(r"\b(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.)[^\s\"']+", "[internal]", msg)
+
+    # Remove connection strings
+    msg = re.sub(r"postgresql://[^\s\"']+", "[db]", msg)
+    msg = re.sub(r"bolt://[^\s\"']+", "[neo4j]", msg)
+
+    # Truncate
+    if len(msg) > 500:
+        msg = msg[:500] + "..."
+
+    return msg

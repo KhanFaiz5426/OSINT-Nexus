@@ -45,8 +45,8 @@ TARGET_TYPE_INITIAL_ACTIONS: dict[TargetType, list[PivotAction]] = {
     TargetType.IP: [
         PivotAction.COLLECT_DNS,
         PivotAction.COLLECT_IP_ASN,
-        PivotAction.COLLECT_HTTP,
         PivotAction.COLLECT_THREAT_INTEL,
+        PivotAction.COLLECT_SEARCH,
     ],
     TargetType.URL: [
         PivotAction.COLLECT_DNS,

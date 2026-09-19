@@ -238,8 +238,16 @@ export function entityProfileUrl(
       // URL entities store the URL as their value
       return value.startsWith("http") ? value : `https://${value}`;
     case "Domain":
-    case "Subdomain":
-      return value.startsWith("http") ? value : `https://${value}`;
+    case "Subdomain": {
+      // Only generate URL if the value looks like a real domain/IP
+      const v = value.startsWith("http") ? value : `https://${value}`;
+      try {
+        new URL(v);
+        return v;
+      } catch {
+        return undefined;
+      }
+    }
     case "Username":
       if (srcSet.has("github")) return `https://github.com/${value}`;
       if (srcSet.has("gitlab")) return `https://gitlab.com/${value}`;

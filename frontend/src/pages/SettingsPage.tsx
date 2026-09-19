@@ -25,7 +25,6 @@ interface AppSettings {
   general: {
     default_depth: string;
     max_concurrent_investigations: number;
-    auto_save_reports: boolean;
   };
   llm: {
     active_provider: string;
@@ -222,7 +221,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-full bg-[var(--nx-base)]">
+    <div className="flex h-screen bg-[var(--nx-base)]">
       {/* Left sidebar navigation */}
       <div className="w-56 shrink-0 border-r border-[var(--nx-border)] bg-[var(--nx-surface-1)]">
         <div className="border-b border-[var(--nx-border)] px-4 py-3">
@@ -374,6 +373,12 @@ function GeneralSection({
             <option value="deep">Deep (6 pivot rounds, most thorough)</option>
           </select>
         </FormField>
+      </SettingCard>
+
+      <SettingCard
+        title="Execution"
+        description="Resource limits for concurrent investigation runs"
+      >
         <FormField
           label="Max Concurrent Investigations"
           hint="How many investigations can run simultaneously. Each running investigation uses its own resources."
@@ -389,15 +394,6 @@ function GeneralSection({
               onChange("general.max_concurrent_investigations", Math.max(1, Math.min(10, v)));
             }}
             className="w-full rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-1.5 text-sm text-[var(--nx-text-primary)]"
-          />
-        </FormField>
-        <FormField
-          label="Auto-save Reports"
-          hint="Automatically generate and save a report when an investigation completes."
-        >
-          <Toggle
-            checked={settings.general.auto_save_reports}
-            onChange={(v) => onChange("general.auto_save_reports", v)}
           />
         </FormField>
       </SettingCard>
@@ -1004,7 +1000,7 @@ function SettingCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="pb-8 mb-8 border-b border-[var(--nx-border)]/50 last:border-0 last:pb-0 last:mb-0">
+    <div className="pb-8 mb-8 border-b border-[var(--nx-border-strong)] last:border-0 last:pb-0 last:mb-0">
       <div className="mb-5">
         <h3 className="text-[14px] font-medium text-[var(--nx-text-primary)]">{title}</h3>
         <p className="text-[13px] text-[var(--nx-text-muted)] mt-1">{description}</p>

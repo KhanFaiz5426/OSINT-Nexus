@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useWorkspaceStore } from "../store/workspace";
+import { useQueryClient } from "@tanstack/react-query";
 import { useInvestigations } from "../hooks/useApi";
 import { statusBadgeClass, formatRelativeTime } from "../lib/format";
 import { LoadingState } from "./LoadingState";
@@ -37,6 +38,17 @@ export function OpenInvestigationModal() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: investigations, isLoading, error } = useInvestigations();
+  const queryClient = useQueryClient();
+
+  // Refresh from authoritative backend state whenever the modal is opened.
+  // The modal stays mounted while hidden, so the cached list would otherwise
+  // go stale for background investigations that completed while no
+  // investigation tab (and hence no SSE subscription) was active.
+  useEffect(() => {
+    if (openModalOpen) {
+      queryClient.invalidateQueries({ queryKey: ["investigations"] });
+    }
+  }, [openModalOpen, queryClient]);
 
   // Escape key
   useEffect(() => {
