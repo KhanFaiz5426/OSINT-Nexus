@@ -144,7 +144,7 @@ class TestCollectorCacheTTL:
 
             collector = DNSCollector(cache=None)
 
-            assert collector.cache_ttl == 3600  # DNS collector class default
+            assert collector.cache_ttl == 86400  # DNS collector class default
             _clear_settings()
 
 
