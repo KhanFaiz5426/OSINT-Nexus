@@ -42,9 +42,9 @@ OSINT Nexus is distributed as a standalone Windows desktop application. A Python
 
 ```mermaid
 flowchart TB
-    A[Desktop Shell\npywebview] --> B[React / Vite Frontend\nWorkstation | Graph | Entities | Reports | AI | Notes]
-    B -->|"HTTP (localhost)"| C[FastAPI Backend\nAPI Routes | Pipeline | Collectors | AI | Workspace | Tasks]
-    C --> D[SQLite Workspace\n.osint file\nEntities | Relationships | Observations | Activity Log]
+    A[Desktop Shell\npywebview] --> B[React / Vite Frontend\nWorkstation, Graph, Entities, Reports, AI, Notes]
+    B -->|"HTTP (localhost)"| C[FastAPI Backend\nAPI Routes, Pipeline, Collectors, AI, Workspace, Tasks]
+    C --> D[SQLite Workspace\n.osint file\nEntities, Relationships, Observations, Activity Log]
 ```
 
 The frontend communicates with the backend over localhost HTTP. The backend manages all SQLite persistence; the frontend does not access the database directly. No PostgreSQL, Neo4j, Redis, Celery, or Docker required at runtime.
