@@ -42,7 +42,8 @@ class TestIPToASNBCollector:
 
         assert result.status == ObservationStatus.SUCCESS
         assert result.normalized_value == "AS15169"
-        assert result.raw_response["asn"] == "15169"
+        assert result.raw_response["asn"] == "AS15169"
+        assert result.raw_response["organization"] == "Google LLC"
 
 
 # ── GitHub Tests ─────────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 """API routes — Investigations."""
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -40,6 +42,47 @@ class InvestigationStatusResponse(BaseModel):
     relationship_count: int = 0
     created_at: str = ""
     updated_at: str = ""
+    # Terminal stop reason (e.g. user_stop, depth_reached, budget_exhausted,
+    # no_valid_pivots). None while running or when unknown (legacy rows).
+    stop_reason: str | None = None
+
+
+async def _get_stop_reason(investigation_id: str) -> str | None:
+    """Return the latest recorded termination reason, if any.
+
+    Reads the most recent investigation_completed / investigation_stopped
+    activity event. Best-effort: returns None when nothing was recorded.
+    """
+    try:
+        from app.db.client import get_pool
+
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT details FROM activity_log
+                WHERE investigation_id = $1
+                  AND event_type IN ('investigation_completed', 'investigation_stopped')
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                investigation_id,
+            )
+        if row is None:
+            return None
+        details = row["details"]
+        if isinstance(details, str):
+            import json as _json
+
+            try:
+                details = _json.loads(details)
+            except Exception:
+                return None
+        if isinstance(details, dict):
+            reason = details.get("stop_reason")
+            return reason if isinstance(reason, str) else None
+        return None
+    except Exception:
+        return None
 
 
 class InvestigationStartResponse(BaseModel):
@@ -93,8 +136,7 @@ async def get_one(investigation_id: str) -> InvestigationResponse:
 async def stop(investigation_id: str) -> InvestigationResponse:
     """Stop a running investigation.
 
-    Sets the investigation status to 'stopped'. Only works for investigations
-    in 'created' or 'running' status.
+    Sets the investigation status to 'stopped' and cancels the background task.
     """
     result = await stop_investigation(investigation_id)
     if result is None:
@@ -102,6 +144,25 @@ async def stop(investigation_id: str) -> InvestigationResponse:
             status_code=404,
             detail="Investigation not found or not in a stoppable state",
         )
+
+    # Cancel the background TaskManager task so a subsequent re-run can
+    # submit the same investigation_id. Cancellation alone is fire-and-forget:
+    # the _active_tasks entry is released only when the wrapped coroutine
+    # observes CancelledError and moves to history, so await termination
+    # (bounded) before returning. Budget is untouched (status-only update).
+    from app.core.task_manager import get_task_manager
+
+    tm = get_task_manager()
+    info = tm.get_task(investigation_id)
+    task = info._asyncio_task if info is not None else None
+    is_active = any(t["task_id"] == investigation_id for t in tm.list_active())
+    if task is not None and not task.done() and is_active:
+        tm.cancel(investigation_id)
+        try:
+            await asyncio.wait([task], timeout=5.0)
+        except Exception:
+            pass
+
     return result
 
 
@@ -142,6 +203,7 @@ async def start(investigation_id: str) -> InvestigationStartResponse:
     allowed_states = {
         InvestigationStatus.CREATED,
         InvestigationStatus.STOPPED,
+        InvestigationStatus.COMPLETED,
         InvestigationStatus.ERROR,
     }
     if result.status not in allowed_states:
@@ -151,14 +213,30 @@ async def start(investigation_id: str) -> InvestigationStartResponse:
         )
 
     # Submit to TaskManager.
+    from app.core.settings_store import get_app_settings
     from app.core.task_manager import get_task_manager
     from app.tasks.run_investigation import run_investigation_async
 
+    settings = get_app_settings()
+    max_concurrent = settings.general.max_concurrent_investigations
     tm = get_task_manager()
-    task_info = tm.submit(
-        task_id=investigation_id,
-        coro=run_investigation_async(investigation_id),
-    )
+
+    if tm.active_count >= max_concurrent:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Cannot start, {max_concurrent} already running",
+        )
+
+    try:
+        task_info = tm.submit(
+            task_id=investigation_id,
+            coro=run_investigation_async(investigation_id),
+        )
+    except RuntimeError as exc:
+        # Duplicate submission (e.g. previous task still releasing) is a
+        # client-conflict, not an internal error. Preserve TaskManager's
+        # duplicate rejection semantics.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return InvestigationStartResponse(
         message="Investigation started",
@@ -219,6 +297,7 @@ async def get_status(investigation_id: str) -> InvestigationStatusResponse:
         relationship_count=relationship_count,
         created_at=result.created_at.isoformat() if result.created_at else "",
         updated_at=result.updated_at.isoformat() if result.updated_at else "",
+        stop_reason=await _get_stop_reason(investigation_id),
     )
 
 

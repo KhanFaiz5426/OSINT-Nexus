@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import { useInvestigationGraph } from "../hooks/useApi";
 import { useWorkspaceStore } from "../store/workspace";
@@ -10,10 +10,14 @@ import {
   DEFAULT_NODE_COLOR,
   NODE_TYPE_COLORS,
 } from "../lib/format";
+import { computeGraphKey } from "../lib/utils";
 
 interface GraphViewProps {
   investigationId: string;
 }
+
+const MAX_RENDERED_NODES = 500;
+const MAX_RENDERED_EDGES = 800;
 
 const getIconSvg = (type: string, color: string) => {
   let path = '';
@@ -159,6 +163,7 @@ const getGraphStyle = (theme: string) => [
 export function GraphView({ investigationId }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
+  const prevGraphKeyRef = useRef<string>("");
 
   const { data, isLoading, error, refetch } = useInvestigationGraph(
     investigationId,
@@ -170,6 +175,22 @@ export function GraphView({ investigationId }: GraphViewProps) {
   const graphLayout = useWorkspaceStore((s) => s.graphLayout);
   const fitTrigger = useWorkspaceStore((s) => s.fitTrigger);
   const theme = useWorkspaceStore((s) => s.theme);
+
+  // Cap the rendered nodes/edges to prevent UI freeze on large graphs
+  const { renderedNodes, renderedEdges, totalNodes, totalEdges, graphKey } = useMemo(() => {
+    if (!data) {
+      return { renderedNodes: [], renderedEdges: [], totalNodes: 0, totalEdges: 0, graphKey: "" };
+    }
+    const nodes = data.nodes.slice(0, MAX_RENDERED_NODES);
+    const edges = data.edges.slice(0, MAX_RENDERED_EDGES);
+    return {
+      renderedNodes: nodes,
+      renderedEdges: edges,
+      totalNodes: data.nodes.length,
+      totalEdges: data.edges.length,
+      graphKey: computeGraphKey(nodes, edges),
+    };
+  }, [data]);
 
   // Initialize cytoscape once.
   useEffect(() => {
@@ -203,14 +224,18 @@ export function GraphView({ investigationId }: GraphViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectEntity]);
 
-  // Update elements when graph data changes.
+  // Update elements when graph data changes — skip if node+edge identity unchanged
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy || !data) return;
 
+    // Skip rebuild if neither nodes nor edges have changed
+    if (graphKey === prevGraphKeyRef.current) return;
+    prevGraphKeyRef.current = graphKey;
+
     const elements: ElementDefinition[] = [];
 
-    for (const n of data.nodes) {
+    for (const n of renderedNodes) {
       const d = n.data;
       const color = NODE_TYPE_COLORS[d.type] ?? DEFAULT_NODE_COLOR;
       let displayLabel = d.label || d.id.split(":").slice(1).join(":") || d.id;
@@ -239,7 +264,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
       });
     }
 
-    for (const e of data.edges) {
+    for (const e of renderedEdges) {
       const d = e.data;
       const displayLabel = d.relationship_type?.replace(/_/g, " ") ?? "";
       elements.push({
@@ -271,7 +296,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
   // Handle graph layout changes
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy || !data || data.nodes.length === 0) return;
+    if (!cy || !data || totalNodes === 0) return;
 
     const layoutOptions: Record<string, cytoscape.LayoutOptions> = {
       cose: {
@@ -388,7 +413,7 @@ export function GraphView({ investigationId }: GraphViewProps) {
           <LoadingState label="Loading graph..." rows={1} />
         </div>
       )}
-      {!isLoading && data && data.nodes.length === 0 && (
+      {!isLoading && data && totalNodes === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
           <EmptyState
             title="No graph data yet"
@@ -398,7 +423,13 @@ export function GraphView({ investigationId }: GraphViewProps) {
       )}
       {data && data.nodes.length > 0 && (
         <div className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-[var(--nx-surface-2)]/90 border border-[var(--nx-border)] px-2.5 py-1 text-[10px] font-mono text-[var(--nx-text-tertiary)]">
-          {data.nodes.length} nodes · {data.edges.length} edges
+          {totalNodes > MAX_RENDERED_NODES
+            ? `${MAX_RENDERED_NODES} of ${totalNodes} nodes`
+            : `${totalNodes} nodes`}
+          {" · "}
+          {totalEdges > MAX_RENDERED_EDGES
+            ? `${MAX_RENDERED_EDGES} of ${totalEdges} edges`
+            : `${totalEdges} edges`}
         </div>
       )}
     </div>

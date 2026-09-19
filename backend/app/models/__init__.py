@@ -100,7 +100,11 @@ class RelationshipType(StrEnum):
 class InvestigationCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     target: str = Field(..., min_length=1, max_length=500)
-    depth: InvestigationDepth = InvestigationDepth.STANDARD
+    # None means the caller did not choose a depth: the runtime
+    # default_depth setting applies. An explicit value (including
+    # STANDARD) is always authoritative and never overridden.
+    depth: InvestigationDepth | None = None
+    target_type: TargetType | None = None
 
 
 class InvestigationResponse(BaseModel):

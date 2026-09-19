@@ -903,8 +903,10 @@ class TestInitialActions:
         action_values = {a.value for a in actions}
         assert "collect_dns" in action_values
         assert "collect_ip_asn" in action_values
-        assert "collect_http" in action_values
         assert "collect_threat_intel" in action_values
+        assert "collect_search" in action_values
+        # HTTP does not support IP targets and must not be dispatched.
+        assert "collect_http" not in action_values
 
     def test_username_initial_actions(self):
         from app.ai.planner import select_initial_actions

@@ -86,7 +86,6 @@ class TaskManager:
         max_concurrent: int = 4,
         default_timeout: float | None = None,
     ) -> None:
-        self._semaphore = asyncio.Semaphore(max_concurrent)
         self._max_concurrent = max_concurrent
         self._default_timeout = default_timeout
         self._active_tasks: dict[str, TaskInfo] = {}
@@ -142,19 +141,8 @@ class TaskManager:
         coro: Coroutine,
         timeout: float | None,
     ) -> None:
-        """Internal wrapper: acquire semaphore → run → handle result/error."""
-        try:
-            # Wait for execution slot (PENDING state).
-            await self._semaphore.acquire()
-        except asyncio.CancelledError:
-            # Cancelled while PENDING — never acquired a slot.
-            info.state = TaskState.CANCELLED
-            info.finished_at = time.monotonic()
-            self._move_to_history(info)
-            logger.info("TaskManager: task %s cancelled while pending", info.task_id)
-            return
-
-        # Acquired the semaphore — transition to RUNNING.
+        """Internal wrapper: run → handle result/error."""
+        # Transition to RUNNING.
         info.state = TaskState.RUNNING
         info.started_at = time.monotonic()
         try:
@@ -180,7 +168,6 @@ class TaskManager:
                 exc_info=True,
             )
         finally:
-            self._semaphore.release()
             info.finished_at = time.monotonic()
             self._move_to_history(info)
 
@@ -266,7 +253,10 @@ def get_task_manager() -> TaskManager:
     """Get or create the global TaskManager singleton."""
     global _task_manager
     if _task_manager is None:
-        _task_manager = TaskManager(max_concurrent=4)
+        from app.core.settings_store import get_app_settings
+
+        settings = get_app_settings()
+        _task_manager = TaskManager(max_concurrent=settings.general.max_concurrent_investigations)
     return _task_manager
 
 

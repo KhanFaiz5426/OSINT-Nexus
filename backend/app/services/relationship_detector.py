@@ -304,7 +304,7 @@ def _process_ct_relationships(
 
         # Issuer → issued_by
         issuer_name = cert.get("issuer_name", "")
-        if issuer_name:
+        if issuer_name and cert_entity:
             issuer_org = _extract_issuer_org(issuer_name)
             if issuer_org:
                 org_entity = find_entity(EntityType.ORGANIZATION, issuer_org)
@@ -353,8 +353,11 @@ def _process_ip_asn_relationships(
 
     evidence = [obs_id] if obs_id else []
 
-    # ASN → belongs_to_asn
-    asn = raw.get("asn", "")
+    # ASN → belongs_to_asn (canonical AS<number> form, matching extraction)
+    asn_raw = str(raw.get("asn", "") or "").strip().upper()
+    if asn_raw.startswith("AS"):
+        asn_raw = asn_raw[2:].strip()
+    asn = f"AS{asn_raw}" if asn_raw.isdigit() else ""
     if asn:
         asn_entity = find_entity(EntityType.ASN, asn)
         if asn_entity:

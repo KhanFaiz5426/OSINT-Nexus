@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS observations (
     normalized_value TEXT,
     confidence REAL,
     status TEXT DEFAULT 'success',
+    error_message TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now', 'utc'))
 );
 CREATE INDEX IF NOT EXISTS idx_observations_investigation ON observations(investigation_id);

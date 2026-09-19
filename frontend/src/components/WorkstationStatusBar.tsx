@@ -7,6 +7,8 @@ import { useWorkspaceStore } from "../store/workspace";
 import { useInvestigationGraph, useInvestigationStatus } from "../hooks/useApi";
 import { cn } from "../lib/utils";
 
+const TERMINAL_STATES = new Set(["completed", "stopped", "error"]);
+
 export function WorkstationStatusBar() {
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const openTabs = useWorkspaceStore((s) => s.openTabs);
@@ -18,11 +20,15 @@ export function WorkstationStatusBar() {
   const setBottomTab = useWorkspaceStore((s) => s.setBottomTab);
   const graphLayout = useWorkspaceStore((s) => s.graphLayout);
 
-  const { data: graphData } = useInvestigationGraph(activeTabId ?? "", {
-    refetchInterval: activeTabId ? 5_000 : undefined,
-  });
   const { data: statusData } = useInvestigationStatus(activeTabId ?? "", {
     refetchInterval: activeTabId ? 3_000 : undefined,
+  });
+
+  const isTerminal = statusData ? TERMINAL_STATES.has(statusData.status) : false;
+
+  // Stop graph polling when investigation reaches terminal state
+  const { data: graphData } = useInvestigationGraph(activeTabId ?? "", {
+    refetchInterval: activeTabId && !isTerminal ? 5_000 : undefined,
   });
 
   const nodeCount = graphData?.nodes.length ?? 0;

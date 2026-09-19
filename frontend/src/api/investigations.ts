@@ -109,6 +109,7 @@ export interface InvestigationCreate {
   name: string;
   target: string;
   depth?: InvestigationDepth;
+  target_type?: TargetType | null;
 }
 
 export interface InvestigationStatusDetail {
@@ -123,6 +124,7 @@ export interface InvestigationStatusDetail {
   relationship_count: number;
   created_at: string;
   updated_at: string;
+  stop_reason: string | null;
 }
 
 export interface InvestigationStartResponse {

@@ -84,7 +84,7 @@ async def list_observations(
             """
             SELECT id, source_adapter, source_version, collected_at,
                    method, target, raw_response, normalized_value,
-                   confidence, status
+                   confidence, status, error_message
             FROM observations
             WHERE investigation_id = $1
             ORDER BY collected_at DESC
@@ -108,6 +108,7 @@ async def list_observations(
                 "normalized_value": row.get("normalized_value", ""),
                 "confidence": row.get("confidence", 0.0),
                 "status": row.get("status", "success"),
+                "error_message": row.get("error_message", ""),
             }
             for row in rows
         ],

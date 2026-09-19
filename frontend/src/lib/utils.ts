@@ -79,3 +79,18 @@ export const TARGET_TYPE_INFO: Record<string, { label: string; icon: string; pla
   organization: { label: "Organization", icon: "🏢", placeholder: "Acme Corporation" },
   unknown: { label: "Unknown", icon: "❓", placeholder: "Enter a target..." },
 };
+
+/**
+ * Compute a change-detection key from rendered nodes and edges.
+ * Returns a string that is identical only when both node IDs and edge
+ * identities are unchanged. Used by GraphView to skip expensive
+ * Cytoscape rebuilds when the graph data hasn't changed.
+ */
+export function computeGraphKey(
+  nodes: Array<{ data: { id: string } }>,
+  edges: Array<{ data: { id: string; source: string; target: string } }>,
+): string {
+  const nodeIds = nodes.map((n) => n.data.id).join(",");
+  const edgeIds = edges.map((e) => e.data.id || `${e.data.source}->${e.data.target}`).join(",");
+  return `${nodeIds}|${edgeIds}`;
+}

@@ -23,6 +23,10 @@ from app.services.normalizer import (
     normalize_url,
 )
 
+# ── CT extraction limit ─────────────────────────────────────────────────────
+
+MAX_CT_CERTS = 100
+
 # ── Regex patterns (Task 4.5) ────────────────────────────────────────────────
 
 _IPV4_RE = re.compile(
@@ -245,8 +249,8 @@ def _normalize_entity_value(entity_type: EntityType, value: str) -> str | None:
             return normalize_ip(value)
         case EntityType.DOMAIN | EntityType.SUBDOMAIN:
             norm_dom = normalize_domain(value)
-            # Strict centralized validation: must be a valid domain with no spaces/paths
-            if not re.match(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", norm_dom):
+            # Strict centralized validation: must be a valid domain with no spaces/paths (allowing wildcard)
+            if not re.match(r"^(?:\*\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", norm_dom):
                 return None
             return norm_dom
         case EntityType.EMAIL:
@@ -278,13 +282,15 @@ def extract_from_dns(
     """Parse DNS collector output into entities and relationships (Task 4.6).
 
     Handles A, AAAA, MX, NS, TXT, SOA, CAA, and PTR records.
+    IP targets (reverse-DNS observations) anchor on the IP entity and expose
+    PTR hostnames as Domain entities.
 
     Returns:
         (entities, relationships) tuple.
     """
     from app.models import TargetType
     from app.services.classifier import classify_target
-    from app.services.normalizer import normalize_email
+    from app.services.normalizer import is_valid_ip, normalize_email, normalize_ip
 
     entities: dict[str, ExtractedEntity] = {}
     relationships: list[ExtractedRelationship] = []
@@ -292,7 +298,10 @@ def extract_from_dns(
 
     is_email = classify_target(target) == TargetType.EMAIL
     actual_target = target.split("@")[-1].strip() if is_email else target
-    source_domain = normalize_domain(actual_target)
+    # Never force an IP through domain-only normalization: normalize_domain
+    # returns "" for IPs, which would discard the whole observation.
+    is_ip_target = is_valid_ip(actual_target)
+    source_domain = normalize_ip(actual_target) if is_ip_target else normalize_domain(actual_target)
 
     def _add_entity(
         etype: EntityType, value: str, confidence: float = 0.9
@@ -337,7 +346,14 @@ def extract_from_dns(
             )
         )
 
-    domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
+    # Anchor: IP entity for IP targets, Domain entity otherwise.
+    domain_entity = _add_entity(
+        EntityType.IP if is_ip_target else EntityType.DOMAIN,
+        source_domain,
+        0.95,
+    )
+    if not domain_entity:
+        return list(entities.values()), relationships
 
     if is_email:
         email_val = normalize_email(target)
@@ -498,10 +514,12 @@ def extract_from_whois(
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity:
+    def _add_entity(
+        etype: EntityType, value: str, confidence: float = 0.9
+    ) -> ExtractedEntity | None:
         norm = _normalize_entity_value(etype, value)
         if not norm:
-            raise ValueError("empty entity value")
+            return None
         eid = f"{etype.value.lower()}:{norm}"
         if eid not in entities:
             entities[eid] = ExtractedEntity(
@@ -540,65 +558,112 @@ def extract_from_whois(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.9)
+    if not domain_entity:
+        return list(entities.values()), relationships
 
     if is_email:
         email_val = normalize_email(target)
         email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.ASSOCIATED_WITH_EMAIL,
-            email_entity.id,
-            "email_domain",
-            confidence=1.0,
-        )
+        if email_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.ASSOCIATED_WITH_EMAIL,
+                email_entity.id,
+                "email_domain",
+                confidence=1.0,
+            )
 
     # Registrar → Organization
     registrar = raw_response.get("registrar", "")
     if registrar:
         reg_entity = _add_entity(EntityType.ORGANIZATION, registrar, 0.8)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.REGISTERED_WITH,
-            reg_entity.id,
-            "whois_registrar",
-        )
+        if reg_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.REGISTERED_WITH,
+                reg_entity.id,
+                "whois_registrar",
+            )
 
     # Registrant email → Email
     registrant_email = raw_response.get("registrant_email", "")
     if registrant_email and not _is_redacted(registrant_email):
         email_entity = _add_entity(EntityType.EMAIL, registrant_email, 0.75)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.REGISTERED_BY,
-            email_entity.id,
-            "whois_registrant_email",
-        )
+        if email_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.REGISTERED_BY,
+                email_entity.id,
+                "whois_registrant_email",
+            )
 
     # Registrant name → Organization
     registrant_name = raw_response.get("registrant_name", "")
     if registrant_name and not _is_redacted(registrant_name):
         org_entity = _add_entity(EntityType.ORGANIZATION, registrant_name, 0.7)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.REGISTERED_BY,
-            org_entity.id,
-            "whois_registrant_name",
-            confidence=0.7,
-        )
+        if org_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.REGISTERED_BY,
+                org_entity.id,
+                "whois_registrant_name",
+                confidence=0.7,
+            )
 
     # Nameservers
     nameservers = raw_response.get("nameservers", [])
     if isinstance(nameservers, str):
         nameservers = [nameservers]
     for ns in nameservers:
-        if ns and ns.lower() not in ("redacted", "privacy"):
-            ns_entity = _add_entity(EntityType.DOMAIN, ns, 0.9)
-            _add_rel(
-                domain_entity.id,
-                RelationshipType.USES_NAMESERVER,
-                ns_entity.id,
-                "whois_nameserver",
-            )
+        if not ns:
+            continue
+
+        if isinstance(ns, dict):
+            ns_name = str(ns.get("name", "")).strip()
+            ns_ip = str(ns.get("ipv4", ns.get("ipv6", ""))).strip()
+
+            ns_entity = None
+            if ns_name and ns_name.lower() not in ("redacted", "privacy"):
+                ns_entity = _add_entity(EntityType.DOMAIN, ns_name, 0.9)
+                if ns_entity:
+                    _add_rel(
+                        domain_entity.id,
+                        RelationshipType.USES_NAMESERVER,
+                        ns_entity.id,
+                        "whois_nameserver",
+                    )
+
+            if ns_ip:
+                from app.services.normalizer import is_valid_ip
+
+                if is_valid_ip(ns_ip):
+                    ip_entity = _add_entity(EntityType.IP, ns_ip, 0.9)
+                    if ip_entity and ns_entity:
+                        _add_rel(
+                            ns_entity.id,
+                            RelationshipType.HOSTED_ON,
+                            ip_entity.id,
+                            "whois_nameserver_ip",
+                        )
+            continue
+
+        ns_str = str(ns).strip()
+        if ns_str and ns_str.lower() not in ("redacted", "privacy"):
+            # A nameserver might be returned as an IP address
+            from app.services.normalizer import is_valid_ip
+
+            if is_valid_ip(ns_str):
+                ns_entity = _add_entity(EntityType.IP, ns_str, 0.9)
+            else:
+                ns_entity = _add_entity(EntityType.DOMAIN, ns_str, 0.9)
+
+            if ns_entity:
+                _add_rel(
+                    domain_entity.id,
+                    RelationshipType.USES_NAMESERVER,
+                    ns_entity.id,
+                    "whois_nameserver",
+                )
 
     # Dates
     creation_date = raw_response.get("creation_date")
@@ -656,10 +721,12 @@ def extract_from_ct(
     actual_target = target.split("@")[-1].strip() if is_email else target
     source_domain = normalize_domain(actual_target)
 
-    def _add_entity(etype: EntityType, value: str, confidence: float = 0.9) -> ExtractedEntity:
+    def _add_entity(
+        etype: EntityType, value: str, confidence: float = 0.9
+    ) -> ExtractedEntity | None:
         norm = _normalize_entity_value(etype, value)
         if not norm:
-            raise ValueError("empty entity value")
+            return None
         eid = f"{etype.value.lower()}:{norm}"
         if eid not in entities:
             entities[eid] = ExtractedEntity(
@@ -698,26 +765,35 @@ def extract_from_ct(
         )
 
     domain_entity = _add_entity(EntityType.DOMAIN, source_domain, 0.95)
+    if not domain_entity:
+        return list(entities.values()), relationships
 
     if is_email:
         email_val = normalize_email(target)
         email_entity = _add_entity(EntityType.EMAIL, email_val, 0.95)
-        _add_rel(
-            domain_entity.id,
-            RelationshipType.ASSOCIATED_WITH_EMAIL,
-            email_entity.id,
-            "email_domain",
-            confidence=1.0,
-        )
+        if email_entity:
+            _add_rel(
+                domain_entity.id,
+                RelationshipType.ASSOCIATED_WITH_EMAIL,
+                email_entity.id,
+                "email_domain",
+                confidence=1.0,
+            )
 
-    # Certificates
+    # Certificates — cap extraction to prevent graph explosion
     certificates = raw_response.get("certificates", [])
-    for cert in certificates:
+    total_certs = len(certificates)
+    certs_to_process = certificates[:MAX_CT_CERTS]
+    truncated = total_certs > MAX_CT_CERTS
+
+    for cert in certs_to_process:
         if not isinstance(cert, dict):
             continue
 
         cert_id = cert.get("id") or cert.get("issuer_name", "unknown")
         cert_entity = _add_entity(EntityType.CERTIFICATE, str(cert_id), 0.9)
+        if not cert_entity:
+            continue
 
         _add_rel(
             domain_entity.id,
@@ -732,38 +808,64 @@ def extract_from_ct(
             issuer_org = _extract_issuer_org(issuer_name)
             if issuer_org:
                 org_entity = _add_entity(EntityType.ORGANIZATION, issuer_org, 0.85)
-                _add_rel(
-                    cert_entity.id,
-                    RelationshipType.ISSUED_BY,
-                    org_entity.id,
-                    "ct_issuer",
-                )
+                if org_entity:
+                    _add_rel(
+                        cert_entity.id,
+                        RelationshipType.ISSUED_BY,
+                        org_entity.id,
+                        "ct_issuer",
+                    )
 
-        # Names in SANs → subdomains
+        # Names in SANs → subdomains or IPs
         name_value = cert.get("name_value", "")
         if name_value:
             for name in name_value.split("\n"):
                 name = name.strip().lower()
-                if name and name != source_domain:
-                    # Subdomain if it ends with source_domain
-                    if name.endswith(f".{source_domain}") or name == source_domain:
-                        sub_entity = _add_entity(EntityType.SUBDOMAIN, name, 0.9)
+                if not name:
+                    continue
+
+                from app.services.normalizer import is_valid_ip
+
+                if is_valid_ip(name):
+                    ip_entity = _add_entity(EntityType.IP, name, 0.9)
+                    if ip_entity:
                         _add_rel(
                             domain_entity.id,
-                            RelationshipType.HAS_SUBDOMAIN,
-                            sub_entity.id,
-                            "ct_san",
+                            RelationshipType.HOSTED_ON,
+                            ip_entity.id,
+                            "ct_san_ip",
+                            confidence=0.8,
                         )
+                    continue
+
+                if name != source_domain:
+                    # Subdomain if it ends with source_domain (including wildcard match)
+                    if name.endswith(f".{source_domain}") or name == source_domain:
+                        sub_entity = _add_entity(EntityType.SUBDOMAIN, name, 0.9)
+                        if sub_entity:
+                            _add_rel(
+                                domain_entity.id,
+                                RelationshipType.HAS_SUBDOMAIN,
+                                sub_entity.id,
+                                "ct_san",
+                            )
                     else:
                         # Different domain — could be related via shared cert
                         other_domain = _add_entity(EntityType.DOMAIN, name, 0.75)
-                        _add_rel(
-                            other_domain.id,
-                            RelationshipType.COVERED_BY_CERTIFICATE,
-                            cert_entity.id,
-                            "ct_san",
-                            confidence=0.8,
-                        )
+                        if other_domain:
+                            _add_rel(
+                                other_domain.id,
+                                RelationshipType.COVERED_BY_CERTIFICATE,
+                                cert_entity.id,
+                                "ct_san",
+                                confidence=0.8,
+                            )
+
+    # Attach CT extraction metadata for downstream observability
+    if domain_entity:
+        domain_entity.properties["_ct_total_certs"] = total_certs
+        domain_entity.properties["_ct_processed_certs"] = len(certs_to_process)
+        domain_entity.properties["_ct_truncated"] = truncated
 
     return list(entities.values()), relationships
 

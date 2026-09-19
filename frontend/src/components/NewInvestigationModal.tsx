@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   X,
   Crosshair,
@@ -33,6 +34,16 @@ const DEPTH_OPTIONS = [
   { value: "deep", label: "Deep", desc: "Exhaustive correlation" },
 ] as const;
 
+const TARGET_TYPE_OPTIONS: { value: TargetType | null; label: string }[] = [
+  { value: null, label: "Auto-detect" },
+  { value: "domain", label: "Domain" },
+  { value: "ip", label: "IP" },
+  { value: "url", label: "URL" },
+  { value: "email", label: "Email" },
+  { value: "username", label: "Username" },
+  { value: "organization", label: "Organization" },
+];
+
 export function NewInvestigationModal() {
   const newModalOpen = useWorkspaceStore((s) => s.newModalOpen);
   const setNewModalOpen = useWorkspaceStore((s) => s.setNewModalOpen);
@@ -48,6 +59,14 @@ export function NewInvestigationModal() {
   const createMutation = useCreateInvestigation();
   const startMutation = useStartInvestigation();
 
+  const { data: settingsData } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => fetch("/api/v1/settings").then((r) => r.json()),
+    staleTime: 60000,
+  });
+
+  const setGlobalError = useWorkspaceStore((s) => s.setGlobalError);
+
   useEffect(() => {
     if (newModalOpen) {
       // eslint-disable-next-line react/set-state-in-effect
@@ -55,11 +74,11 @@ export function NewInvestigationModal() {
       // eslint-disable-next-line react/set-state-in-effect
       setName("");
       // eslint-disable-next-line react/set-state-in-effect
-      setDepth("standard");
+      setDepth(settingsData?.settings?.general?.default_depth || "standard");
       // eslint-disable-next-line react/set-state-in-effect
       setManualType(null);
     }
-  }, [newModalOpen]);
+  }, [newModalOpen, settingsData]);
 
 
 
@@ -90,13 +109,18 @@ export function NewInvestigationModal() {
       name: finalTitle,
       target: safeTarget,
       depth,
+      target_type: manualType ?? null,
     };
 
     // Create Investigation in the (now active) workspace
     createMutation.mutate(payload, {
       onSuccess: (result) => {
         // Automatically start the investigation
-        startMutation.mutate(result.id);
+        startMutation.mutate(result.id, {
+          onError: (err) => {
+            setGlobalError(`Investigation created, but failed to start:\n${err.message}`);
+          }
+        });
 
         // Open in workspace tabs & activate
         openTab({
@@ -168,16 +192,27 @@ export function NewInvestigationModal() {
               />
             </div>
 
-            {/* Target Type: Auto-detect Indicator */}
+            {/* Target Type Selector */}
             <div className="mt-2 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-[var(--nx-text-tertiary)]">Target type:</span>
-                <span className="inline-flex items-center gap-1 rounded bg-[var(--nx-surface-3)] border border-[var(--nx-border)] px-2 py-0.5 text-xs font-medium text-[var(--nx-text-secondary)]">
-                  <TypeIcon className="h-3 w-3 text-[var(--nx-accent)]" />
-                  <span>
-                    {target.trim() ? `Auto-detect (${typeInfo.label})` : "Auto-detect"}
-                  </span>
-                </span>
+                <div className="relative inline-flex items-center">
+                  <TypeIcon className="absolute left-2 h-3 w-3 text-[var(--nx-accent)] pointer-events-none" />
+                  <select
+                    value={manualType ?? ""}
+                    onChange={(e) => setManualType(e.target.value === "" ? null : e.target.value as TargetType)}
+                    className="appearance-none rounded border border-[var(--nx-border)] bg-[var(--nx-surface-3)] pl-6 pr-5 py-0.5 text-xs font-medium text-[var(--nx-text-secondary)] focus:border-[var(--nx-accent)] focus:outline-none cursor-pointer"
+                  >
+                    {TARGET_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.label} value={opt.value ?? ""}>
+                        {opt.value === null && target.trim()
+                          ? `Auto-detect (${typeInfo.label})`
+                          : opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className="absolute right-1.5 h-3 w-3 text-[var(--nx-text-muted)] pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                </div>
               </div>
             </div>
           </div>

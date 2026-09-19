@@ -78,11 +78,22 @@ async def correlate_observations(
             continue
 
         # Extract entities and relationships based on collector type.
-        entities, obs_rels = _extract_from_observation(
-            collector, target, raw_response, observation_id=obs_id
-        )
-        if obs_rels:
-            all_observation_rels.extend(obs_rels)
+        try:
+            entities, obs_rels = _extract_from_observation(
+                collector, target, raw_response, observation_id=obs_id
+            )
+            if obs_rels:
+                all_observation_rels.extend(obs_rels)
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(
+                "Extraction failed for %s from %s due to malformed data: %s", target, collector, e
+            )
+            continue
+        except Exception as e:
+            logger.error(
+                "Unexpected extraction crash for %s from %s", target, collector, exc_info=True
+            )
+            continue
 
         # Fix for email targets: explicitly inject Email entity
         from app.models import EntityType, TargetType
@@ -440,8 +451,12 @@ def _extract_from_ip_asn(
         )
     )
 
-    # ASN entity.
-    asn = raw_response.get("asn", "")
+    # ASN entity (canonical AS<number> form so extractor, detector, and
+    # seed data agree on the entity id).
+    asn_raw = str(raw_response.get("asn", "") or "").strip().upper()
+    if asn_raw.startswith("AS"):
+        asn_raw = asn_raw[2:].strip()
+    asn = f"AS{asn_raw}" if asn_raw.isdigit() else ""
     if asn:
         entities.append(
             ExtractedEntity(

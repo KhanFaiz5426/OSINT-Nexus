@@ -204,6 +204,15 @@ async def _init_schema(conn: aiosqlite.Connection) -> None:
             except Exception:
                 pass
 
+            # Auto-heal: add error_message column to observations if migrating
+            try:
+                await conn.execute(
+                    "ALTER TABLE observations ADD COLUMN error_message TEXT DEFAULT ''"
+                )
+                await conn.commit()
+            except Exception:
+                pass
+
             try:
                 await conn.executescript(schema_sql)
             except Exception as e:
@@ -211,6 +220,49 @@ async def _init_schema(conn: aiosqlite.Connection) -> None:
 
                 logging.warning(f"Schema init issue: {e}")
             await conn.commit()
+
+    # Startup reconciliation: mark orphaned RUNNING investigations as stopped.
+    # TaskManager state is purely in-memory and does not survive process restart.
+    # Any investigation persisted as RUNNING has no live task backing it.
+    try:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        cursor = await conn.execute("SELECT id FROM investigations WHERE status = 'running'")
+        rows = await cursor.fetchall()
+        orphaned = [row[0] for row in rows]
+        if orphaned:
+            await conn.execute(
+                """
+                UPDATE investigations
+                SET status = 'stopped',
+                    updated_at = datetime('now', 'utc')
+                WHERE status = 'running'
+                """
+            )
+            for inv_id in orphaned:
+                try:
+                    await conn.execute(
+                        """
+                        INSERT INTO activity_log (investigation_id, event_type, details)
+                        VALUES (?, ?, ?)
+                        """,
+                        (
+                            inv_id,
+                            "investigation_reconciled",
+                            '{"stop_reason": "process_restart", "message": "Investigation was running when the application started. TaskManager state does not survive restart."}',
+                        ),
+                    )
+                except Exception:
+                    pass
+            await conn.commit()
+            logger.info(
+                "Reconciled %d orphaned RUNNING investigation(s): %s",
+                len(orphaned),
+                orphaned,
+            )
+    except Exception:
+        pass
 
 
 async def get_pool():

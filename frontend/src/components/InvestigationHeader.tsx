@@ -49,7 +49,7 @@ export function InvestigationHeader({ investigationId }: Props) {
   );
 
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--nx-border)] bg-[var(--nx-surface-1)] px-4 py-2">
+    <div className="relative flex items-center gap-3 border-b border-[var(--nx-border)] bg-[var(--nx-surface-1)] px-4 py-2">
       {/* Back button */}
       <Link
         to="/investigations"
@@ -83,10 +83,16 @@ export function InvestigationHeader({ investigationId }: Props) {
                 "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
                 statusBadgeClass(st?.status ?? inv.status),
               )}
+              title={st?.stop_reason ? `Stop reason: ${st.stop_reason}` : undefined}
             >
               {isRunning && <Spinner className="h-2.5 w-2.5" />}
               {st?.status ?? inv.status}
             </span>
+            {st?.stop_reason && !isRunning && (
+              <span className="shrink-0 text-[10px] text-[var(--nx-text-muted)]">
+                {stopReasonLabel(st.stop_reason)}
+              </span>
+            )}
           </div>
 
           {/* Target + meta */}
@@ -191,6 +197,24 @@ export function InvestigationHeader({ investigationId }: Props) {
       )}
     </div>
   );
+}
+
+function stopReasonLabel(reason: string): string {
+  switch (reason) {
+    case "user_stop":
+    case "external_stop":
+      return "stopped by user";
+    case "depth_reached":
+      return "depth limit reached";
+    case "budget_exhausted":
+      return "budget exhausted";
+    case "no_valid_pivots":
+      return "no further pivots";
+    case "no_new_entities":
+      return "no new entities";
+    default:
+      return reason;
+  }
 }
 
 function InlineStat({ label, value }: { label: string; value: string | number }) {

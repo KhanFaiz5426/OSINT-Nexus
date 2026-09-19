@@ -25,7 +25,6 @@ interface AppSettings {
   general: {
     default_depth: string;
     max_concurrent_investigations: number;
-    auto_save_reports: boolean;
   };
   llm: {
     active_provider: string;
@@ -222,7 +221,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-full bg-[var(--nx-base)]">
+    <div className="flex h-screen bg-[var(--nx-base)]">
       {/* Left sidebar navigation */}
       <div className="w-56 shrink-0 border-r border-[var(--nx-border)] bg-[var(--nx-surface-1)]">
         <div className="border-b border-[var(--nx-border)] px-4 py-3">
@@ -374,6 +373,12 @@ function GeneralSection({
             <option value="deep">Deep (6 pivot rounds, most thorough)</option>
           </select>
         </FormField>
+      </SettingCard>
+
+      <SettingCard
+        title="Execution"
+        description="Resource limits for concurrent investigation runs"
+      >
         <FormField
           label="Max Concurrent Investigations"
           hint="How many investigations can run simultaneously. Each running investigation uses its own resources."
@@ -389,15 +394,6 @@ function GeneralSection({
               onChange("general.max_concurrent_investigations", Math.max(1, Math.min(10, v)));
             }}
             className="w-full rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-1.5 text-sm text-[var(--nx-text-primary)]"
-          />
-        </FormField>
-        <FormField
-          label="Auto-save Reports"
-          hint="Automatically generate and save a report when an investigation completes."
-        >
-          <Toggle
-            checked={settings.general.auto_save_reports}
-            onChange={(v) => onChange("general.auto_save_reports", v)}
           />
         </FormField>
       </SettingCard>
@@ -916,53 +912,78 @@ function SystemSection({
   health: Record<string, any>;
 }) {
   return (
-    <div className="space-y-6">
-      <SettingCard title="Application & Runtime" description="OSINT Nexus version and native architecture">
-        <InfoRow label="Version" value={`v${settings.version}`} />
-        <InfoRow label="Runtime" value="FastAPI + React (pywebview shell)" />
-        <InfoRow label="Storage Engine" value={health.database?.type || "SQLite"} />
-        <InfoRow label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
-      </SettingCard>
-
-      <SettingCard title="Workspace & Security" description="Current active workspace and credentials">
-        <div className="space-y-1.5">
-          <InfoRow 
-            label="Active Workspace" 
-            value={health.database?.active_workspace || "None"} 
-          />
-          <InfoRow 
-            label="Credential Storage" 
-            value="Windows Credential Manager (Native Keyring)" 
-          />
+    <div className="max-w-4xl pb-10">
+      <div className="mb-8">
+        <h2 className="text-[18px] font-medium text-[var(--nx-text-primary)]">System & Data</h2>
+        <p className="text-[13px] text-[var(--nx-text-muted)] mt-1">Application identity, local environment, and infrastructure status.</p>
+      </div>
+      
+      {/* Application & Runtime */}
+      <section className="mb-10">
+        <h3 className="text-[11px] font-semibold tracking-wider text-[var(--nx-text-secondary)] uppercase mb-4 border-b border-[var(--nx-border)]/50 pb-2">
+          Application & Runtime
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+          <SystemDataBlock label="Version" value={`v${settings.version}`} />
+          <SystemDataBlock label="Runtime" value="FastAPI + React" />
+          <SystemDataBlock label="Storage Engine" value={health.database?.type || "SQLite"} />
+          <SystemDataBlock label="Graph Engine" value={health.graph_engine?.type || "SQLite Recursive CTE"} />
         </div>
-      </SettingCard>
+      </section>
 
-      <SettingCard title="AI & Search Infrastructure" description="Configured providers and engines">
-        <div className="space-y-1.5">
-          <InfoRow label="Active AI Provider" value={settings.llm.active_provider} />
-          <InfoRow label="AI Model" value={settings.llm.model || "Not set"} />
-          <InfoRow label="SearXNG Status" value={health.search?.searxng_enabled ? "Enabled" : "Disabled"} />
-          <InfoRow label="Search Provider Limit" value={String(health.search?.provider_limit || 40)} />
+      {/* Workspace & Security */}
+      <section className="mb-10">
+        <h3 className="text-[11px] font-semibold tracking-wider text-[var(--nx-text-secondary)] uppercase mb-4 border-b border-[var(--nx-border)]/50 pb-2">
+          Workspace & Security
+        </h3>
+        <div className="flex flex-col gap-6">
+          <div>
+            <span className="block text-[11px] font-medium text-[var(--nx-text-muted)] mb-2">Active Workspace</span>
+            <div className="font-mono text-[12px] text-[var(--nx-text-primary)] bg-[var(--nx-surface-2)]/50 px-3 py-2 border-l-[3px] border-[var(--nx-accent)] break-all select-all inline-block max-w-full">
+              {health.database?.active_workspace || "None"}
+            </div>
+          </div>
+          <div>
+            <span className="block text-[11px] font-medium text-[var(--nx-text-muted)] mb-1">Credential Storage</span>
+            <span className="block text-[13px] text-[var(--nx-text-primary)]">
+              Windows Credential Manager (Native Keyring)
+            </span>
+          </div>
         </div>
-      </SettingCard>
+      </section>
 
-      <SettingCard title="About" description="OSINT Nexus">
-        <p className="text-sm text-[var(--nx-text-secondary)] leading-relaxed">
-          OSINT Nexus is an AI-assisted OSINT investigation and correlation framework.
-          It automatically collects publicly available information from open sources,
-          normalizes data into a unified entity model, and uses AI to suggest investigation pivots.
+      {/* AI & Search Infrastructure */}
+      <section className="mb-10">
+        <h3 className="text-[11px] font-semibold tracking-wider text-[var(--nx-text-secondary)] uppercase mb-4 border-b border-[var(--nx-border)]/50 pb-2">
+          Infrastructure Configuration
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+          <SystemDataBlock label="Active AI Provider" value={settings.llm.active_provider} />
+          <SystemDataBlock label="AI Model" value={settings.llm.model || "Provider Default"} />
+          <SystemDataBlock label="SearXNG Status" value={settings.search?.searxng_enabled ? "Enabled" : "Disabled"} />
+          <SystemDataBlock label="Search Provider Limit" value={String(settings.search?.max_results_per_provider || 40)} />
+        </div>
+      </section>
+
+      {/* About */}
+      <section className="mt-12 pt-6 text-[12px] text-[var(--nx-text-muted)] leading-relaxed">
+        <p className="mb-2 text-[var(--nx-text-secondary)]">
+          <strong>OSINT Nexus</strong> is an AI-assisted OSINT investigation framework.
         </p>
-        <div className="mt-3 space-y-1.5">
-          <InfoRow label="License" value="Academic / Research Use" />
-          <InfoRow label="Version" value={`v${settings.version}`} />
-        </div>
-        <div className="mt-3 rounded-md bg-[var(--nx-surface-2)] border border-[var(--nx-border)] px-3 py-2">
-          <p className="text-[11px] text-[var(--nx-text-muted)] leading-relaxed">
-            Built with FastAPI, React, SQLite, and TanStack Query on a pywebview desktop shell.
-            LLM integration natively supports Ollama, NVIDIA, OpenAI, Anthropic, and OpenCode providers.
-          </p>
-        </div>
-      </SettingCard>
+        <p className="mb-1">
+          Built with FastAPI, React, SQLite, and TanStack Query on a pywebview desktop shell.
+        </p>
+        <p>License: Academic / Research Use</p>
+      </section>
+    </div>
+  );
+}
+
+function SystemDataBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] font-medium text-[var(--nx-text-muted)] mb-1">{label}</span>
+      <span className="text-[13px] text-[var(--nx-text-primary)] truncate" title={value}>{value}</span>
     </div>
   );
 }
@@ -979,12 +1000,12 @@ function SettingCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--nx-border)] bg-[var(--nx-surface-1)]">
-      <div className="border-b border-[var(--nx-border)] px-4 py-3">
-        <h3 className="text-sm font-medium text-[var(--nx-text-primary)]">{title}</h3>
-        <p className="text-xs text-[var(--nx-text-muted)] mt-0.5">{description}</p>
+    <div className="pb-8 mb-8 border-b border-[var(--nx-border-strong)] last:border-0 last:pb-0 last:mb-0">
+      <div className="mb-5">
+        <h3 className="text-[14px] font-medium text-[var(--nx-text-primary)]">{title}</h3>
+        <p className="text-[13px] text-[var(--nx-text-muted)] mt-1">{description}</p>
       </div>
-      <div className="p-4 space-y-4">{children}</div>
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }
@@ -1013,9 +1034,9 @@ function FormField({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded border border-[var(--nx-border)] bg-[var(--nx-surface-2)] px-3 py-2">
-      <span className="text-xs text-[var(--nx-text-muted)]">{label}</span>
-      <span className="text-sm font-mono text-[var(--nx-text-primary)]">{value}</span>
+    <div className="flex items-start sm:items-center justify-between py-2.5 border-b border-[var(--nx-border)]/30 last:border-0">
+      <span className="text-[13px] text-[var(--nx-text-secondary)] pr-4">{label}</span>
+      <span className="text-[13px] text-[var(--nx-text-primary)] text-right break-words flex-1 justify-end">{value}</span>
     </div>
   );
 }

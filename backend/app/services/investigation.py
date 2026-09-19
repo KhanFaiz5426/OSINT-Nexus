@@ -37,16 +37,18 @@ async def create_investigation(data: InvestigationCreate) -> InvestigationRespon
     """
     from app.core.security import validate_target_for_collector
 
-    target_type = classify_target(data.target)
+    target_type = data.target_type if data.target_type is not None else classify_target(data.target)
     normalized_target = normalize_target(data.target, target_type)
     validate_target_for_collector(normalized_target, target_type.value)
 
     now = datetime.now(UTC)
 
-    # Apply default depth from settings store when not explicitly overridden.
-    # Only applies when a settings file exists on disk.
+    # Apply default depth from settings store only when the caller did not
+    # explicitly provide a depth. An explicit value (including STANDARD) is
+    # authoritative. Only applies when a settings file exists on disk.
     depth = data.depth
-    if depth == InvestigationDepth.STANDARD:
+    if depth is None:
+        depth = InvestigationDepth.STANDARD
         try:
             from app.core.settings_store import SETTINGS_FILE, get_app_settings
 
@@ -150,7 +152,12 @@ async def get_investigation(investigation_id: str) -> InvestigationResponse | No
 
 
 async def stop_investigation(investigation_id: str) -> InvestigationResponse | None:
-    """Stop a running investigation by setting its status to 'stopped'."""
+    """Stop a running investigation by setting its status to 'stopped'.
+
+    Records an ``investigation_stopped`` activity event with stop reason
+    ``user_stop`` so the termination reason stays distinguishable from
+    orchestrator-driven stops (depth_reached, budget_exhausted, ...).
+    """
     pool = await get_pool()
     now = datetime.now(UTC)
     async with pool.acquire() as conn:
@@ -172,6 +179,20 @@ async def stop_investigation(investigation_id: str) -> InvestigationResponse | N
 
     if row is None:
         return None
+
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO activity_log (investigation_id, event_type, details)
+                VALUES ($1, $2, $3)
+                """,
+                investigation_id,
+                "investigation_stopped",
+                json.dumps({"stop_reason": "user_stop"}),
+            )
+    except Exception:
+        logger.warning("Failed to log user stop for %s", investigation_id)
 
     return _row_to_response(row)
 
@@ -460,8 +481,8 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                 INSERT INTO observations
                     (id, investigation_id, source_adapter, source_version,
                      collected_at, method, target, raw_response, normalized_value,
-                     confidence, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     confidence, status, error_message)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 """,
                 obs_id,
                 new_id,
@@ -474,6 +495,7 @@ async def import_investigation(data: dict) -> InvestigationResponse:
                 obs.get("normalized_value"),
                 obs.get("confidence"),
                 obs.get("status", "success"),
+                obs.get("error_message", ""),
             )
 
         # Import entities

@@ -225,6 +225,27 @@ class DesktopApp:
             start_url = dev_url if dev_url else f"http://127.0.0.1:{port}"
             logger.info("Launching desktop window pointing to: %s", start_url)
 
+            # Auto-open workspace if .osint file passed via command line
+            if len(sys.argv) > 1 and sys.argv[1].endswith(".osint"):
+                target_path = os.path.abspath(sys.argv[1])
+                try:
+                    import json
+                    import urllib.request
+
+                    req = urllib.request.Request(
+                        f"http://127.0.0.1:{port}/api/v1/workspace/open",
+                        data=json.dumps({"path": target_path}).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=5.0) as response:
+                        if response.status == 200:
+                            logger.info(
+                                "Successfully opened workspace from command line: %s", target_path
+                            )
+                except Exception as e:
+                    logger.error("Failed to open workspace from command line: %s", e)
+
             api = DesktopApi()
             window = webview.create_window(
                 "OSINT Nexus", start_url, width=1280, height=800, min_size=(800, 600), js_api=api

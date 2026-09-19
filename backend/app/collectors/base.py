@@ -21,13 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_cache_ttl(collector_name: str, class_default: int) -> int:
-    """Return the cache TTL for *collector_name*, preferring per-collector
-    overrides from the runtime settings store over the collector class default.
-
-    Only returns a non-default value when the settings file explicitly
-    contains a per-collector entry for *collector_name* in ``rate_limits``.
-    The global ``collectors.cache_ttl`` is applied at call sites (base.py
-    ``collect``) not here, to avoid overwriting class-level TTLs.
+    """Return the cache TTL, preferring the global runtime settings store
+    over the collector class default.
     """
     try:
         from app.core.settings_store import SETTINGS_FILE, get_app_settings
@@ -35,7 +30,8 @@ def _resolve_cache_ttl(collector_name: str, class_default: int) -> int:
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()
-        return settings.collectors.rate_limits.get(collector_name, class_default)
+        # Ensure it reads cache_ttl instead of rate_limits.
+        return settings.collectors.cache_ttl
     except Exception:
         return class_default
 
@@ -53,6 +49,11 @@ def _resolve_rate_limit_rpm(collector_name: str, class_default: int) -> int:
         if not SETTINGS_FILE.exists():
             return class_default
         settings = get_app_settings()
+
+        # Search rate limit is explicitly exposed in the UI as search_rate_limit_rpm
+        if collector_name == "search":
+            return settings.collectors.search_rate_limit_rpm
+
         return settings.collectors.rate_limits.get(collector_name, class_default)
     except Exception:
         return class_default
